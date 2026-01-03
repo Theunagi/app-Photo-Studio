@@ -1,0 +1,52 @@
+.placeholder-card.sleep {
+  border-color: var(--color-sleep);
+}
+
+.placeholder-title-sleep {
+  color: var(--color-sleep);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
+.sleep-info {
+  background: linear-gradient(135deg, var(--color-sleep) 0%, #BCBCE5 100%);
+  color: white;
+}
+
+.age-based-messages {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+@media (min-width: 600px) {
+  .age-based-messages {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.age-card {
+  background: var(--color-surface);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-sleep);
+  box-shadow: var(--shadow-sm);
+}
+
+.age-card h4 {
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-sleep);
+  font-size: var(--font-size-base);
+}
+
+.age-card p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.age-card strong {
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}

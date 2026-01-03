@@ -1,75 +1,81 @@
 /**
- * Health/Growth Screen
+ * Health/Growth Screen (Web)
  * Module 7: Courbe de Croissance & Dashboard Santé
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { MainTabsScreenProps } from '../../navigation/types';
-import { Colors, Typography, Spacing } from '../../theme';
+import '../Feeding/FeedingScreen.css';
+import './HealthScreen.css';
 
-type Props = MainTabsScreenProps<'Health'>;
-
-export default function HealthScreen({ navigation }: Props) {
+const HealthScreen: React.FC = () => {
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>📊 Santé & Croissance</Text>
-        <Text style={styles.subtitle}>
+    <div className="screen">
+      <div className="screen-content">
+        <h1 className="screen-title">📊 Santé & Croissance</h1>
+        <p className="screen-subtitle">
           Dashboard personnalisé et courbes OMS
-        </Text>
+        </p>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Module Santé - À implémenter
-          </Text>
-          <Text style={styles.description}>
-            • Courbe de poids (OMS){'\n'}
-            • Indicateurs globaux{'\n'}
-            • Tableau de bord santé{'\n'}
-            • Messages déculpabilisation
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
+        <div className="card placeholder-card growth">
+          <h3 className="placeholder-title-growth">Module Santé - À implémenter</h3>
+          <ul className="feature-list">
+            <li>• Courbe de poids (OMS)</li>
+            <li>• Courbe de taille</li>
+            <li>• Indicateurs globaux</li>
+            <li>• Tableau de bord santé</li>
+            <li>• Messages déculpabilisation</li>
+            <li>• Percentiles expliqués</li>
+          </ul>
+        </div>
+
+        <div className="health-indicators">
+          <h3>🎯 Indicateurs de Santé Globale</h3>
+          <div className="indicator-grid">
+            <div className="indicator-card success">
+              <span className="indicator-icon">✓</span>
+              <div className="indicator-content">
+                <p className="indicator-label">Courbe de poids</p>
+                <p className="indicator-value">En progression</p>
+              </div>
+            </div>
+            <div className="indicator-card success">
+              <span className="indicator-icon">✓</span>
+              <div className="indicator-content">
+                <p className="indicator-label">Couches mouillées</p>
+                <p className="indicator-value">7/jour</p>
+              </div>
+            </div>
+            <div className="indicator-card success">
+              <span className="indicator-icon">✓</span>
+              <div className="indicator-content">
+                <p className="indicator-label">Éveil & sourires</p>
+                <p className="indicator-value">Interactif</p>
+              </div>
+            </div>
+            <div className="indicator-card success">
+              <span className="indicator-icon">✓</span>
+              <div className="indicator-content">
+                <p className="indicator-label">Alimentation</p>
+                <p className="indicator-value">Mange à sa faim</p>
+              </div>
+            </div>
+          </div>
+          <div className="verdict">
+            <p>➜ VERDICT : Bébé va parfaitement bien ✅</p>
+          </div>
+        </div>
+
+        <div className="info-box growth-info">
+          <p className="info-title">💡 100 façons d'être en bonne santé</p>
+          <p className="info-text">
+            Votre bébé suit SA propre courbe, pas celle du voisin. Un bébé au 10e percentile
+            en bonne santé vaut mieux qu'un bébé au 90e malade. La variation individuelle
+            est la NORME, pas l'exception.
+          </p>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Spacing.screenPadding,
-  },
-  title: {
-    ...Typography.styles.h1,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xl,
-  },
-  placeholder: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.growth,
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    ...Typography.styles.h3,
-    color: Colors.growth,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-});
+export default HealthScreen;

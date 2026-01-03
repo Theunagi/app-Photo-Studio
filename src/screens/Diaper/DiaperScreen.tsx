@@ -1,75 +1,51 @@
 /**
- * Diaper Screen
+ * Diaper Screen (Web)
  * Module 2: Suivi des Selles
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { MainTabsScreenProps } from '../../navigation/types';
-import { Colors, Typography, Spacing } from '../../theme';
+import '../Feeding/FeedingScreen.css';
+import './DiaperScreen.css';
 
-type Props = MainTabsScreenProps<'Diaper'>;
-
-export default function DiaperScreen({ navigation }: Props) {
+const DiaperScreen: React.FC = () => {
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>💩 Couches & Selles</Text>
-        <Text style={styles.subtitle}>
+    <div className="screen">
+      <div className="screen-content">
+        <h1 className="screen-title">💩 Couches & Selles</h1>
+        <p className="screen-subtitle">
           Tracker simplifié avec guide visuel
-        </Text>
+        </p>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Module Couches - À implémenter
-          </Text>
-          <Text style={styles.description}>
-            • Tracker cacas/pipi{'\n'}
-            • Guide visuel couleurs{'\n'}
-            • Comparateur photo{'\n'}
-            • Alertes automatiques
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
+        <div className="card placeholder-card diaper">
+          <h3 className="placeholder-title-diaper">Module Couches - À implémenter</h3>
+          <ul className="feature-list">
+            <li>• Tracker cacas/pipi rapide</li>
+            <li>• Sélection couleur (⚫🟡🟢🟤🔴⚪)</li>
+            <li>• Sélection texture (💧🥄🧱)</li>
+            <li>• Guide visuel par âge/alimentation</li>
+            <li>• Comparateur photo (IA basique)</li>
+            <li>• Alertes automatiques 🟢🟠🔴</li>
+          </ul>
+        </div>
+
+        <div className="info-box diaper-info">
+          <p className="info-title">💡 Message clé</p>
+          <p className="info-text">
+            "Le VERT est NORMAL chez les bébés. Si bébé va bien, pas d'inquiétude."
+          </p>
+        </div>
+
+        <div className="warning-box">
+          <p className="warning-title">🚨 Selles à surveiller</p>
+          <ul className="warning-list">
+            <li>⚪ Blanc/gris → Consulter immédiatement</li>
+            <li>🔴 Rouge vif/sang → Consulter rapidement</li>
+            <li>⚫ Noir après J3 → Consulter</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Spacing.screenPadding,
-  },
-  title: {
-    ...Typography.styles.h1,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xl,
-  },
-  placeholder: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.diaper,
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    ...Typography.styles.h3,
-    color: Colors.diaper,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-});
+export default DiaperScreen;

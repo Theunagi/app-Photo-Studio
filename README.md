@@ -18,29 +18,29 @@ BabyGuide est un compagnon anti-anxiété qui transforme l'incertitude parentale
 
 ## 🏗️ Architecture Technique
 
-### Stack
+### Stack (Web App)
 
-- **Frontend**: React Native avec Expo
-- **Navigation**: React Navigation (Bottom Tabs + Stack)
-- **Charts**: react-native-chart-kit
+- **Frontend**: React 18 avec Vite
+- **Navigation**: React Router v6
+- **Styling**: CSS Modules avec design system CSS variables
+- **Charts**: Recharts (à implémenter)
 - **Backend**: Firebase (Firestore, Auth, Storage)
 - **Language**: TypeScript
+- **Build**: Vite (super rapide ⚡)
 
 ### Structure du Projet
 
 ```
 src/
 ├── components/        # Composants réutilisables
-├── screens/          # Écrans principaux
+│   └── layout/       # Layout components (Navigation, etc.)
+├── screens/          # Pages principales
 │   ├── Feeding/      # Module Alimentation
 │   ├── Diaper/       # Module Couches/Selles
 │   ├── Sleep/        # Module Sommeil
 │   ├── Diversification/
-│   ├── Allergens/
 │   ├── Growth/       # Croissance & Santé
 │   └── Onboarding/   # Première connexion
-├── navigation/       # Configuration navigation
-├── theme/            # Design system (couleurs, typo, spacing)
 ├── models/           # Types TypeScript et modèles de données
 ├── services/         # Services (Firebase, etc.)
 ├── utils/            # Fonctions utilitaires
@@ -59,18 +59,26 @@ src/
 
 ### Typographie
 
-- **Font**: System default (San Francisco iOS / Roboto Android)
+- **Font**: System default (optimisé pour chaque OS)
 - **Body**: 16px (optimal readability)
 - **Titles**: 20-24px Bold
 - **Key Messages**: 18px Medium
 
-## 🚀 Installation
+### Design System Implementation
+
+Le design system est implémenté via **CSS Custom Properties** (variables CSS) dans `src/index.css`:
+- Variables de couleurs (`--color-*`)
+- Variables de spacing (`--spacing-*`)
+- Variables de typography (`--font-size-*`, `--font-weight-*`)
+- Variables de border radius (`--radius-*`)
+- Variables de shadows (`--shadow-*`)
+
+## 🚀 Installation & Développement
 
 ### Prérequis
 
 - Node.js 18+
 - npm ou yarn
-- Expo CLI
 
 ### Setup
 
@@ -78,30 +86,26 @@ src/
 # Installer les dépendances
 npm install
 
-# Lancer l'app en développement
-npm start
+# Lancer l'app en développement (localhost:3000)
+npm run dev
 
-# Lancer sur iOS
-npm run ios
+# Build pour production
+npm run build
 
-# Lancer sur Android
-npm run android
-
-# Lancer sur Web
-npm run web
+# Preview du build de production
+npm run preview
 ```
 
 ## 📦 Dépendances Principales
 
 ```json
 {
-  "@react-navigation/native": "Navigation",
-  "@react-navigation/bottom-tabs": "Bottom tabs",
-  "@react-navigation/native-stack": "Stack navigation",
-  "firebase": "Backend services",
-  "react-native-chart-kit": "Charts & graphs",
-  "expo-image-picker": "Photo upload",
-  "@react-native-async-storage/async-storage": "Local storage"
+  "react": "^18.3.1",
+  "react-dom": "^18.3.1",
+  "react-router-dom": "^6.26.2",
+  "firebase": "^10.13.2",
+  "recharts": "^2.12.7",
+  "vite": "^5.4.10"
 }
 ```
 
@@ -116,10 +120,11 @@ Chaque module utilise un système de décision universel :
 ## 🗺️ Roadmap
 
 ### MVP (Phase actuelle)
-- [x] Setup projet et architecture
-- [x] Design system
-- [x] Navigation de base
-- [x] Modèles de données
+- [x] Setup projet web app (Vite + React)
+- [x] Design system (CSS variables)
+- [x] Navigation (React Router + Bottom Nav)
+- [x] Modèles de données TypeScript
+- [x] Structure des écrans (placeholders)
 - [ ] Module Alimentation Lactée
 - [ ] Module Couches/Selles
 - [ ] Module Régurgitations
@@ -152,6 +157,19 @@ Propriétaire - Tous droits réservés
 
 ## 👨‍💻 Développement
 
-Ce projet a été initialisé avec [Expo](https://expo.dev/) et suit les meilleures pratiques React Native.
+Ce projet est une **web app** construite avec:
+- **Vite** pour un développement ultra-rapide avec HMR
+- **React 18** avec les dernières fonctionnalités
+- **TypeScript** pour la sécurité des types
+- **React Router** pour la navigation SPA
+- **CSS Custom Properties** pour un design system maintenable
+
+### Fonctionnalités Web
+
+✅ **Responsive Design**: Adapté mobile & desktop
+✅ **Navigation**: Bottom nav sur mobile, side nav sur desktop
+✅ **Performance**: Build optimisé avec Vite
+✅ **SEO Ready**: Structure HTML sémantique
+✅ **PWA Ready**: Peut être converti en PWA facilement
 
 Pour toute question ou contribution, consultez la documentation complète du PRD.

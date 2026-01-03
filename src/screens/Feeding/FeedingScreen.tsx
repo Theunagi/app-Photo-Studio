@@ -1,75 +1,41 @@
 /**
- * Feeding Screen
+ * Feeding Screen (Web)
  * Module 1: Alimentation Lactée (0-12 months)
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { MainTabsScreenProps } from '../../navigation/types';
-import { Colors, Typography, Spacing } from '../../theme';
+import './FeedingScreen.css';
 
-type Props = MainTabsScreenProps<'Feeding'>;
-
-export default function FeedingScreen({ navigation }: Props) {
+const FeedingScreen: React.FC = () => {
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>🍼 Alimentation</Text>
-        <Text style={styles.subtitle}>
+    <div className="screen">
+      <div className="screen-content">
+        <h1 className="screen-title">🍼 Alimentation</h1>
+        <p className="screen-subtitle">
           Calculateur intelligent et suivi des biberons
-        </Text>
+        </p>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Module Alimentation - À implémenter
-          </Text>
-          <Text style={styles.description}>
-            • Calculateur quantité lait{'\n'}
-            • Tracker biberons{'\n'}
-            • Graphique semaine{'\n'}
-            • Indicateurs rassurants
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
+        <div className="card placeholder-card feeding">
+          <h3 className="placeholder-title">Module Alimentation - À implémenter</h3>
+          <ul className="feature-list">
+            <li>• Calculateur quantité lait (âge + poids)</li>
+            <li>• Tracker biberons avec horodatage</li>
+            <li>• Graphique semaine</li>
+            <li>• Indicateurs rassurants 🟢🟠🔴</li>
+            <li>• Zone verte large (pas anxiogène)</li>
+            <li>• Messages déculpabilisants</li>
+          </ul>
+        </div>
+
+        <div className="info-box">
+          <p className="info-title">💡 Principe clé</p>
+          <p className="info-text">
+            "Si bébé va bien, arrêtez de compter. La variation quotidienne est NORMALE."
+          </p>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Spacing.screenPadding,
-  },
-  title: {
-    ...Typography.styles.h1,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xl,
-  },
-  placeholder: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.feeding,
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    ...Typography.styles.h3,
-    color: Colors.feeding,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-});
+export default FeedingScreen;

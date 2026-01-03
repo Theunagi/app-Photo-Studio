@@ -1,0 +1,40 @@
+.placeholder-card.diaper {
+  border-color: var(--color-diaper);
+}
+
+.placeholder-title-diaper {
+  color: var(--color-diaper);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
+.diaper-info {
+  background: linear-gradient(135deg, var(--color-diaper) 0%, #FFE699 100%);
+  color: var(--color-text);
+}
+
+.warning-box {
+  background: var(--color-surface);
+  border-left: 4px solid var(--color-danger);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-top: var(--spacing-lg);
+}
+
+.warning-title {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-danger);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-lg);
+}
+
+.warning-list {
+  list-style: none;
+  padding: 0;
+  color: var(--color-text);
+}
+
+.warning-list li {
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-base);
+}

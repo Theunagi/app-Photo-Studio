@@ -1,75 +1,58 @@
 /**
- * Sleep Screen
+ * Sleep Screen (Web)
  * Module 4: Sommeil & Réveils
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { MainTabsScreenProps } from '../../navigation/types';
-import { Colors, Typography, Spacing } from '../../theme';
+import '../Feeding/FeedingScreen.css';
+import './SleepScreen.css';
 
-type Props = MainTabsScreenProps<'Sleep'>;
-
-export default function SleepScreen({ navigation }: Props) {
+const SleepScreen: React.FC = () => {
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>😴 Sommeil</Text>
-        <Text style={styles.subtitle}>
-          Interface contextuelle par âge
-        </Text>
+    <div className="screen">
+      <div className="screen-content">
+        <h1 className="screen-title">😴 Sommeil</h1>
+        <p className="screen-subtitle">
+          Interface contextuelle adaptée à l'âge de bébé
+        </p>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Module Sommeil - À implémenter
-          </Text>
-          <Text style={styles.description}>
-            • Tracker réveils nuit{'\n'}
-            • Timeline sommeil{'\n'}
-            • Messages adaptatifs par âge{'\n'}
-            • Gestion pleurs du soir
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
+        <div className="card placeholder-card sleep">
+          <h3 className="placeholder-title-sleep">Module Sommeil - À implémenter</h3>
+          <ul className="feature-list">
+            <li>• Tracker réveils nuit</li>
+            <li>• Timeline sommeil (nuit + siestes)</li>
+            <li>• Messages adaptatifs par âge</li>
+            <li>• Gestion pleurs du soir</li>
+            <li>• Total sommeil quotidien</li>
+            <li>• Indicateurs normaux par âge</li>
+          </ul>
+        </div>
+
+        <div className="age-based-messages">
+          <div className="age-card">
+            <h4>👶 0-3 mois</h4>
+            <p>Réveils toutes les 2-3h sont <strong>physiologiques</strong></p>
+          </div>
+          <div className="age-card">
+            <h4>👶 4-6 mois</h4>
+            <p>Horloge biologique se met en place progressivement</p>
+          </div>
+          <div className="age-card">
+            <h4>👶 6+ mois</h4>
+            <p>Bébé peut dormir sans manger. Un réveil ≠ forcément faim</p>
+          </div>
+        </div>
+
+        <div className="info-box sleep-info">
+          <p className="info-title">💡 Pleurs du soir (Coliques)</p>
+          <p className="info-text">
+            Pleurs inconsolables entre 19h-21h sont fréquents entre 3 semaines et 4 mois.
+            Ce n'est PAS votre faute. Techniques: portage, bruit blanc, mouvement.
+          </p>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Spacing.screenPadding,
-  },
-  title: {
-    ...Typography.styles.h1,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xl,
-  },
-  placeholder: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.sleep,
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    ...Typography.styles.h3,
-    color: Colors.sleep,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-});
+export default SleepScreen;

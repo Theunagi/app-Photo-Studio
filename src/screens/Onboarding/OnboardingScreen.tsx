@@ -1,81 +1,83 @@
 /**
- * Onboarding Screen
+ * Onboarding Screen (Web)
  * First-time user experience - baby profile creation
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { RootStackScreenProps } from '../../navigation/types';
-import { Colors, Typography, Spacing } from '../../theme';
+import { useNavigate } from 'react-router-dom';
+import './OnboardingScreen.css';
 
-type Props = RootStackScreenProps<'Onboarding'>;
+const OnboardingScreen: React.FC = () => {
+  const navigate = useNavigate();
 
-export default function OnboardingScreen({ navigation }: Props) {
+  const handleStart = () => {
+    // TODO: Save baby profile
+    navigate('/feeding');
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>👶 Bienvenue sur BabyGuide</Text>
-        <Text style={styles.subtitle}>
-          Votre compagnon anti-anxiété pour les 0-3 ans
-        </Text>
+    <div className="onboarding">
+      <div className="onboarding-content">
+        <div className="onboarding-header">
+          <h1 className="onboarding-title">👶 Bienvenue sur BabyGuide</h1>
+          <p className="onboarding-subtitle">
+            Votre compagnon anti-anxiété pour les 0-3 ans
+          </p>
+        </div>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Écran Onboarding - À implémenter
-          </Text>
-          <Text style={styles.description}>
-            • Création profil bébé{'\n'}
-            • Nom, date de naissance, sexe{'\n'}
-            • Photo avatar{'\n'}
-            • Navigation vers app principale
-          </Text>
-        </View>
-      </View>
-    </View>
+        <div className="onboarding-card">
+          <h3 className="onboarding-card-title">⚠️ IMPORTANT</h3>
+          <p className="disclaimer">
+            BabyGuide est un outil d'information et de suivi, <strong>PAS un avis médical</strong>.
+          </p>
+          <p className="disclaimer">
+            En cas de doute, consultez toujours un professionnel de santé.
+          </p>
+          <div className="emergency-numbers">
+            <p>Urgences : <strong>15</strong> (France) / <strong>112</strong> (Europe)</p>
+          </div>
+        </div>
+
+        <div className="onboarding-features">
+          <h3>✨ Ce que BabyGuide fait pour vous</h3>
+          <div className="features-grid">
+            <div className="feature-item">
+              <span className="feature-icon">🍼</span>
+              <p>Calculateur intelligent d'alimentation</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-icon">💩</span>
+              <p>Guide visuel des selles normales</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-icon">😴</span>
+              <p>Conseils sommeil adaptés à l'âge</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-icon">🥕</span>
+              <p>Planning diversification personnalisé</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-icon">📊</span>
+              <p>Courbes de croissance OMS</p>
+            </div>
+            <div className="feature-item">
+              <span className="feature-icon">✅</span>
+              <p>Système 🟢🟠🔴 pour décisions claires</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="onboarding-cta">
+          <h3>Créer le profil de bébé - À implémenter</h3>
+          <p>Nom, date de naissance, sexe, photo avatar</p>
+          <button className="btn btn-primary" onClick={handleStart}>
+            Commencer →
+          </button>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primary,
-  },
-  content: {
-    flex: 1,
-    padding: Spacing.screenPadding,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: {
-    ...Typography.styles.h1,
-    fontSize: 28,
-    color: Colors.surface,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  subtitle: {
-    ...Typography.styles.body,
-    color: Colors.surface,
-    marginBottom: Spacing.xl,
-    textAlign: 'center',
-    opacity: 0.9,
-  },
-  placeholder: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderRadius: 12,
-    marginTop: Spacing.xl,
-    width: '100%',
-  },
-  placeholderText: {
-    ...Typography.styles.h3,
-    color: Colors.primary,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-});
+export default OnboardingScreen;

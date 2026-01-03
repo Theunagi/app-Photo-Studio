@@ -1,75 +1,67 @@
 /**
- * Diversification Screen
+ * Diversification Screen (Web)
  * Module 5: Diversification Alimentaire
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { MainTabsScreenProps } from '../../navigation/types';
-import { Colors, Typography, Spacing } from '../../theme';
+import '../Feeding/FeedingScreen.css';
+import './DiversificationScreen.css';
 
-type Props = MainTabsScreenProps<'Diversification'>;
-
-export default function DiversificationScreen({ navigation }: Props) {
+const DiversificationScreen: React.FC = () => {
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>🥕 Diversification</Text>
-        <Text style={styles.subtitle}>
+    <div className="screen">
+      <div className="screen-content">
+        <h1 className="screen-title">🥕 Diversification</h1>
+        <p className="screen-subtitle">
           Timeline interactive et menus personnalisés
-        </Text>
+        </p>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            Module Diversification - À implémenter
-          </Text>
-          <Text style={styles.description}>
-            • Timeline personnalisée{'\n'}
-            • Menu du jour{'\n'}
-            • Checklist légumes/fruits{'\n'}
-            • Planning allergènes
-          </Text>
-        </View>
-      </View>
-    </ScrollView>
+        <div className="card placeholder-card diversification">
+          <h3 className="placeholder-title-diversification">Module Diversification - À implémenter</h3>
+          <ul className="feature-list">
+            <li>• Timeline personnalisée par âge</li>
+            <li>• Menu du jour suggéré</li>
+            <li>• Checklist légumes/fruits</li>
+            <li>• Planning allergènes (🥜🥚🐟)</li>
+            <li>• Progression textures</li>
+            <li>• Rappels introduction</li>
+          </ul>
+        </div>
+
+        <div className="timeline-preview">
+          <div className="timeline-stage completed">
+            <div className="timeline-marker">✅</div>
+            <div className="timeline-content">
+              <h4>4-6 mois : DÉCOUVERTE</h4>
+              <p>Quelques cuillères/jour • UN aliment à la fois</p>
+            </div>
+          </div>
+          <div className="timeline-stage current">
+            <div className="timeline-marker">➡️</div>
+            <div className="timeline-content">
+              <h4>6-8 mois : PROGRESSION</h4>
+              <p>Textures plus épaisses • Protéines 10g/j</p>
+            </div>
+          </div>
+          <div className="timeline-stage future">
+            <div className="timeline-marker">⏸️</div>
+            <div className="timeline-content">
+              <h4>8-12 mois : MORCEAUX</h4>
+              <p>⚠️ Avant 10 mois = crucial pour éviter refus</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="info-box diversification-info">
+          <p className="info-title">💡 RÈGLE FONDAMENTALE</p>
+          <p className="info-text">
+            Le LAIT reste l'aliment PRINCIPAL jusqu'à 1 an. La diversification est une DÉCOUVERTE,
+            pas un remplacement.
+          </p>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  content: {
-    padding: Spacing.screenPadding,
-  },
-  title: {
-    ...Typography.styles.h1,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  subtitle: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.xl,
-  },
-  placeholder: {
-    backgroundColor: Colors.surface,
-    padding: Spacing.lg,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.diversification,
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    ...Typography.styles.h3,
-    color: Colors.diversification,
-    marginBottom: Spacing.md,
-    textAlign: 'center',
-  },
-  description: {
-    ...Typography.styles.body,
-    color: Colors.textSecondary,
-    lineHeight: 24,
-  },
-});
+export default DiversificationScreen;

@@ -1,0 +1,129 @@
+.onboarding {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+}
+
+.onboarding-content {
+  max-width: 700px;
+  width: 100%;
+}
+
+.onboarding-header {
+  text-align: center;
+  margin-bottom: var(--spacing-2xl);
+  color: white;
+}
+
+.onboarding-title {
+  font-size: var(--font-size-3xl);
+  margin-bottom: var(--spacing-md);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.onboarding-subtitle {
+  font-size: var(--font-size-lg);
+  opacity: 0.95;
+}
+
+.onboarding-card {
+  background: white;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-card-title {
+  color: var(--color-danger);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
+.disclaimer {
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.6;
+}
+
+.emergency-numbers {
+  background: var(--color-danger);
+  color: white;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  text-align: center;
+  margin-top: var(--spacing-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.onboarding-features {
+  background: white;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-features h3 {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+  color: var(--color-text);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-md);
+}
+
+@media (min-width: 600px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-background);
+  border-radius: var(--radius-md);
+}
+
+.feature-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.feature-item p {
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.onboarding-cta {
+  background: white;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+}
+
+.onboarding-cta h3 {
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+}
+
+.onboarding-cta p {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-lg);
+}
+
+.onboarding-cta .btn {
+  min-width: 200px;
+  font-size: var(--font-size-lg);
+}
