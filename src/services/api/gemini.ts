@@ -104,9 +104,18 @@ export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<Ge
   }
 
   const data = await response.json();
-  const parts = data.candidates?.[0]?.content?.parts;
+  console.log('[Gemini ImageGen] Full API response:', JSON.stringify(data, null, 2));
+
+  const candidate = data.candidates?.[0];
+  if (!candidate) {
+    const blockReason = data.promptFeedback?.blockReason;
+    throw new Error(`Gemini ImageGen: no candidates returned. BlockReason: ${blockReason ?? 'none'}. Full response: ${JSON.stringify(data).slice(0, 500)}`);
+  }
+
+  const parts = candidate.content?.parts;
   if (!parts || parts.length === 0) {
-    throw new Error('Gemini ImageGen returned empty response');
+    const finishReason = candidate.finishReason;
+    throw new Error(`Gemini ImageGen: empty parts. FinishReason: ${finishReason}. Full candidate: ${JSON.stringify(candidate).slice(0, 500)}`);
   }
 
   let imageBase64 = '';
@@ -114,6 +123,10 @@ export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<Ge
   let textResponse: string | undefined;
 
   for (const part of parts) {
+    if (part.inlineData) {
+      imageBase64 = part.inlineData.data;
+      imageMimeType = part.inlineData.mimeType ?? 'image/png';
+    }
     if (part.inline_data) {
       imageBase64 = part.inline_data.data;
       imageMimeType = part.inline_data.mime_type ?? 'image/png';
@@ -123,8 +136,10 @@ export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<Ge
     }
   }
 
+  console.log('[Gemini ImageGen] Parts found:', parts.length, 'Has image:', !!imageBase64, 'Text:', textResponse?.slice(0, 100));
+
   if (!imageBase64) {
-    throw new Error('Gemini ImageGen did not return an image');
+    throw new Error(`Gemini ImageGen did not return an image. Parts: ${JSON.stringify(parts.map((p: Record<string, unknown>) => Object.keys(p))).slice(0, 300)}`);
   }
 
   return {
