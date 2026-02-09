@@ -74,7 +74,7 @@ export function buildStudioPrompt(productDescription: string): string {
  * - generationConfig.imageConfig: { imageSize, aspectRatio }
  */
 export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<GeminiImageGenResponse> {
-  const model = req.model ?? 'gemini-2.0-flash-preview-image-generation';
+  const model = req.model ?? 'gemini-3-pro-image-preview';
   const { mimeType, base64 } = parseDataUrl(req.imageDataUrl);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${req.apiKey}`;
