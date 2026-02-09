@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
+import StudioScreen from './screens/Studio/StudioScreen';
 import FeedingScreen from './screens/Feeding/FeedingScreen';
 import DiaperScreen from './screens/Diaper/DiaperScreen';
 import SleepScreen from './screens/Sleep/SleepScreen';
@@ -20,7 +21,8 @@ function App() {
         )}
 
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/feeding" replace />} />
+          <Route index element={<Navigate to="/studio" replace />} />
+          <Route path="studio" element={<StudioScreen />} />
           <Route path="feeding" element={<FeedingScreen />} />
           <Route path="diaper" element={<DiaperScreen />} />
           <Route path="sleep" element={<SleepScreen />} />

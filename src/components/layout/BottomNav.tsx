@@ -10,6 +10,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { path: '/studio', label: 'Studio', emoji: '📸', color: 'var(--color-primary)' },
   { path: '/feeding', label: 'Alim.', emoji: '🍼', color: 'var(--color-feeding)' },
   { path: '/diaper', label: 'Cacas', emoji: '💩', color: 'var(--color-diaper)' },
   { path: '/sleep', label: 'Sommeil', emoji: '😴', color: 'var(--color-sleep)' },

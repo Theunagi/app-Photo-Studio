@@ -29,3 +29,6 @@ export * from './growth';
 
 // Common types
 export * from './common';
+
+// Studio Pro Pipeline
+export * from './pipeline';
