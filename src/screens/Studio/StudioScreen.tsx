@@ -25,9 +25,9 @@ function statusIcon(status: string): React.ReactNode {
 const StudioScreen: React.FC = () => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
-    openaiApiKey: '',
-    geminiApiKey: '',
-    falApiKey: '',
+    openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY ?? '',
+    geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
+    falApiKey: import.meta.env.VITE_FAL_API_KEY ?? '',
     visionModel: 'gpt-4o',
     generationModel: DEFAULT_PIPELINE_CONFIG.generationModel!,
     imageSize: DEFAULT_PIPELINE_CONFIG.imageSize!,
