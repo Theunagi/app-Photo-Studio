@@ -113,7 +113,12 @@ const StudioScreen: React.FC = () => {
   }, []);
 
   // --- Validation ---
-  const canRun = inputFile && config.openaiApiKey && config.geminiApiKey && config.falApiKey && !isRunning;
+  const missingItems: string[] = [];
+  if (!inputFile) missingItems.push('Image');
+  if (!config.openaiApiKey) missingItems.push('OpenAI Key');
+  if (!config.geminiApiKey) missingItems.push('Gemini Key');
+  if (!config.falApiKey) missingItems.push('Fal.ai Key');
+  const canRun = missingItems.length === 0 && !isRunning;
 
   // --- Get image data from step result ---
   const getStepImage = (step: PipelineStep): string | null => {
@@ -139,7 +144,7 @@ const StudioScreen: React.FC = () => {
             <label>
               OpenAI API Key
               <input
-                type="password"
+                type="text"
                 placeholder="sk-proj-..."
                 value={config.openaiApiKey}
                 onChange={e => updateConfig('openaiApiKey', e.target.value)}
@@ -148,7 +153,7 @@ const StudioScreen: React.FC = () => {
             <label>
               Gemini API Key
               <input
-                type="password"
+                type="text"
                 placeholder="AI..."
                 value={config.geminiApiKey}
                 onChange={e => updateConfig('geminiApiKey', e.target.value)}
@@ -157,7 +162,7 @@ const StudioScreen: React.FC = () => {
             <label>
               Fal.ai API Key
               <input
-                type="password"
+                type="text"
                 placeholder="84f7d31a..."
                 value={config.falApiKey}
                 onChange={e => updateConfig('falApiKey', e.target.value)}
@@ -201,6 +206,11 @@ const StudioScreen: React.FC = () => {
           >
             {isRunning ? 'Processing...' : 'Run Pipeline'}
           </button>
+          {missingItems.length > 0 && !isRunning && (
+            <span style={{ color: '#FF5050', fontSize: '14px', alignSelf: 'center' }}>
+              Missing: {missingItems.join(', ')}
+            </span>
+          )}
           <button
             className="btn btn-reset"
             onClick={handleReset}
