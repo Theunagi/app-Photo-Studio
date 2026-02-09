@@ -21,7 +21,7 @@ export interface PipelineConfig {
 
 export const DEFAULT_PIPELINE_CONFIG: Partial<PipelineConfig> = {
   visionModel: 'gpt-4o',
-  generationModel: 'gemini-3-pro-image-preview',
+  generationModel: 'gemini-2.0-flash-preview-image-generation',
   imageSize: '2K',
   aspectRatio: '1:1',
 };
