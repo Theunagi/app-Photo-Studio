@@ -38,23 +38,71 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     outputFormat: DEFAULT_PIPELINE_CONFIG.outputFormat!,
   });
 
+  // --- Restore saved results into initial pipeline state ---
+  const buildRestoredState = (): PipelineState => {
+    if (!project?.results) return createInitialPipelineState();
+    const r = project.results;
+    const state = createInitialPipelineState();
+
+    // Helper: mark a step as completed with saved image data
+    const restoreImageStep = (step: PipelineStep, dataUrl: string | undefined) => {
+      if (!dataUrl) return;
+      (state[step] as { status: string; data?: unknown }) = {
+        status: 'completed',
+        data: { imageDataUrl: dataUrl, imageBlob: new Blob() },
+      };
+    };
+
+    if (r.inputImage) {
+      (state.input as { status: string; data?: unknown }) = {
+        status: 'completed',
+        data: { imageDataUrl: r.inputImage, imageBlob: new Blob(), fileName: 'saved' },
+      };
+    }
+    if (r.analysis) {
+      (state.analysis as { status: string; data?: unknown }) = {
+        status: 'completed',
+        data: { rawResponse: r.analysis, description: r.analysis, colors: [], materials: [], visibleTexts: [] },
+      };
+    }
+    if (r.luminanceClass) {
+      (state.luminanceCheck as { status: string; data?: unknown }) = {
+        status: 'completed',
+        data: r.luminanceClass,
+      };
+    }
+    restoreImageStep('studioGeneration', r.studioGeneration);
+    restoreImageStep('retouch', r.retouch);
+    restoreImageStep('cutout', r.cutout);
+    restoreImageStep('shadowComposite', r.shadowComposite);
+    restoreImageStep('autoCrop', r.autoCrop);
+
+    return state;
+  };
+
   const [inputFile, setInputFile] = useState<File | null>(null);
   const [inputPreview, setInputPreview] = useState<string | null>(project?.results.inputImage ?? null);
-  const [pipelineState, setPipelineState] = useState<PipelineState>(createInitialPipelineState());
+  const [pipelineState, setPipelineState] = useState<PipelineState>(buildRestoredState);
   const [isRunning, setIsRunning] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
+  const pipelineStateRef = useRef<PipelineState>(pipelineState);
+  const inputPreviewRef = useRef<string | null>(inputPreview);
 
-  // Keep ref in sync
+  // Keep refs in sync
   useEffect(() => { projectRef.current = project; }, [project]);
+  useEffect(() => { inputPreviewRef.current = inputPreview; }, [inputPreview]);
 
-  // --- Auto-save project results after pipeline completes ---
-  const autoSave = useCallback(async (state: PipelineState, preview: string | null) => {
+  // --- Auto-save project results after pipeline completes (or partially completes) ---
+  const autoSave = useCallback(async () => {
     const p = projectRef.current;
     if (!p) return; // Fast generation — no save
+
+    const state = pipelineStateRef.current;
+    const preview = inputPreviewRef.current;
 
     const getImg = (step: PipelineStep): string | undefined => {
       const r = state[step];
@@ -78,10 +126,15 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     // Use final output or studio render as thumbnail
     p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? preview ?? undefined;
     p.config = { imageSize: config.imageSize, aspectRatio: config.aspectRatio };
+    p.updatedAt = Date.now();
 
-    await saveProject(p);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await saveProject(p);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      console.error('Failed to save project:', err);
+    }
   }, [config.imageSize, config.aspectRatio]);
 
   // --- File Upload ---
@@ -111,25 +164,27 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   const handleRunPipeline = useCallback(async () => {
     if (!inputFile) return;
     setIsRunning(true);
-    setPipelineState(createInitialPipelineState());
-    let finalState: PipelineState | null = null;
+    const freshState = createInitialPipelineState();
+    setPipelineState(freshState);
+    pipelineStateRef.current = freshState;
     try {
-      finalState = await runPipeline({
+      const result = await runPipeline({
         config,
         inputFile,
         onStateChange: (newState: PipelineState, _step: PipelineStep) => {
+          pipelineStateRef.current = newState;
           setPipelineState({ ...newState });
         },
       });
+      pipelineStateRef.current = result;
     } catch (err) {
       console.error('Pipeline failed:', err);
     } finally {
       setIsRunning(false);
-      if (finalState) {
-        autoSave(finalState, inputPreview);
-      }
+      // Always save — even partial results are valuable
+      await autoSave();
     }
-  }, [inputFile, config, autoSave, inputPreview]);
+  }, [inputFile, config, autoSave]);
 
   const handleReset = useCallback(() => {
     setInputFile(null);
