@@ -4,3 +4,6 @@
 
 // Studio Pro Pipeline
 export * from './pipeline';
+
+// Projects
+export * from './project';

@@ -1,12 +1,14 @@
 /**
- * Photo Studio - Main Screen
- * Modern UI for the Studio Pro image processing pipeline.
+ * Photo Studio - Studio Screen
+ * Pipeline UI with optional project save.
  */
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/pipeline';
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
+import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
+import { saveProject } from '../../services/db/projectDB';
 import './StudioScreen.css';
 
 // --- Step status indicator ---
@@ -17,7 +19,12 @@ function StepIndicator({ status }: { status: string }) {
   return <span className="step-dot idle" />;
 }
 
-const StudioScreen: React.FC = () => {
+export interface StudioScreenProps {
+  project: Project | null;
+  onBack: () => void;
+}
+
+const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
     openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY ?? '',
@@ -25,17 +32,55 @@ const StudioScreen: React.FC = () => {
     falApiKey: import.meta.env.VITE_FAL_API_KEY ?? '',
     visionModel: 'gpt-4o',
     generationModel: DEFAULT_PIPELINE_CONFIG.generationModel!,
-    imageSize: DEFAULT_PIPELINE_CONFIG.imageSize!,
-    aspectRatio: DEFAULT_PIPELINE_CONFIG.aspectRatio!,
+    imageSize: project?.config.imageSize ?? DEFAULT_PIPELINE_CONFIG.imageSize!,
+    aspectRatio: project?.config.aspectRatio ?? DEFAULT_PIPELINE_CONFIG.aspectRatio!,
   });
 
   const [inputFile, setInputFile] = useState<File | null>(null);
-  const [inputPreview, setInputPreview] = useState<string | null>(null);
+  const [inputPreview, setInputPreview] = useState<string | null>(project?.results.inputImage ?? null);
   const [pipelineState, setPipelineState] = useState<PipelineState>(createInitialPipelineState());
   const [isRunning, setIsRunning] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const projectRef = useRef<Project | null>(project);
+
+  // Keep ref in sync
+  useEffect(() => { projectRef.current = project; }, [project]);
+
+  // --- Auto-save project results after pipeline completes ---
+  const autoSave = useCallback(async (state: PipelineState, preview: string | null) => {
+    const p = projectRef.current;
+    if (!p) return; // Fast generation — no save
+
+    const getImg = (step: PipelineStep): string | undefined => {
+      const r = state[step];
+      if (r.status !== 'completed' || !r.data) return undefined;
+      const d = r.data as unknown as Record<string, unknown>;
+      return d.imageDataUrl as string | undefined;
+    };
+
+    p.results = {
+      inputImage: preview ?? undefined,
+      analysis: state.analysis.status === 'completed' && state.analysis.data
+        ? (state.analysis.data as { rawResponse: string }).rawResponse : undefined,
+      luminanceClass: state.luminanceCheck.status === 'completed' && state.luminanceCheck.data
+        ? (state.luminanceCheck.data as string) : undefined,
+      studioGeneration: getImg('studioGeneration'),
+      retouch: getImg('retouch'),
+      cutout: getImg('cutout'),
+      shadowComposite: getImg('shadowComposite'),
+      autoCrop: getImg('autoCrop'),
+    };
+    // Use final output or studio render as thumbnail
+    p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? preview ?? undefined;
+    p.config = { imageSize: config.imageSize, aspectRatio: config.aspectRatio };
+
+    await saveProject(p);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }, [config.imageSize, config.aspectRatio]);
 
   // --- File Upload ---
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,8 +110,9 @@ const StudioScreen: React.FC = () => {
     if (!inputFile) return;
     setIsRunning(true);
     setPipelineState(createInitialPipelineState());
+    let finalState: PipelineState | null = null;
     try {
-      await runPipeline({
+      finalState = await runPipeline({
         config,
         inputFile,
         onStateChange: (newState: PipelineState, _step: PipelineStep) => {
@@ -77,8 +123,11 @@ const StudioScreen: React.FC = () => {
       console.error('Pipeline failed:', err);
     } finally {
       setIsRunning(false);
+      if (finalState) {
+        autoSave(finalState, inputPreview);
+      }
     }
-  }, [inputFile, config]);
+  }, [inputFile, config, autoSave, inputPreview]);
 
   const handleReset = useCallback(() => {
     setInputFile(null);
@@ -94,9 +143,9 @@ const StudioScreen: React.FC = () => {
     const result = finalData as { imageDataUrl: string };
     const link = document.createElement('a');
     link.href = result.imageDataUrl;
-    link.download = `studio-${inputFile?.name ?? 'output'}.png`;
+    link.download = `studio-${project?.name ?? inputFile?.name ?? 'output'}.png`;
     link.click();
-  }, [pipelineState.autoCrop.data, inputFile]);
+  }, [pipelineState.autoCrop.data, inputFile, project]);
 
   // --- Config Update ---
   const updateConfig = useCallback((field: keyof PipelineConfig, value: string) => {
@@ -105,11 +154,11 @@ const StudioScreen: React.FC = () => {
 
   // --- Validation ---
   const missingItems: string[] = [];
-  if (!inputFile) missingItems.push('Image');
+  if (!inputFile && !inputPreview) missingItems.push('Image');
   if (!config.openaiApiKey) missingItems.push('OpenAI Key');
   if (!config.geminiApiKey) missingItems.push('Gemini Key');
   if (!config.falApiKey) missingItems.push('Fal.ai Key');
-  const canRun = missingItems.length === 0 && !isRunning;
+  const canRun = missingItems.length === 0 && !isRunning && !!inputFile;
 
   // --- Get image data from step result ---
   const getStepImage = (step: PipelineStep): string | null => {
@@ -123,25 +172,29 @@ const StudioScreen: React.FC = () => {
   const completedSteps = PIPELINE_STEPS.filter(s => pipelineState[s.key].status === 'completed').length;
   const progressPercent = (completedSteps / PIPELINE_STEPS.length) * 100;
 
+  const isFastMode = !project;
+
   // --- Render ---
   return (
     <div className="studio">
       {/* Header */}
       <header className="studio-header">
         <div className="header-left">
-          <div className="logo">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="8" fill="url(#logo-grad)"/>
-              <circle cx="14" cy="13" r="5" stroke="white" strokeWidth="1.5" fill="none"/>
-              <circle cx="14" cy="13" r="2" fill="white"/>
-              <rect x="8" y="7" width="12" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
-              <defs>
-                <linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28">
-                  <stop stopColor="#6366f1"/><stop offset="1" stopColor="#06b6d4"/>
-                </linearGradient>
-              </defs>
+          <button className="back-btn" onClick={onBack} title="Back to projects">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            <span className="logo-text">Photo Studio</span>
+          </button>
+          <div className="header-title-group">
+            <span className="header-title">
+              {isFastMode ? 'Fast Generation' : project.name}
+            </span>
+            {isFastMode && (
+              <span className="header-badge fast">FAST</span>
+            )}
+            {!isFastMode && saved && (
+              <span className="header-badge saved">Saved</span>
+            )}
           </div>
         </div>
         <div className="header-right">
@@ -274,11 +327,9 @@ const StudioScreen: React.FC = () => {
         {/* Pipeline Progress */}
         {(isRunning || completedSteps > 0) && (
           <section className="pipeline-section">
-            {/* Progress bar */}
             <div className="progress-bar-track">
               <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
             </div>
-
             <div className="steps-grid">
               {PIPELINE_STEPS.map(step => {
                 const result = pipelineState[step.key];
