@@ -37,30 +37,54 @@ function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } {
  * The RIMOWA Bright Edition studio rendering prompt.
  * This is the core "look" prompt that drives the studio generation.
  */
-export const STUDIO_RENDER_PROMPT = `Generate a new high-end commercial product photography studio render of this product.
+export const STUDIO_RENDER_PROMPT = `Front orthographic commercial product render.
+Keep the exact original geometry, silhouette, proportions and curvature of the uploaded product — no distortion, no perspective drift, no reshaping.
+DO NOT MIRROR. DO NOT FLIP HORIZONTALLY. Maintain exact orientation.
 
-TASK: Create a completely new 3D photoréaliste studio render. Remove the original background entirely. Place the product on a pure white infinity cove studio background.
+BACKGROUND
+Pure white background (#FFFFFF), seamless, clean, no texture, no yellow color cast.
 
-GEOMETRY: Keep the exact original geometry, silhouette, proportions and curvature of the product.
-DO NOT MIRROR. DO NOT FLIP HORIZONTALLY.
-Front orthographic view.
-
-BACKGROUND: Pure white background (#FFFFFF). No original background elements.
+CAMERA
+Front orthographic.
+No tilt, no rotation.
+Product centered, full height inside frame, ~90% frame fill.
+No hand, no props, no crop.
 
 LIGHTING — RIMOWA Bright Edition (Default Metallic Preset)
-• Key Light: intensity 1.9, softbox, 5400 K, positioned 45° above left
-• Fill Light: intensity 1.9, softbox, 5400 K, positioned right
-• Rim Light: 1.35 from right side — creates edge separation
-• Micro Side-Strip Highlight: ultra-thin edge light on left contour
-• Contact Shadow: soft natural shadow on the white floor beneath the product
+• Key Light: intensity 1.9, softbox, 5400 K
+• Fill Light: intensity 1.9, softbox, 5400 K
+• Rim Light: 1.35 from right side, very soft, controlled
+• Micro Side-Strip Highlight: ultra-thin, subtle edge light to shape curvature without forming a hard rim
+• Contour Wrap Light: soft gradient around edges
+• Top Light: subtle top diffusion for uniform highlight rolloff
+• Contact Shadow: True
 
-SURFACE QUALITY:
-• Clean all surface imperfections, dust, fingerprints
-• Enhance material textures (fabric weave, metal sheen, plastic gloss)
-• Boost midtone clarity and microcontrast
-• Preserve all text, logos, and branding exactly as visible
+MATERIALS
+Rebuild the material properties exactly as on the real product:
+• Rubber: slightly matte, smooth tactile grain
+• Plastic: satin, clean edges, no plastic CGI shine
+• Metal: brushed where needed, reflectivity realistic, no chrome exaggeration
+Texture Restoration = 100% (preserve all micro-textures)
 
-OUTPUT: A single product centered on pure white (#FFFFFF), studio-lit, photorealistic, e-commerce ready.`;
+ENHANCEMENT PASSES
+• Clean_Surface = true (remove dust, scratches, noise)
+• Geometry_Freeze = true
+• Texture_Boost = +10%
+• Strong Midtone Clarity Boost: more local contrast, **no sharpening halos**
+• Curvature Enhancement = true
+• Dual Highlight Pass = true
+• Microcontrast Recovery = +18%
+• Highlight Boost = +10%
+• Color Depth Correction: +5% saturation, +7% contrast, gamma 0.96
+• White Clip = 98.8%
+• FullPipeline Mode enabled (Clean + Restore + MaterialRebuild)
+
+OUTPUT
+• Ultra-sharp, crisp, photoreal
+• No artifacts, no refraction errors
+• Maintain all printed labels exactly as in the image
+• No added reflections
+• Bright 3d render, photorealistic clean 3d textures, realistic ground shadow`;
 
 /**
  * Build the full generation prompt by injecting product description context.
