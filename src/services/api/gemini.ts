@@ -37,26 +37,30 @@ function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } {
  * The RIMOWA Bright Edition studio rendering prompt.
  * This is the core "look" prompt that drives the studio generation.
  */
-export const STUDIO_RENDER_PROMPT = `Front orthographic commercial product render.
-Keep the exact original geometry, silhouette, proportions and curvature.
-DO NOT MIRROR. DO NOT FLIP HORIZONTALLY.
+export const STUDIO_RENDER_PROMPT = `Generate a new high-end commercial product photography studio render of this product.
 
-BACKGROUND: Pure white background (#FFFFFF).
+TASK: Create a completely new 3D photoréaliste studio render. Remove the original background entirely. Place the product on a pure white infinity cove studio background.
+
+GEOMETRY: Keep the exact original geometry, silhouette, proportions and curvature of the product.
+DO NOT MIRROR. DO NOT FLIP HORIZONTALLY.
+Front orthographic view.
+
+BACKGROUND: Pure white background (#FFFFFF). No original background elements.
 
 LIGHTING — RIMOWA Bright Edition (Default Metallic Preset)
-• Key Light: intensity 1.9, softbox, 5400 K
-• Fill Light: intensity 1.9, softbox, 5400 K
-• Rim Light: 1.35 from right side
-• Micro Side-Strip Highlight: ultra-thin edge light
-• Contact Shadow: True (Essential for Step 6)
+• Key Light: intensity 1.9, softbox, 5400 K, positioned 45° above left
+• Fill Light: intensity 1.9, softbox, 5400 K, positioned right
+• Rim Light: 1.35 from right side — creates edge separation
+• Micro Side-Strip Highlight: ultra-thin edge light on left contour
+• Contact Shadow: soft natural shadow on the white floor beneath the product
 
-ENHANCEMENT PASSES:
-• Clean_Surface = true
-• Geometry_Freeze = true
-• Texture_Boost = +10%
-• Strong Midtone Clarity Boost
-• Microcontrast Recovery = +18%
-• White Clip = 98.8%`;
+SURFACE QUALITY:
+• Clean all surface imperfections, dust, fingerprints
+• Enhance material textures (fabric weave, metal sheen, plastic gloss)
+• Boost midtone clarity and microcontrast
+• Preserve all text, logos, and branding exactly as visible
+
+OUTPUT: A single product centered on pure white (#FFFFFF), studio-lit, photorealistic, e-commerce ready.`;
 
 /**
  * Build the full generation prompt by injecting product description context.
@@ -75,10 +79,13 @@ export function buildStudioPrompt(productDescription: string): string {
  */
 export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<GeminiImageGenResponse> {
   const model = req.model ?? 'gemini-3-pro-image-preview';
+  const imageSize = req.imageSize ?? '2K';
+  const aspectRatio = req.aspectRatio ?? '1:1';
   const { mimeType, base64 } = parseDataUrl(req.imageDataUrl);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${req.apiKey}`;
 
+  // Use imageConfig (native to gemini-3-pro) with responseModalities as fallback
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -86,14 +93,18 @@ export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<Ge
       contents: [
         {
           parts: [
-            { text: '[REFERENCE IMAGE: Front View (Main Reference)]' },
-            { inline_data: { mime_type: mimeType, data: base64 } },
+            { text: '[REFERENCE IMAGE: Front View — use this as geometry/color reference ONLY. Generate a completely NEW studio-lit product render based on this reference.]' },
+            { inlineData: { mimeType, data: base64 } },
             { text: req.prompt },
           ],
         },
       ],
       generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE'],
+        responseModalities: ['IMAGE', 'TEXT'],
+        imageConfig: {
+          imageSize,
+          aspectRatio,
+        },
       },
     }),
   });
