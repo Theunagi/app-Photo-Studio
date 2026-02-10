@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/pipeline';
+import type { PipelineConfig, PipelineState, PipelineStep, OutputFormat } from '../../models/pipeline';
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
@@ -16,6 +16,7 @@ function StepIndicator({ status }: { status: string }) {
   if (status === 'running') return <span className="step-dot running"><span className="dot-pulse" /></span>;
   if (status === 'completed') return <span className="step-dot completed"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span>;
   if (status === 'error') return <span className="step-dot error"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3L9 9M9 3L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></span>;
+  if (status === 'skipped') return <span className="step-dot skipped">&mdash;</span>;
   return <span className="step-dot idle" />;
 }
 
@@ -34,6 +35,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     generationModel: DEFAULT_PIPELINE_CONFIG.generationModel!,
     imageSize: project?.config.imageSize ?? DEFAULT_PIPELINE_CONFIG.imageSize!,
     aspectRatio: project?.config.aspectRatio ?? DEFAULT_PIPELINE_CONFIG.aspectRatio!,
+    outputFormat: DEFAULT_PIPELINE_CONFIG.outputFormat!,
   });
 
   const [inputFile, setInputFile] = useState<File | null>(null);
@@ -293,6 +295,26 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
                   onClick={() => updateConfig('imageSize', '4K')}
                   disabled={isRunning}
                 >4K</button>
+              </div>
+
+              {/* Output Format Selector */}
+              <div className="format-selector">
+                {([
+                  { value: 'transparent-shadow' as OutputFormat, label: 'Shadow', icon: '◐' },
+                  { value: 'white-shadow' as OutputFormat, label: 'White + Shadow', icon: '◻' },
+                  { value: 'transparent-clean' as OutputFormat, label: 'Clean', icon: '◇' },
+                ]).map(opt => (
+                  <button
+                    key={opt.value}
+                    className={`format-btn ${config.outputFormat === opt.value ? 'active' : ''}`}
+                    onClick={() => updateConfig('outputFormat', opt.value)}
+                    disabled={isRunning}
+                    title={opt.label}
+                  >
+                    <span className="format-icon">{opt.icon}</span>
+                    <span className="format-label">{opt.label}</span>
+                  </button>
+                ))}
               </div>
 
               {missingItems.length > 0 && !isRunning && (

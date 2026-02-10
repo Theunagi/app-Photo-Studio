@@ -5,6 +5,9 @@
 
 // --- Pipeline Configuration ---
 
+/** Output format controls background and shadow in the final render. */
+export type OutputFormat = 'transparent-shadow' | 'white-shadow' | 'transparent-clean';
+
 export interface PipelineConfig {
   openaiApiKey: string;
   geminiApiKey: string;
@@ -17,6 +20,8 @@ export interface PipelineConfig {
   imageSize: string;
   /** Image gen aspect ratio */
   aspectRatio: string;
+  /** Output format: background + shadow combination */
+  outputFormat: OutputFormat;
 }
 
 export const DEFAULT_PIPELINE_CONFIG: Partial<PipelineConfig> = {
@@ -24,6 +29,7 @@ export const DEFAULT_PIPELINE_CONFIG: Partial<PipelineConfig> = {
   generationModel: 'gemini-3-pro-image-preview',
   imageSize: '2K',
   aspectRatio: '1:1',
+  outputFormat: 'transparent-shadow',
 };
 
 // --- Node Status & Events ---

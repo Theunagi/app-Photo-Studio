@@ -200,28 +200,39 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
 
   // =========================================================================
   // STEP 6: SMART SHADOW COMPOSER (DSP — "The Secret")
+  // Skipped for 'transparent-clean' output format.
   // =========================================================================
-  const shadow = await executeStep<ShadowCompositeResult>(state, 'shadowComposite', onStateChange, async () => {
-    // Inputs: White-bg retouched image (Step 4) + Cutout product (Step 5)
-    const result = await composeShadow(
-      retouch.imageDataUrl,   // W: white-bg with natural shadow
-      cutout.imageDataUrl,    // T: cutout product (transparent)
-      0.8,                    // Shadow opacity
-      8                       // Gaussian blur radius
-    );
+  let step6ImageDataUrl: string;
 
-    return {
-      imageBlob: result.imageBlob,
-      imageDataUrl: result.imageDataUrl,
-    };
-  });
+  if (config.outputFormat === 'transparent-clean') {
+    // No shadow — skip step 6, pass cutout directly
+    (state.shadowComposite as NodeResult<ShadowCompositeResult>) = { status: 'skipped', durationMs: 0 };
+    onStateChange({ ...state }, 'shadowComposite');
+    step6ImageDataUrl = cutout.imageDataUrl;
+  } else {
+    const shadow = await executeStep<ShadowCompositeResult>(state, 'shadowComposite', onStateChange, async () => {
+      const result = await composeShadow(
+        retouch.imageDataUrl,   // W: white-bg with natural shadow
+        cutout.imageDataUrl,    // T: cutout product (transparent)
+        0.8,                    // Shadow opacity
+        8,                      // Gaussian blur radius
+        config.outputFormat === 'white-shadow' // fill white bg
+      );
+
+      return {
+        imageBlob: result.imageBlob,
+        imageDataUrl: result.imageDataUrl,
+      };
+    });
+    step6ImageDataUrl = shadow.imageDataUrl;
+  }
 
   // =========================================================================
   // STEP 7: AUTO CROP & CENTER
   // =========================================================================
   await executeStep<AutoCropResult>(state, 'autoCrop', onStateChange, async () => {
     const result = await autoCrop(
-      shadow.imageDataUrl,
+      step6ImageDataUrl,
       10 // 10px margin
     );
 

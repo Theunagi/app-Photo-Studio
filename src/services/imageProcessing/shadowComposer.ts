@@ -111,12 +111,14 @@ function boxBlur(buffer: Float32Array, width: number, height: number, radius: nu
  * @param cutoutDataUrl - Cutout product with transparency (Step 5 output)
  * @param shadowOpacity - Shadow opacity multiplier (default 0.8)
  * @param blurRadius - Gaussian blur radius for shadow (default 8)
+ * @param whiteBackground - If true, fill background with white instead of transparent
  */
 export async function composeShadow(
   whiteBgDataUrl: string,
   cutoutDataUrl: string,
   shadowOpacity = 0.8,
-  blurRadius = 8
+  blurRadius = 8,
+  whiteBackground = false
 ): Promise<ShadowComposerResult> {
   // Load both images
   const { imageData: whiteBgData } = await getImageData(whiteBgDataUrl);
@@ -196,18 +198,27 @@ export async function composeShadow(
       const cB = cutoutData.data[idx + 2];
       const cA = cutoutData.data[idx + 3] / 255;
 
-      // Shadow color: dark gray (#333)
-      const shadowR = 51 * sAlpha;
-      const shadowG = 51 * sAlpha;
-      const shadowB = 51 * sAlpha;
-
-      // Normal blend: product over shadow
-      const outA = cA + sAlpha * (1 - cA);
-      if (outA > 0) {
-        outputData.data[idx] = (cR * cA + shadowR * (1 - cA)) / outA;
-        outputData.data[idx + 1] = (cG * cA + shadowG * (1 - cA)) / outA;
-        outputData.data[idx + 2] = (cB * cA + shadowB * (1 - cA)) / outA;
-        outputData.data[idx + 3] = Math.min(255, outA * 255);
+      if (whiteBackground) {
+        // White background: shadow darkens white, then product on top
+        const bgR = 255 * (1 - sAlpha) + 51 * sAlpha;
+        const bgG = 255 * (1 - sAlpha) + 51 * sAlpha;
+        const bgB = 255 * (1 - sAlpha) + 51 * sAlpha;
+        outputData.data[idx]     = bgR * (1 - cA) + cR * cA;
+        outputData.data[idx + 1] = bgG * (1 - cA) + cG * cA;
+        outputData.data[idx + 2] = bgB * (1 - cA) + cB * cA;
+        outputData.data[idx + 3] = 255;
+      } else {
+        // Transparent background: shadow + product blend
+        const shadowR = 51 * sAlpha;
+        const shadowG = 51 * sAlpha;
+        const shadowB = 51 * sAlpha;
+        const outA = cA + sAlpha * (1 - cA);
+        if (outA > 0) {
+          outputData.data[idx]     = (cR * cA + shadowR * (1 - cA)) / outA;
+          outputData.data[idx + 1] = (cG * cA + shadowG * (1 - cA)) / outA;
+          outputData.data[idx + 2] = (cB * cA + shadowB * (1 - cA)) / outA;
+          outputData.data[idx + 3] = Math.min(255, outA * 255);
+        }
       }
     }
   }

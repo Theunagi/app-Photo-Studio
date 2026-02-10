@@ -262,6 +262,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
+  flex-wrap: wrap;
 }
 
 /* Resolution Toggle */
@@ -296,6 +297,64 @@
 .res-btn.active {
   background: var(--color-primary);
   color: white;
+}
+
+/* Output Format Selector */
+.format-selector {
+  display: flex;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.format-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.format-btn:not(:last-child) {
+  border-right: 1px solid var(--color-border);
+}
+
+.format-btn:hover:not(:disabled):not(.active) {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-hover);
+}
+
+.format-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.format-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.format-label {
+  line-height: 1;
+}
+
+@media (max-width: 600px) {
+  .format-label {
+    display: none;
+  }
+  .format-btn {
+    padding: var(--sp-2);
+  }
+  .format-icon {
+    font-size: 14px;
+  }
 }
 
 .missing-hint {
@@ -421,6 +480,11 @@
   background: var(--color-danger-soft);
 }
 
+.step-row.skipped {
+  opacity: 0.3;
+  text-decoration: line-through;
+}
+
 /* Step Dot */
 .step-dot {
   width: 20px;
@@ -450,6 +514,12 @@
 .step-dot.error {
   background: var(--color-danger);
   color: white;
+}
+
+.step-dot.skipped {
+  background: var(--color-surface-active);
+  color: var(--color-text-dim);
+  font-size: 10px;
 }
 
 /* Dot pulse animation */
