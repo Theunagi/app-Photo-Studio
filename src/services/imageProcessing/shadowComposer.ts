@@ -5,11 +5,11 @@
  * and composites it under the cutout product for photorealistic grounding.
  *
  * Algorithm:
- * 1. Luma Keying: Scan white-bg image. Pixels with luminance < 245 are shadow.
- * 2. Extraction: Alpha = (255 - Luminance) * Opacity (0.8)
- * 3. Masking: Use cutout bounding box to limit shadow region (avoid edge artifacts).
- * 4. Blur: Gaussian blur 8px on shadow mask.
- * 5. Composite: Shadow layer (Multiply) + Product layer (Normal).
+ * 1. Use cutout alpha to identify product pixels (exclude from shadow).
+ * 2. Luma Keying: Scan white-bg image. Non-product pixels with luminance < 245 are shadow.
+ * 3. Restrict shadow zone to BELOW the product bottom (contact shadow area).
+ * 4. Blur: Gaussian blur on shadow mask.
+ * 5. Composite: Shadow layer + Product layer (Normal).
  */
 
 import { getLuminance, getImageData, canvasToBlob, canvasToDataUrl } from './utils';
@@ -56,7 +56,6 @@ function boxBlur(buffer: Float32Array, width: number, height: number, radius: nu
       let sum = 0;
       const size = radius * 2 + 1;
 
-      // Initialize window
       for (let x = -radius; x <= radius; x++) {
         const cx = Math.max(0, Math.min(width - 1, x));
         sum += src[y * width + cx];
@@ -71,7 +70,6 @@ function boxBlur(buffer: Float32Array, width: number, height: number, radius: nu
       }
     }
 
-    // Swap for vertical pass
     const tmpH = src;
     src = dst;
     dst = tmpH;
@@ -104,7 +102,10 @@ function boxBlur(buffer: Float32Array, width: number, height: number, radius: nu
 }
 
 /**
- * Compose the final image: shadow layer (Multiply blend) + cutout product (Normal blend).
+ * Compose the final image: shadow layer + cutout product.
+ *
+ * Key fix: Use cutout alpha to EXCLUDE product pixels from shadow extraction.
+ * Shadow is only extracted from areas OUTSIDE the product, primarily BELOW it.
  *
  * @param whiteBgDataUrl - Retouched image on white background (Step 4 output)
  * @param cutoutDataUrl - Cutout product with transparency (Step 5 output)
@@ -127,47 +128,58 @@ export async function composeShadow(
   // Find bounding box of cutout product
   const bbox = findBoundingBox(cutoutData);
 
-  // Expand bbox with margin for shadow area (shadows extend below and around product)
-  const margin = Math.floor(Math.max(width, height) * 0.05); // 5% margin
-  const shadowMinX = Math.max(0, bbox.minX - margin);
-  const shadowMinY = Math.max(0, bbox.minY - margin);
-  const shadowMaxX = Math.min(width - 1, bbox.maxX + margin);
-  const shadowMaxY = Math.min(height - 1, bbox.maxY + margin);
+  // Shadow zone: primarily BELOW the product bottom, with slight side extension
+  // Contact shadow lives at the base of the product and extends downward
+  const productBottom = bbox.maxY;
+  const productHeight = bbox.maxY - bbox.minY;
+  const shadowDepth = Math.floor(productHeight * 0.15); // shadow extends 15% of product height below
+  const sideMargin = Math.floor((bbox.maxX - bbox.minX) * 0.1); // 10% side extension
 
-  // Step 1 & 2: Extract shadow alpha from white background
-  // Shadow is anywhere the background is darker than pure white
+  const shadowMinX = Math.max(0, bbox.minX - sideMargin);
+  const shadowMaxX = Math.min(width - 1, bbox.maxX + sideMargin);
+  // Shadow starts slightly above product bottom (to catch contact area) and extends below
+  const shadowMinY = Math.max(0, productBottom - Math.floor(productHeight * 0.05));
+  const shadowMaxY = Math.min(height - 1, productBottom + shadowDepth);
+
+  // Extract shadow alpha from white background
+  // ONLY from pixels that are NOT part of the product (cutout alpha < 128)
   const shadowAlpha = new Float32Array(width * height);
   const SHADOW_THRESHOLD = 245;
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
-      const r = whiteBgData.data[idx];
-      const g = whiteBgData.data[idx + 1];
-      const b = whiteBgData.data[idx + 2];
-      const lum = getLuminance(r, g, b);
 
-      // Only extract shadow within the masked region (around product)
+      // Skip pixels that are part of the product (use cutout alpha to mask)
+      const cutoutAlpha = cutoutData.data[idx + 3];
+      if (cutoutAlpha > 128) continue;
+
+      // Only extract shadow in the contact shadow zone (below product)
       if (x >= shadowMinX && x <= shadowMaxX && y >= shadowMinY && y <= shadowMaxY) {
+        const r = whiteBgData.data[idx];
+        const g = whiteBgData.data[idx + 1];
+        const b = whiteBgData.data[idx + 2];
+        const lum = getLuminance(r, g, b);
+
         if (lum < SHADOW_THRESHOLD) {
           // Alpha = (255 - Luminance) * Opacity
-          shadowAlpha[y * width + x] = ((255 - lum) / 255) * shadowOpacity;
+          // Fade shadow based on distance from product bottom
+          const distFromBottom = Math.max(0, y - productBottom);
+          const fadeFactor = 1.0 - (distFromBottom / Math.max(1, shadowDepth));
+          shadowAlpha[y * width + x] = ((255 - lum) / 255) * shadowOpacity * Math.max(0, fadeFactor);
         }
       }
     }
   }
 
-  // Step 4: Blur the shadow mask
+  // Blur the shadow mask
   const blurredShadow = boxBlur(shadowAlpha, width, height, blurRadius);
 
-  // Step 5: Composite
-  // Create output canvas
+  // Composite: transparent background + shadow + product on top
   const outputCanvas = document.createElement('canvas');
   outputCanvas.width = width;
   outputCanvas.height = height;
   const outCtx = outputCanvas.getContext('2d')!;
-
-  // Start with transparent background
   const outputData = outCtx.createImageData(width, height);
 
   for (let y = 0; y < height; y++) {
@@ -175,17 +187,16 @@ export async function composeShadow(
       const idx = (y * width + x) * 4;
       const sIdx = y * width + x;
 
-      // Shadow layer: dark gray multiplied by shadow alpha
+      // Shadow layer
       const sAlpha = blurredShadow[sIdx];
 
-      // Cutout layer
+      // Cutout product layer
       const cR = cutoutData.data[idx];
       const cG = cutoutData.data[idx + 1];
       const cB = cutoutData.data[idx + 2];
       const cA = cutoutData.data[idx + 3] / 255;
 
-      // Composite: shadow underneath, product on top (premultiplied alpha compositing)
-      // Shadow color is dark gray (#333) with sAlpha
+      // Shadow color: dark gray (#333)
       const shadowR = 51 * sAlpha;
       const shadowG = 51 * sAlpha;
       const shadowB = 51 * sAlpha;
