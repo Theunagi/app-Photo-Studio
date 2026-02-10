@@ -197,6 +197,27 @@ const StudioScreen: React.FC = () => {
           )}
         </div>
 
+        {/* Resolution Selector */}
+        <div className="resolution-selector">
+          <span className="resolution-label">Output Resolution</span>
+          <div className="resolution-options">
+            <button
+              className={`resolution-btn ${config.imageSize === '2K' ? 'active' : ''}`}
+              onClick={() => updateConfig('imageSize', '2K')}
+              disabled={isRunning}
+            >
+              2K
+            </button>
+            <button
+              className={`resolution-btn ${config.imageSize === '4K' ? 'active' : ''}`}
+              onClick={() => updateConfig('imageSize', '4K')}
+              disabled={isRunning}
+            >
+              4K
+            </button>
+          </div>
+        </div>
+
         {/* Pipeline Controls */}
         <div className="pipeline-controls">
           <button
