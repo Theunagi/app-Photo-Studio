@@ -138,16 +138,19 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     setIsRunning(false);
   }, []);
 
-  // --- Download Final ---
-  const handleDownload = useCallback(() => {
-    const finalData = pipelineState.autoCrop.data;
-    if (!finalData) return;
-    const result = finalData as { imageDataUrl: string };
+  // --- Download any step image ---
+  const downloadImage = useCallback((dataUrl: string, suffix: string) => {
+    const base = project?.name ?? inputFile?.name ?? 'output';
     const link = document.createElement('a');
-    link.href = result.imageDataUrl;
-    link.download = `studio-${project?.name ?? inputFile?.name ?? 'output'}.png`;
+    link.href = dataUrl;
+    link.download = `studio-${base}-${suffix}.png`;
     link.click();
-  }, [pipelineState.autoCrop.data, inputFile, project]);
+  }, [inputFile, project]);
+
+  const handleDownload = useCallback(() => {
+    const img = getStepImage('autoCrop');
+    if (img) downloadImage(img, 'final');
+  }, [pipelineState.autoCrop.data, downloadImage]);
 
   // --- Config Update ---
   const updateConfig = useCallback((field: keyof PipelineConfig, value: string) => {
@@ -391,33 +394,35 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
           </div>
         )}
 
-        {/* Results Gallery */}
-        {pipelineState.studioGeneration.status === 'completed' && (
+        {/* Available Downloads */}
+        {pipelineState.cutout.status === 'completed' && (
           <section className="gallery-section">
-            <h3>Pipeline Results</h3>
+            <h3>Available Downloads</h3>
             <div className="gallery-grid">
-              {getStepImage('studioGeneration') && (
-                <div className="gallery-item">
-                  <span className="gallery-label">Studio Render</span>
-                  <img src={getStepImage('studioGeneration')!} alt="Studio render" />
-                </div>
-              )}
-              {getStepImage('retouch') && (
-                <div className="gallery-item">
-                  <span className="gallery-label">Color Graded</span>
-                  <img src={getStepImage('retouch')!} alt="Retouched" />
-                </div>
-              )}
               {getStepImage('cutout') && (
                 <div className="gallery-item">
                   <span className="gallery-label">Cutout</span>
                   <img src={getStepImage('cutout')!} alt="Cutout" />
+                  <button
+                    className="gallery-download"
+                    onClick={e => { e.stopPropagation(); downloadImage(getStepImage('cutout')!, 'cutout'); }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    PNG
+                  </button>
                 </div>
               )}
               {getStepImage('shadowComposite') && (
                 <div className="gallery-item">
                   <span className="gallery-label">Shadow</span>
                   <img src={getStepImage('shadowComposite')!} alt="Shadow" />
+                  <button
+                    className="gallery-download"
+                    onClick={e => { e.stopPropagation(); downloadImage(getStepImage('shadowComposite')!, 'shadow'); }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    PNG
+                  </button>
                 </div>
               )}
             </div>
