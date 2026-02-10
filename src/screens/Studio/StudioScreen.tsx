@@ -1,8 +1,6 @@
 /**
- * Studio Pro - Front Full Pipeline Screen
- *
- * Hybrid pipeline: LLM Vision + Generative AI + DSP
- * Upload a product photo (front view) and get a studio-quality render.
+ * Photo Studio - Main Screen
+ * Modern UI for the Studio Pro image processing pipeline.
  */
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -11,15 +9,12 @@ import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } f
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import './StudioScreen.css';
 
-// --- Status icon helper ---
-function statusIcon(status: string): React.ReactNode {
-  switch (status) {
-    case 'idle': return <span className="step-status-icon">-</span>;
-    case 'running': return <span className="step-status-icon"><span className="spinner" /></span>;
-    case 'completed': return <span className="step-status-icon">+</span>;
-    case 'error': return <span className="step-status-icon">x</span>;
-    default: return <span className="step-status-icon">-</span>;
-  }
+// --- Step status indicator ---
+function StepIndicator({ status }: { status: string }) {
+  if (status === 'running') return <span className="step-dot running"><span className="dot-pulse" /></span>;
+  if (status === 'completed') return <span className="step-dot completed"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span>;
+  if (status === 'error') return <span className="step-dot error"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3L9 9M9 3L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></span>;
+  return <span className="step-dot idle" />;
 }
 
 const StudioScreen: React.FC = () => {
@@ -38,6 +33,8 @@ const StudioScreen: React.FC = () => {
   const [inputPreview, setInputPreview] = useState<string | null>(null);
   const [pipelineState, setPipelineState] = useState<PipelineState>(createInitialPipelineState());
   const [isRunning, setIsRunning] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- File Upload ---
@@ -48,12 +45,12 @@ const StudioScreen: React.FC = () => {
     const reader = new FileReader();
     reader.onload = () => setInputPreview(reader.result as string);
     reader.readAsDataURL(file);
-    // Reset pipeline state
     setPipelineState(createInitialPipelineState());
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (!file || !file.type.startsWith('image/')) return;
     setInputFile(file);
@@ -63,17 +60,11 @@ const StudioScreen: React.FC = () => {
     setPipelineState(createInitialPipelineState());
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
-
   // --- Pipeline Execution ---
   const handleRunPipeline = useCallback(async () => {
     if (!inputFile) return;
-
     setIsRunning(true);
     setPipelineState(createInitialPipelineState());
-
     try {
       await runPipeline({
         config,
@@ -103,7 +94,7 @@ const StudioScreen: React.FC = () => {
     const result = finalData as { imageDataUrl: string };
     const link = document.createElement('a');
     link.href = result.imageDataUrl;
-    link.download = `studio-pro-${inputFile?.name ?? 'output'}.png`;
+    link.download = `studio-${inputFile?.name ?? 'output'}.png`;
     link.click();
   }, [pipelineState.autoCrop.data, inputFile]);
 
@@ -128,223 +119,254 @@ const StudioScreen: React.FC = () => {
     return (data.imageDataUrl as string) ?? null;
   };
 
+  // --- Progress calculation ---
+  const completedSteps = PIPELINE_STEPS.filter(s => pipelineState[s.key].status === 'completed').length;
+  const progressPercent = (completedSteps / PIPELINE_STEPS.length) * 100;
+
   // --- Render ---
   return (
-    <div className="screen studio-screen">
-      <div className="screen-content">
-        <h1 className="screen-title">Studio Pro - Front Pipeline</h1>
-        <p className="screen-subtitle">
-          Product photo to studio-quality render in 7 steps
-        </p>
-
-        {/* API Configuration */}
-        <details className="api-config card">
-          <summary>API Keys Configuration</summary>
-          <div className="api-config-fields">
-            <label>
-              OpenAI API Key
-              <input
-                type="text"
-                placeholder="sk-proj-..."
-                value={config.openaiApiKey}
-                onChange={e => updateConfig('openaiApiKey', e.target.value)}
-              />
-            </label>
-            <label>
-              Gemini API Key
-              <input
-                type="text"
-                placeholder="AI..."
-                value={config.geminiApiKey}
-                onChange={e => updateConfig('geminiApiKey', e.target.value)}
-              />
-            </label>
-            <label>
-              Fal.ai API Key
-              <input
-                type="text"
-                placeholder="84f7d31a..."
-                value={config.falApiKey}
-                onChange={e => updateConfig('falApiKey', e.target.value)}
-              />
-            </label>
-          </div>
-        </details>
-
-        {/* Upload Area */}
-        <div
-          className={`upload-area ${inputPreview ? 'has-image' : ''}`}
-          onClick={() => fileInputRef.current?.click()}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-          {inputPreview ? (
-            <img src={inputPreview} alt="Input preview" className="preview-image" />
-          ) : (
-            <>
-              <span className="upload-icon">+</span>
-              <p className="upload-text">
-                <strong>Click or drag</strong> to upload a product photo (front view)
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Resolution Selector */}
-        <div className="resolution-selector">
-          <span className="resolution-label">Output Resolution</span>
-          <div className="resolution-options">
-            <button
-              className={`resolution-btn ${config.imageSize === '2K' ? 'active' : ''}`}
-              onClick={() => updateConfig('imageSize', '2K')}
-              disabled={isRunning}
-            >
-              2K
-            </button>
-            <button
-              className={`resolution-btn ${config.imageSize === '4K' ? 'active' : ''}`}
-              onClick={() => updateConfig('imageSize', '4K')}
-              disabled={isRunning}
-            >
-              4K
-            </button>
+    <div className="studio">
+      {/* Header */}
+      <header className="studio-header">
+        <div className="header-left">
+          <div className="logo">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect width="28" height="28" rx="8" fill="url(#logo-grad)"/>
+              <circle cx="14" cy="13" r="5" stroke="white" strokeWidth="1.5" fill="none"/>
+              <circle cx="14" cy="13" r="2" fill="white"/>
+              <rect x="8" y="7" width="12" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
+              <defs>
+                <linearGradient id="logo-grad" x1="0" y1="0" x2="28" y2="28">
+                  <stop stopColor="#6366f1"/><stop offset="1" stopColor="#06b6d4"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <span className="logo-text">Photo Studio</span>
           </div>
         </div>
-
-        {/* Pipeline Controls */}
-        <div className="pipeline-controls">
+        <div className="header-right">
           <button
-            className="btn btn-run"
-            onClick={handleRunPipeline}
-            disabled={!canRun}
+            className="settings-toggle"
+            onClick={() => setShowSettings(!showSettings)}
+            title="Settings"
           >
-            {isRunning ? 'Processing...' : 'Run Pipeline'}
-          </button>
-          {missingItems.length > 0 && !isRunning && (
-            <span style={{ color: '#FF5050', fontSize: '14px', alignSelf: 'center' }}>
-              Missing: {missingItems.join(', ')}
-            </span>
-          )}
-          <button
-            className="btn btn-reset"
-            onClick={handleReset}
-          >
-            Reset
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M9 1.5V3M9 15v1.5M1.5 9H3M15 9h1.5M3.4 3.4l1.1 1.1M13.5 13.5l1.1 1.1M3.4 14.6l1.1-1.1M13.5 4.5l1.1-1.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
           </button>
         </div>
+      </header>
 
-        {/* Pipeline Steps Tracker */}
-        <div className="pipeline-tracker card">
-          <h3>Pipeline Progress</h3>
-          <div className="step-list">
-            {PIPELINE_STEPS.map(step => {
-              const result = pipelineState[step.key];
-              return (
-                <div key={step.key} className={`step-item ${result.status}`}>
-                  {statusIcon(result.status)}
-                  <span className="step-label">{step.label}</span>
-                  {result.durationMs !== undefined && (
-                    <span className="step-duration">{(result.durationMs / 1000).toFixed(1)}s</span>
-                  )}
-                  {result.error && (
-                    <span className="step-error" title={result.error}>{result.error}</span>
-                  )}
+      <main className="studio-main">
+        {/* Settings Panel */}
+        {showSettings && (
+          <section className="settings-panel">
+            <div className="settings-grid">
+              <div className="setting-field">
+                <label>OpenAI API Key</label>
+                <input
+                  type="text"
+                  placeholder="sk-proj-..."
+                  value={config.openaiApiKey}
+                  onChange={e => updateConfig('openaiApiKey', e.target.value)}
+                />
+              </div>
+              <div className="setting-field">
+                <label>Gemini API Key</label>
+                <input
+                  type="text"
+                  placeholder="AI..."
+                  value={config.geminiApiKey}
+                  onChange={e => updateConfig('geminiApiKey', e.target.value)}
+                />
+              </div>
+              <div className="setting-field">
+                <label>Fal.ai API Key</label>
+                <input
+                  type="text"
+                  placeholder="xxxxxxxx-xxxx-..."
+                  value={config.falApiKey}
+                  onChange={e => updateConfig('falApiKey', e.target.value)}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Upload + Controls Section */}
+        <section className="upload-section">
+          <div
+            className={`dropzone ${inputPreview ? 'has-image' : ''} ${isDragging ? 'dragging' : ''}`}
+            onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+            {inputPreview ? (
+              <img src={inputPreview} alt="Input" className="dropzone-preview" />
+            ) : (
+              <div className="dropzone-placeholder">
+                <div className="dropzone-icon">
+                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <path d="M20 8v24M8 20h24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
                 </div>
-              );
-            })}
+                <p className="dropzone-title">Drop your product photo</p>
+                <p className="dropzone-hint">or click to browse</p>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Analysis Results */}
+          {/* Controls Bar */}
+          <div className="controls-bar">
+            <div className="controls-left">
+              {/* Resolution Toggle */}
+              <div className="resolution-toggle">
+                <button
+                  className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`}
+                  onClick={() => updateConfig('imageSize', '2K')}
+                  disabled={isRunning}
+                >2K</button>
+                <button
+                  className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`}
+                  onClick={() => updateConfig('imageSize', '4K')}
+                  disabled={isRunning}
+                >4K</button>
+              </div>
+
+              {missingItems.length > 0 && !isRunning && (
+                <span className="missing-hint">
+                  {missingItems.join(' + ')} required
+                </span>
+              )}
+            </div>
+
+            <div className="controls-right">
+              {(inputFile || completedSteps > 0) && (
+                <button className="btn-ghost" onClick={handleReset}>Reset</button>
+              )}
+              <button
+                className="btn-primary"
+                onClick={handleRunPipeline}
+                disabled={!canRun}
+              >
+                {isRunning ? (
+                  <>
+                    <span className="btn-spinner" />
+                    Processing...
+                  </>
+                ) : (
+                  'Generate'
+                )}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Pipeline Progress */}
+        {(isRunning || completedSteps > 0) && (
+          <section className="pipeline-section">
+            {/* Progress bar */}
+            <div className="progress-bar-track">
+              <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+
+            <div className="steps-grid">
+              {PIPELINE_STEPS.map(step => {
+                const result = pipelineState[step.key];
+                return (
+                  <div key={step.key} className={`step-row ${result.status}`}>
+                    <StepIndicator status={result.status} />
+                    <span className="step-name">{step.label}</span>
+                    {result.durationMs !== undefined && (
+                      <span className="step-time">{(result.durationMs / 1000).toFixed(1)}s</span>
+                    )}
+                    {result.error && (
+                      <span className="step-err" title={result.error}>{result.error}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Analysis Card */}
         {pipelineState.analysis.status === 'completed' && pipelineState.analysis.data && (
-          <div className="card" style={{ marginTop: 'var(--spacing-md)' }}>
+          <section className="card analysis-card">
             <h3>Product Analysis</h3>
-            <div className="analysis-text">
+            <pre className="analysis-content">
               {(pipelineState.analysis.data as { rawResponse: string }).rawResponse}
-            </div>
-          </div>
+            </pre>
+          </section>
         )}
 
-        {/* Luminance Result */}
+        {/* Luminance Badge */}
         {pipelineState.luminanceCheck.status === 'completed' && pipelineState.luminanceCheck.data && (
-          <div style={{ textAlign: 'center', marginTop: 'var(--spacing-md)' }}>
-            <span className={`luminance-badge ${(pipelineState.luminanceCheck.data as string).toLowerCase()}`}>
-              Product: {pipelineState.luminanceCheck.data as string}
+          <div className="luminance-row">
+            <span className={`lum-badge ${(pipelineState.luminanceCheck.data as string).toLowerCase()}`}>
+              {pipelineState.luminanceCheck.data as string} Product
             </span>
           </div>
         )}
 
-        {/* Intermediate Results Gallery */}
+        {/* Results Gallery */}
         {pipelineState.studioGeneration.status === 'completed' && (
-          <div className="results-gallery">
-            <h3>Pipeline Outputs</h3>
-            <div className="results-grid">
-              {/* Step 2: Studio Generation */}
+          <section className="gallery-section">
+            <h3>Pipeline Results</h3>
+            <div className="gallery-grid">
               {getStepImage('studioGeneration') && (
-                <div className="result-card">
-                  <h4>Step 2: Studio Render</h4>
-                  <img src={getStepImage('studioGeneration')!} alt="Studio render" className="result-image" />
-                  {pipelineState.studioGeneration.durationMs && (
-                    <span className="step-duration">{(pipelineState.studioGeneration.durationMs / 1000).toFixed(1)}s</span>
-                  )}
+                <div className="gallery-item">
+                  <span className="gallery-label">Studio Render</span>
+                  <img src={getStepImage('studioGeneration')!} alt="Studio render" />
                 </div>
               )}
-
-              {/* Step 4: Retouch */}
               {getStepImage('retouch') && (
-                <div className="result-card">
-                  <h4>Step 4: Color Graded</h4>
-                  <img src={getStepImage('retouch')!} alt="Retouched" className="result-image" />
-                  {pipelineState.retouch.durationMs && (
-                    <span className="step-duration">{(pipelineState.retouch.durationMs / 1000).toFixed(1)}s</span>
-                  )}
+                <div className="gallery-item">
+                  <span className="gallery-label">Color Graded</span>
+                  <img src={getStepImage('retouch')!} alt="Retouched" />
                 </div>
               )}
-
-              {/* Step 5: Cutout */}
               {getStepImage('cutout') && (
-                <div className="result-card">
-                  <h4>Step 5: Cutout</h4>
-                  <img src={getStepImage('cutout')!} alt="Cutout" className="result-image" />
-                  {pipelineState.cutout.durationMs && (
-                    <span className="step-duration">{(pipelineState.cutout.durationMs / 1000).toFixed(1)}s</span>
-                  )}
+                <div className="gallery-item">
+                  <span className="gallery-label">Cutout</span>
+                  <img src={getStepImage('cutout')!} alt="Cutout" />
                 </div>
               )}
-
-              {/* Step 6: Shadow Composite */}
               {getStepImage('shadowComposite') && (
-                <div className="result-card">
-                  <h4>Step 6: Shadow Composed</h4>
-                  <img src={getStepImage('shadowComposite')!} alt="Shadow composite" className="result-image" />
-                  {pipelineState.shadowComposite.durationMs && (
-                    <span className="step-duration">{(pipelineState.shadowComposite.durationMs / 1000).toFixed(1)}s</span>
-                  )}
+                <div className="gallery-item">
+                  <span className="gallery-label">Shadow</span>
+                  <img src={getStepImage('shadowComposite')!} alt="Shadow" />
                 </div>
               )}
             </div>
-          </div>
+          </section>
         )}
 
         {/* Final Output */}
         {pipelineState.autoCrop.status === 'completed' && getStepImage('autoCrop') && (
-          <div className="final-output">
+          <section className="final-section">
             <h3>Final Output</h3>
-            <img src={getStepImage('autoCrop')!} alt="Final output" className="final-image" />
-            <br />
-            <button className="btn download-btn" onClick={handleDownload}>
+            <div className="final-frame">
+              <img src={getStepImage('autoCrop')!} alt="Final output" className="final-img" />
+            </div>
+            <button className="btn-download" onClick={handleDownload}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
               Download PNG
             </button>
-          </div>
+          </section>
         )}
-      </div>
+      </main>
     </div>
   );
 };
