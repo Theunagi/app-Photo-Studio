@@ -299,6 +299,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
       : PROGRESS_MESSAGES[Math.min(completedSteps, PROGRESS_MESSAGES.length - 1)];
 
   const isFastMode = !project;
+  const pipelineComplete = pipelineState.autoCrop.status === 'completed' && !!getStepImage('autoCrop');
 
   // --- Render ---
   return (
@@ -337,7 +338,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
         </div>
       </header>
 
-      <main className="studio-main">
+      <main className={`studio-main ${pipelineComplete ? 'studio-main--results' : ''}`}>
         {/* Settings Panel */}
         {showSettings && (
           <section className="settings-panel">
@@ -373,106 +374,108 @@ High-end product photography style, natural lighting, shallow depth of field whe
           </section>
         )}
 
-        {/* Upload + Controls Section */}
-        <section className="upload-section">
-          <div
-            className={`dropzone ${inputPreview ? 'has-image' : ''} ${isDragging ? 'dragging' : ''}`}
-            onClick={() => fileInputRef.current?.click()}
-            onDrop={handleDrop}
-            onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-            {inputPreview ? (
-              <img src={inputPreview} alt="Input" className="dropzone-preview" />
-            ) : (
-              <div className="dropzone-placeholder">
-                <div className="dropzone-icon">
-                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                    <path d="M20 8v24M8 20h24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
+        {/* Upload + Controls Section — hidden once results are ready */}
+        {!pipelineComplete && (
+          <section className="upload-section">
+            <div
+              className={`dropzone ${inputPreview ? 'has-image' : ''} ${isDragging ? 'dragging' : ''}`}
+              onClick={() => fileInputRef.current?.click()}
+              onDrop={handleDrop}
+              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+              />
+              {inputPreview ? (
+                <img src={inputPreview} alt="Input" className="dropzone-preview" />
+              ) : (
+                <div className="dropzone-placeholder">
+                  <div className="dropzone-icon">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                      <path d="M20 8v24M8 20h24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <p className="dropzone-title">Drop your product photo</p>
+                  <p className="dropzone-hint">or click to browse</p>
                 </div>
-                <p className="dropzone-title">Drop your product photo</p>
-                <p className="dropzone-hint">or click to browse</p>
-              </div>
-            )}
-          </div>
-
-          {/* Controls Bar */}
-          <div className="controls-bar">
-            <div className="controls-left">
-              {/* Resolution Toggle */}
-              <div className="resolution-toggle">
-                <button
-                  className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`}
-                  onClick={() => updateConfig('imageSize', '2K')}
-                  disabled={isRunning}
-                >2K</button>
-                <button
-                  className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`}
-                  onClick={() => updateConfig('imageSize', '4K')}
-                  disabled={isRunning}
-                >4K</button>
-              </div>
-
-              {/* Shadow Toggle */}
-              <button
-                className={`option-toggle ${shadowEnabled ? 'active' : ''}`}
-                onClick={toggleShadow}
-                disabled={isRunning}
-              >
-                <span className="toggle-track">
-                  <span className="toggle-thumb" />
-                </span>
-                <span className="toggle-label">Shadow</span>
-              </button>
-
-              {/* White Background Toggle */}
-              <button
-                className={`option-toggle ${whiteBgEnabled ? 'active' : ''} ${!shadowEnabled ? 'disabled-toggle' : ''}`}
-                onClick={toggleWhiteBg}
-                disabled={isRunning || !shadowEnabled}
-              >
-                <span className="toggle-track">
-                  <span className="toggle-thumb" />
-                </span>
-                <span className="toggle-label">White BG</span>
-              </button>
-
-              {missingItems.length > 0 && !isRunning && (
-                <span className="missing-hint">
-                  {missingItems.join(' + ')} required
-                </span>
               )}
             </div>
 
-            <div className="controls-right">
-              {(inputFile || completedSteps > 0) && (
-                <button className="btn-ghost" onClick={handleReset}>Reset</button>
-              )}
-              <button
-                className="btn-primary"
-                onClick={handleRunPipeline}
-                disabled={!canRun}
-              >
-                {isRunning ? (
-                  <>
-                    <span className="btn-spinner" />
-                    Processing...
-                  </>
-                ) : (
-                  'Generate'
+            {/* Controls Bar */}
+            <div className="controls-bar">
+              <div className="controls-left">
+                {/* Resolution Toggle */}
+                <div className="resolution-toggle">
+                  <button
+                    className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`}
+                    onClick={() => updateConfig('imageSize', '2K')}
+                    disabled={isRunning}
+                  >2K</button>
+                  <button
+                    className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`}
+                    onClick={() => updateConfig('imageSize', '4K')}
+                    disabled={isRunning}
+                  >4K</button>
+                </div>
+
+                {/* Shadow Toggle */}
+                <button
+                  className={`option-toggle ${shadowEnabled ? 'active' : ''}`}
+                  onClick={toggleShadow}
+                  disabled={isRunning}
+                >
+                  <span className="toggle-track">
+                    <span className="toggle-thumb" />
+                  </span>
+                  <span className="toggle-label">Shadow</span>
+                </button>
+
+                {/* White Background Toggle */}
+                <button
+                  className={`option-toggle ${whiteBgEnabled ? 'active' : ''} ${!shadowEnabled ? 'disabled-toggle' : ''}`}
+                  onClick={toggleWhiteBg}
+                  disabled={isRunning || !shadowEnabled}
+                >
+                  <span className="toggle-track">
+                    <span className="toggle-thumb" />
+                  </span>
+                  <span className="toggle-label">White BG</span>
+                </button>
+
+                {missingItems.length > 0 && !isRunning && (
+                  <span className="missing-hint">
+                    {missingItems.join(' + ')} required
+                  </span>
                 )}
-              </button>
+              </div>
+
+              <div className="controls-right">
+                {(inputFile || completedSteps > 0) && (
+                  <button className="btn-ghost" onClick={handleReset}>Reset</button>
+                )}
+                <button
+                  className="btn-primary"
+                  onClick={handleRunPipeline}
+                  disabled={!canRun}
+                >
+                  {isRunning ? (
+                    <>
+                      <span className="btn-spinner" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Generate'
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Progress Bar */}
         {(isRunning || completedSteps > 0) && completedSteps < totalSteps && (
@@ -491,9 +494,10 @@ High-end product photography style, natural lighting, shallow depth of field whe
         )}
 
         {/* Result Viewer */}
-        {pipelineState.autoCrop.status === 'completed' && getStepImage('autoCrop') && (() => {
+        {pipelineComplete && (() => {
           type Variant = { key: string; label: string; image: string };
           const base: Variant[] = [
+            ...(inputPreview ? [{ key: 'original', label: 'Original', image: inputPreview }] : []),
             { key: 'final', label: 'Final', image: getStepImage('autoCrop')! },
             { key: 'cutout', label: 'Cutout', image: getStepImage('cutout')! },
             { key: 'shadow', label: 'Shadow', image: getStepImage('shadowComposite')! },
@@ -505,7 +509,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
             image: li.image,
           }));
           const variants = [...base, ...lifeVariants];
-          const current = variants.find(v => v.key === activeVariant) ?? variants[0];
+          const current = variants.find(v => v.key === activeVariant) ?? variants.find(v => v.key === 'final') ?? variants[0];
           const downloadSuffix = current.key;
 
           return (
@@ -521,7 +525,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
                       {variants.map(v => (
                         <button
                           key={v.key}
-                          className={`result-thumb ${v.key === activeVariant ? 'active' : ''}`}
+                          className={`result-thumb ${v.key === (current.key) ? 'active' : ''}`}
                           onClick={() => setActiveVariant(v.key)}
                           title={v.label}
                         >
@@ -557,6 +561,20 @@ High-end product photography style, natural lighting, shallow depth of field whe
                       <path d="M3 13l4-3.5 3 2.5 3-4 4 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     <span>Lifestyle</span>
+                  </button>
+
+                  <button
+                    className="sidebar-action"
+                    onClick={handleRunPipeline}
+                    disabled={isRunning || !inputFile}
+                    title="Regenerate base image"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M3.5 10a6.5 6.5 0 0111.3-4.4M16.5 10a6.5 6.5 0 01-11.3 4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                      <path d="M14 2.5v4h-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M6 17.5v-4h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span>{isRunning ? '...' : 'Redo'}</span>
                   </button>
                 </div>
               </div>
