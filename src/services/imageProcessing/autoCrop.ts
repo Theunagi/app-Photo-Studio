@@ -108,11 +108,13 @@ function scanBrightness(data: Uint8ClampedArray, width: number, height: number):
 /**
  * Auto-crop an image to its content bounds + margin.
  * Works with both transparent and opaque (white bg) images.
+ * Adds a white safety zone so shadows never touch the frame edges.
  *
  * @param inputDataUrl - PNG image data URL
- * @param margin - Pixel margin to add around the content (default 10)
+ * @param margin - Pixel margin inside the source to include (default 10)
+ * @param safetyZone - Extra white/transparent padding added outside the crop (default 10)
  */
-export async function autoCrop(inputDataUrl: string, margin = 10): Promise<AutoCropResult> {
+export async function autoCrop(inputDataUrl: string, margin = 10, safetyZone = 10): Promise<AutoCropResult> {
   const { imageData } = await getImageData(inputDataUrl);
   const { data, width, height } = imageData;
 
@@ -147,7 +149,7 @@ export async function autoCrop(inputDataUrl: string, margin = 10): Promise<AutoC
     };
   }
 
-  // Apply margin
+  // Crop region (with inner margin, clamped to source bounds)
   const cropX = Math.max(0, bounds.minX - margin);
   const cropY = Math.max(0, bounds.minY - margin);
   const cropMaxX = Math.min(width, bounds.maxX + 1 + margin);
@@ -155,28 +157,39 @@ export async function autoCrop(inputDataUrl: string, margin = 10): Promise<AutoC
   const cropWidth = cropMaxX - cropX;
   const cropHeight = cropMaxY - cropY;
 
-  // Create cropped canvas
-  const croppedCanvas = document.createElement('canvas');
-  croppedCanvas.width = cropWidth;
-  croppedCanvas.height = cropHeight;
-  const croppedCtx = croppedCanvas.getContext('2d')!;
+  // Detect if image is opaque (white bg) to decide safety zone fill color
+  const isOpaque = !alphaCropMeaningful;
 
-  // Source canvas to draw from
+  // Source canvas
   const srcCanvas = document.createElement('canvas');
   srcCanvas.width = width;
   srcCanvas.height = height;
   const srcCtx = srcCanvas.getContext('2d')!;
   srcCtx.putImageData(imageData, 0, 0);
 
-  // Draw cropped region
-  croppedCtx.drawImage(
+  // Final canvas with safety zone padding
+  const finalWidth = cropWidth + safetyZone * 2;
+  const finalHeight = cropHeight + safetyZone * 2;
+  const finalCanvas = document.createElement('canvas');
+  finalCanvas.width = finalWidth;
+  finalCanvas.height = finalHeight;
+  const finalCtx = finalCanvas.getContext('2d')!;
+
+  // Fill safety zone with white for opaque images (keeps shadow realistic)
+  if (isOpaque) {
+    finalCtx.fillStyle = '#FFFFFF';
+    finalCtx.fillRect(0, 0, finalWidth, finalHeight);
+  }
+
+  // Draw cropped content centered in the safety zone
+  finalCtx.drawImage(
     srcCanvas,
     cropX, cropY, cropWidth, cropHeight,
-    0, 0, cropWidth, cropHeight
+    safetyZone, safetyZone, cropWidth, cropHeight
   );
 
-  const imageDataUrl = canvasToDataUrl(croppedCanvas);
-  const imageBlob = await canvasToBlob(croppedCanvas);
+  const imageDataUrl = canvasToDataUrl(finalCanvas);
+  const imageBlob = await canvasToBlob(finalCanvas);
 
   return {
     imageBlob,
