@@ -167,9 +167,14 @@ export async function autoCrop(inputDataUrl: string, margin = 10, safetyZone = 1
   const srcCtx = srcCanvas.getContext('2d')!;
   srcCtx.putImageData(imageData, 0, 0);
 
+  // Asymmetric safety zone: more at bottom for drop shadow
+  const safetyTop = safetyZone;
+  const safetySide = safetyZone;
+  const safetyBottom = safetyZone * 3; // 30px bottom for shadow fade
+
   // Final canvas with safety zone padding
-  const finalWidth = cropWidth + safetyZone * 2;
-  const finalHeight = cropHeight + safetyZone * 2;
+  const finalWidth = cropWidth + safetySide * 2;
+  const finalHeight = cropHeight + safetyTop + safetyBottom;
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = finalWidth;
   finalCanvas.height = finalHeight;
@@ -181,11 +186,11 @@ export async function autoCrop(inputDataUrl: string, margin = 10, safetyZone = 1
     finalCtx.fillRect(0, 0, finalWidth, finalHeight);
   }
 
-  // Draw cropped content centered in the safety zone
+  // Draw cropped content centered horizontally, offset from top
   finalCtx.drawImage(
     srcCanvas,
     cropX, cropY, cropWidth, cropHeight,
-    safetyZone, safetyZone, cropWidth, cropHeight
+    safetySide, safetyTop, cropWidth, cropHeight
   );
 
   const imageDataUrl = canvasToDataUrl(finalCanvas);
