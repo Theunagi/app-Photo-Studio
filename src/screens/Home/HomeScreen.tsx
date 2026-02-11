@@ -63,14 +63,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio }) => {
       {/* Header */}
       <header className="home-header">
         <div className="logo">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <rect width="28" height="28" rx="8" fill="url(#lg)"/>
-            <circle cx="14" cy="13" r="5" stroke="white" strokeWidth="1.5" fill="none"/>
-            <circle cx="14" cy="13" r="2" fill="white"/>
-            <rect x="8" y="7" width="12" height="1.5" rx="0.75" fill="white" opacity="0.5"/>
-            <defs><linearGradient id="lg" x1="0" y1="0" x2="28" y2="28"><stop stopColor="#6366f1"/><stop offset="1" stopColor="#06b6d4"/></linearGradient></defs>
-          </svg>
-          <span className="logo-text">Photo Studio</span>
+          <span className="logo-mark">P</span>
+          <span className="logo-text">PHOTO STUDIO</span>
+        </div>
+        <div className="header-actions">
+          <button className="btn-header-primary" onClick={() => onOpenStudio(null)}>
+            Create Visual Now
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
         </div>
       </header>
 
