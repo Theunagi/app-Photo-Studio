@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { PipelineConfig, PipelineState, PipelineStep, OutputFormat } from '../../models/pipeline';
+import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/pipeline';
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
@@ -215,6 +215,28 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     setConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // --- Toggle helpers for shadow/white bg ---
+  const shadowEnabled = config.outputFormat !== 'transparent-clean';
+  const whiteBgEnabled = config.outputFormat === 'white-shadow';
+
+  const toggleShadow = useCallback(() => {
+    setConfig(prev => ({
+      ...prev,
+      outputFormat: prev.outputFormat === 'transparent-clean'
+        ? 'transparent-shadow'   // turning shadow ON
+        : 'transparent-clean',   // turning shadow OFF
+    }));
+  }, []);
+
+  const toggleWhiteBg = useCallback(() => {
+    setConfig(prev => ({
+      ...prev,
+      outputFormat: prev.outputFormat === 'white-shadow'
+        ? 'transparent-shadow'   // turning white bg OFF
+        : 'white-shadow',        // turning white bg ON
+    }));
+  }, []);
+
   // --- Validation ---
   const missingItems: string[] = [];
   if (!inputFile && !inputPreview) missingItems.push('Image');
@@ -365,25 +387,29 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
                 >4K</button>
               </div>
 
-              {/* Output Format Selector */}
-              <div className="format-selector">
-                {([
-                  { value: 'transparent-shadow' as OutputFormat, label: 'Shadow', icon: '◐' },
-                  { value: 'white-shadow' as OutputFormat, label: 'White + Shadow', icon: '◻' },
-                  { value: 'transparent-clean' as OutputFormat, label: 'Clean', icon: '◇' },
-                ]).map(opt => (
-                  <button
-                    key={opt.value}
-                    className={`format-btn ${config.outputFormat === opt.value ? 'active' : ''}`}
-                    onClick={() => updateConfig('outputFormat', opt.value)}
-                    disabled={isRunning}
-                    title={opt.label}
-                  >
-                    <span className="format-icon">{opt.icon}</span>
-                    <span className="format-label">{opt.label}</span>
-                  </button>
-                ))}
-              </div>
+              {/* Shadow Toggle */}
+              <button
+                className={`option-toggle ${shadowEnabled ? 'active' : ''}`}
+                onClick={toggleShadow}
+                disabled={isRunning}
+              >
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+                <span className="toggle-label">Shadow</span>
+              </button>
+
+              {/* White Background Toggle */}
+              <button
+                className={`option-toggle ${whiteBgEnabled ? 'active' : ''} ${!shadowEnabled ? 'disabled-toggle' : ''}`}
+                onClick={toggleWhiteBg}
+                disabled={isRunning || !shadowEnabled}
+              >
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+                <span className="toggle-label">White BG</span>
+              </button>
 
               {missingItems.length > 0 && !isRunning && (
                 <span className="missing-hint">
