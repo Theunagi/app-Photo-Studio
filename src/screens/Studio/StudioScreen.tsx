@@ -8,6 +8,7 @@ import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/p
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
+import { callGeminiImageGen } from '../../services/api/gemini';
 import { saveProject } from '../../services/db/projectDB';
 import './StudioScreen.css';
 
@@ -90,7 +91,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeVariant, setActiveVariant] = useState<'final' | 'cutout' | 'shadow'>('final');
+  const [activeVariant, setActiveVariant] = useState<string>('final');
+  const [showLifestyle, setShowLifestyle] = useState(false);
+  const [lifestylePrompt, setLifestylePrompt] = useState('');
+  const [lifestyleImages, setLifestyleImages] = useState<{ image: string; prompt: string }[]>([]);
+  const [isGeneratingLifestyle, setIsGeneratingLifestyle] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
@@ -232,6 +237,39 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
         : 'white-shadow',        // turning white bg ON
     }));
   }, []);
+
+  // --- Lifestyle Generation ---
+  const handleGenerateLifestyle = useCallback(async () => {
+    const sourceImage = getStepImage('autoCrop');
+    if (!sourceImage || !lifestylePrompt.trim() || !config.geminiApiKey) return;
+
+    setIsGeneratingLifestyle(true);
+    try {
+      const prompt = `Using this product image on white background as reference, generate a lifestyle photo of this product ${lifestylePrompt.trim()}.
+The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
+Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
+High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
+
+      const response = await callGeminiImageGen({
+        apiKey: config.geminiApiKey,
+        imageDataUrl: sourceImage,
+        prompt,
+        model: config.generationModel ?? 'gemini-3-pro-image-preview',
+        imageSize: config.imageSize ?? '2K',
+        aspectRatio: config.aspectRatio ?? '1:1',
+      });
+
+      const newEntry = { image: response.imageDataUrl, prompt: lifestylePrompt.trim() };
+      setLifestyleImages(prev => [...prev, newEntry]);
+      setActiveVariant(`lifestyle-${lifestyleImages.length}`);
+      setLifestylePrompt('');
+    } catch (err) {
+      console.error('Lifestyle generation failed:', err);
+    } finally {
+      setIsGeneratingLifestyle(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lifestylePrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, lifestyleImages.length]);
 
   // --- Validation ---
   const missingItems: string[] = [];
@@ -454,50 +492,114 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
 
         {/* Result Viewer */}
         {pipelineState.autoCrop.status === 'completed' && getStepImage('autoCrop') && (() => {
-          type Variant = { key: 'final' | 'cutout' | 'shadow'; label: string; image: string };
-          const all = [
-            { key: 'final' as const, label: 'Final', image: getStepImage('autoCrop') },
-            { key: 'cutout' as const, label: 'Cutout', image: getStepImage('cutout') },
-            { key: 'shadow' as const, label: 'Shadow', image: getStepImage('shadowComposite') },
-          ];
-          const variants: Variant[] = all.filter((v): v is Variant => v.image !== null);
+          type Variant = { key: string; label: string; image: string };
+          const base: Variant[] = [
+            { key: 'final', label: 'Final', image: getStepImage('autoCrop')! },
+            { key: 'cutout', label: 'Cutout', image: getStepImage('cutout')! },
+            { key: 'shadow', label: 'Shadow', image: getStepImage('shadowComposite')! },
+          ].filter(v => v.image != null);
 
+          const lifeVariants: Variant[] = lifestyleImages.map((li, i) => ({
+            key: `lifestyle-${i}`,
+            label: `Lifestyle ${i + 1}`,
+            image: li.image,
+          }));
+          const variants = [...base, ...lifeVariants];
           const current = variants.find(v => v.key === activeVariant) ?? variants[0];
-          const downloadSuffix = current.key === 'final' ? 'final' : current.key;
+          const downloadSuffix = current.key;
 
           return (
             <section className="result-viewer">
-              <div className="result-main">
-                <img src={current.image} alt={current.label} className="result-main-img" />
+              <div className="result-layout">
+                {/* Main image area */}
+                <div className="result-main">
+                  <img src={current.image} alt={current.label} className="result-main-img" />
 
-                {/* Thumbnail strip - bottom left */}
-                {variants.length > 1 && (
-                  <div className="result-thumbs">
-                    {variants.map(v => (
-                      <button
-                        key={v.key}
-                        className={`result-thumb ${v.key === activeVariant ? 'active' : ''}`}
-                        onClick={() => setActiveVariant(v.key)}
-                        title={v.label}
-                      >
-                        <img src={v.image} alt={v.label} />
-                        <span className="thumb-label">{v.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                  {/* Thumbnail strip - bottom left */}
+                  {variants.length > 1 && (
+                    <div className="result-thumbs">
+                      {variants.map(v => (
+                        <button
+                          key={v.key}
+                          className={`result-thumb ${v.key === activeVariant ? 'active' : ''}`}
+                          onClick={() => setActiveVariant(v.key)}
+                          title={v.label}
+                        >
+                          <img src={v.image} alt={v.label} />
+                          <span className="thumb-label">{v.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-                {/* Download button - bottom right */}
-                <button
-                  className="result-download"
-                  onClick={() => downloadImage(current.image, downloadSuffix)}
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Download {current.label}
-                </button>
+                  {/* Download button - bottom right */}
+                  <button
+                    className="result-download"
+                    onClick={() => downloadImage(current.image, downloadSuffix)}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Download {current.label}
+                  </button>
+                </div>
+
+                {/* Side action bar */}
+                <div className="result-sidebar">
+                  <button
+                    className={`sidebar-action ${showLifestyle ? 'active' : ''}`}
+                    onClick={() => setShowLifestyle(prev => !prev)}
+                    title="Generate lifestyle photo"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M3 7a4 4 0 014-4h6a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4V7z" stroke="currentColor" strokeWidth="1.4"/>
+                      <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/>
+                      <path d="M3 13l4-3.5 3 2.5 3-4 4 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span>Lifestyle</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Lifestyle prompt panel */}
+              {showLifestyle && (
+                <div className="lifestyle-panel">
+                  <div className="lifestyle-header">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7L8 1z" fill="currentColor"/>
+                    </svg>
+                    <span>Generate Lifestyle</span>
+                  </div>
+                  <p className="lifestyle-hint">Describe the scene for your product (e.g. "on a marble kitchen counter with soft morning light")</p>
+                  <div className="lifestyle-input-row">
+                    <input
+                      type="text"
+                      className="lifestyle-input"
+                      placeholder="on a wooden table in a cozy café..."
+                      value={lifestylePrompt}
+                      onChange={e => setLifestylePrompt(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !isGeneratingLifestyle) handleGenerateLifestyle(); }}
+                      disabled={isGeneratingLifestyle}
+                    />
+                    <button
+                      className="lifestyle-generate"
+                      onClick={handleGenerateLifestyle}
+                      disabled={isGeneratingLifestyle || !lifestylePrompt.trim()}
+                    >
+                      {isGeneratingLifestyle ? (
+                        <span className="btn-spinner" />
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                          <path d="M3 15l12-6L3 3v5l8 1-8 1v5z" fill="currentColor"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  {isGeneratingLifestyle && (
+                    <p className="lifestyle-status">Generating your lifestyle scene...</p>
+                  )}
+                </div>
+              )}
             </section>
           );
         })()}
