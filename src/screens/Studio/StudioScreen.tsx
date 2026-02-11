@@ -90,6 +90,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [activeVariant, setActiveVariant] = useState<'final' | 'cutout' | 'shadow'>('final');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
@@ -204,11 +205,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     link.download = `studio-${base}-${suffix}.png`;
     link.click();
   }, [inputFile, project]);
-
-  const handleDownload = useCallback(() => {
-    const img = getStepImage('autoCrop');
-    if (img) downloadImage(img, 'final');
-  }, [pipelineState.autoCrop.data, downloadImage]);
 
   // --- Config Update ---
   const updateConfig = useCallback((field: keyof PipelineConfig, value: string) => {
@@ -456,56 +452,55 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
           </section>
         )}
 
-        {/* Available Downloads */}
-        {pipelineState.cutout.status === 'completed' && (
-          <section className="gallery-section">
-            <h3>Available Downloads</h3>
-            <div className="gallery-grid">
-              {getStepImage('cutout') && (
-                <div className="gallery-item">
-                  <span className="gallery-label">Cutout</span>
-                  <img src={getStepImage('cutout')!} alt="Cutout" />
-                  <button
-                    className="gallery-download"
-                    onClick={e => { e.stopPropagation(); downloadImage(getStepImage('cutout')!, 'cutout'); }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    PNG
-                  </button>
-                </div>
-              )}
-              {getStepImage('shadowComposite') && (
-                <div className="gallery-item">
-                  <span className="gallery-label">Shadow</span>
-                  <img src={getStepImage('shadowComposite')!} alt="Shadow" />
-                  <button
-                    className="gallery-download"
-                    onClick={e => { e.stopPropagation(); downloadImage(getStepImage('shadowComposite')!, 'shadow'); }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    PNG
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+        {/* Result Viewer */}
+        {pipelineState.autoCrop.status === 'completed' && getStepImage('autoCrop') && (() => {
+          type Variant = { key: 'final' | 'cutout' | 'shadow'; label: string; image: string };
+          const all = [
+            { key: 'final' as const, label: 'Final', image: getStepImage('autoCrop') },
+            { key: 'cutout' as const, label: 'Cutout', image: getStepImage('cutout') },
+            { key: 'shadow' as const, label: 'Shadow', image: getStepImage('shadowComposite') },
+          ];
+          const variants: Variant[] = all.filter((v): v is Variant => v.image !== null);
 
-        {/* Final Output */}
-        {pipelineState.autoCrop.status === 'completed' && getStepImage('autoCrop') && (
-          <section className="final-section">
-            <h3>Final Output</h3>
-            <div className="final-frame">
-              <img src={getStepImage('autoCrop')!} alt="Final output" className="final-img" />
-            </div>
-            <button className="btn-download" onClick={handleDownload}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Download PNG
-            </button>
-          </section>
-        )}
+          const current = variants.find(v => v.key === activeVariant) ?? variants[0];
+          const downloadSuffix = current.key === 'final' ? 'final' : current.key;
+
+          return (
+            <section className="result-viewer">
+              <div className="result-main">
+                <img src={current.image} alt={current.label} className="result-main-img" />
+
+                {/* Thumbnail strip - bottom left */}
+                {variants.length > 1 && (
+                  <div className="result-thumbs">
+                    {variants.map(v => (
+                      <button
+                        key={v.key}
+                        className={`result-thumb ${v.key === activeVariant ? 'active' : ''}`}
+                        onClick={() => setActiveVariant(v.key)}
+                        title={v.label}
+                      >
+                        <img src={v.image} alt={v.label} />
+                        <span className="thumb-label">{v.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Download button - bottom right */}
+                <button
+                  className="result-download"
+                  onClick={() => downloadImage(current.image, downloadSuffix)}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 2v9M4 8l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Download {current.label}
+                </button>
+              </div>
+            </section>
+          );
+        })()}
       </main>
     </div>
   );
