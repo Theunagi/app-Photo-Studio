@@ -11,14 +11,17 @@ import { runPipeline } from '../../services/pipeline/orchestrator';
 import { saveProject } from '../../services/db/projectDB';
 import './StudioScreen.css';
 
-// --- Step status indicator ---
-function StepIndicator({ status }: { status: string }) {
-  if (status === 'running') return <span className="step-dot running"><span className="dot-pulse" /></span>;
-  if (status === 'completed') return <span className="step-dot completed"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></span>;
-  if (status === 'error') return <span className="step-dot error"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 3L9 9M9 3L3 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg></span>;
-  if (status === 'skipped') return <span className="step-dot skipped">&mdash;</span>;
-  return <span className="step-dot idle" />;
-}
+// --- Progress status messages (generic, no pipeline details exposed) ---
+const PROGRESS_MESSAGES = [
+  'Analyzing your product...',
+  'Preparing studio scene...',
+  'Generating studio render...',
+  'Enhancing image quality...',
+  'Refining details...',
+  'Composing final output...',
+  'Applying finishing touches...',
+  'Almost there...',
+];
 
 export interface StudioScreenProps {
   project: Project | null;
@@ -230,7 +233,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
 
   // --- Progress calculation ---
   const completedSteps = PIPELINE_STEPS.filter(s => pipelineState[s.key].status === 'completed').length;
-  const progressPercent = (completedSteps / PIPELINE_STEPS.length) * 100;
+  const totalSteps = PIPELINE_STEPS.length;
+  const progressPercent = (completedSteps / totalSteps) * 100;
+  const hasError = PIPELINE_STEPS.some(s => pipelineState[s.key].status === 'error');
+  const progressMessage = hasError
+    ? 'An error occurred during processing'
+    : completedSteps >= totalSteps
+      ? 'Generation complete'
+      : PROGRESS_MESSAGES[Math.min(completedSteps, PROGRESS_MESSAGES.length - 1)];
 
   const isFastMode = !project;
 
@@ -404,49 +414,20 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
           </div>
         </section>
 
-        {/* Pipeline Progress */}
-        {(isRunning || completedSteps > 0) && (
-          <section className="pipeline-section">
+        {/* Progress Bar */}
+        {(isRunning || completedSteps > 0) && completedSteps < totalSteps && (
+          <section className={`progress-section ${hasError ? 'has-error' : ''}`}>
             <div className="progress-bar-track">
-              <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+              <div
+                className={`progress-bar-fill ${isRunning ? 'animated' : ''}`}
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-            <div className="steps-grid">
-              {PIPELINE_STEPS.map(step => {
-                const result = pipelineState[step.key];
-                return (
-                  <div key={step.key} className={`step-row ${result.status}`}>
-                    <StepIndicator status={result.status} />
-                    <span className="step-name">{step.label}</span>
-                    {result.durationMs !== undefined && (
-                      <span className="step-time">{(result.durationMs / 1000).toFixed(1)}s</span>
-                    )}
-                    {result.error && (
-                      <span className="step-err" title={result.error}>{result.error}</span>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="progress-info">
+              <span className="progress-message">{progressMessage}</span>
+              <span className="progress-percent">{Math.round(progressPercent)}%</span>
             </div>
           </section>
-        )}
-
-        {/* Analysis Card */}
-        {pipelineState.analysis.status === 'completed' && pipelineState.analysis.data && (
-          <section className="card analysis-card">
-            <h3>Product Analysis</h3>
-            <pre className="analysis-content">
-              {(pipelineState.analysis.data as { rawResponse: string }).rawResponse}
-            </pre>
-          </section>
-        )}
-
-        {/* Luminance Badge */}
-        {pipelineState.luminanceCheck.status === 'completed' && pipelineState.luminanceCheck.data && (
-          <div className="luminance-row">
-            <span className={`lum-badge ${(pipelineState.luminanceCheck.data as string).toLowerCase()}`}>
-              {pipelineState.luminanceCheck.data as string} Product
-            </span>
-          </div>
         )}
 
         {/* Available Downloads */}
