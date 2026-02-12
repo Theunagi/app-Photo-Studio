@@ -299,8 +299,10 @@ High-end product photography style, natural lighting, shallow depth of field whe
   const totalSteps = PIPELINE_STEPS.length;
   const progressPercent = (completedSteps / totalSteps) * 100;
   const hasError = PIPELINE_STEPS.some(s => pipelineState[s.key].status === 'error');
+  const errorStep = PIPELINE_STEPS.find(s => pipelineState[s.key].status === 'error');
+  const errorDetail = errorStep ? pipelineState[errorStep.key].error : undefined;
   const progressMessage = hasError
-    ? 'An error occurred during processing'
+    ? `Error: ${errorDetail ?? 'Unknown error'}`
     : completedSteps >= totalSteps
       ? 'Generation complete'
       : PROGRESS_MESSAGES[Math.min(completedSteps, PROGRESS_MESSAGES.length - 1)];
