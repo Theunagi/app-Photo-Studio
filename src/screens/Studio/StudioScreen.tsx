@@ -94,16 +94,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   const [activeVariant, setActiveVariant] = useState<string>('final');
   const [showLifestyle, setShowLifestyle] = useState(false);
   const [lifestylePrompt, setLifestylePrompt] = useState('');
-  const [lifestyleImages, setLifestyleImages] = useState<{ image: string; prompt: string }[]>([]);
+  const [lifestyleImages, setLifestyleImages] = useState<{ image: string; prompt: string }[]>(project?.results.lifestyles ?? []);
   const [isGeneratingLifestyle, setIsGeneratingLifestyle] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
   const inputPreviewRef = useRef<string | null>(inputPreview);
+  const lifestyleImagesRef = useRef<{ image: string; prompt: string }[]>(lifestyleImages);
 
   // Keep refs in sync
   useEffect(() => { projectRef.current = project; }, [project]);
   useEffect(() => { inputPreviewRef.current = inputPreview; }, [inputPreview]);
+  useEffect(() => { lifestyleImagesRef.current = lifestyleImages; }, [lifestyleImages]);
 
   // --- Auto-save project results after pipeline completes (or partially completes) ---
   const autoSave = useCallback(async () => {
@@ -131,6 +133,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
       cutout: getImg('cutout'),
       shadowComposite: getImg('shadowComposite'),
       autoCrop: getImg('autoCrop'),
+      lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
     };
     // Use final output or studio render as thumbnail
     p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? preview ?? undefined;
@@ -260,16 +263,20 @@ High-end product photography style, natural lighting, shallow depth of field whe
       });
 
       const newEntry = { image: response.imageDataUrl, prompt: lifestylePrompt.trim() };
-      setLifestyleImages(prev => [...prev, newEntry]);
+      const updated = [...lifestyleImages, newEntry];
+      setLifestyleImages(updated);
+      lifestyleImagesRef.current = updated;
       setActiveVariant(`lifestyle-${lifestyleImages.length}`);
       setLifestylePrompt('');
+      // Save lifestyle to project
+      await autoSave();
     } catch (err) {
       console.error('Lifestyle generation failed:', err);
     } finally {
       setIsGeneratingLifestyle(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lifestylePrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, lifestyleImages.length]);
+  }, [lifestylePrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, lifestyleImages, autoSave]);
 
   // --- Validation ---
   const missingItems: string[] = [];
