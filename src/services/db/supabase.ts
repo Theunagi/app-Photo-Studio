@@ -39,3 +39,23 @@ export const supabase = _supabase as SupabaseClient;
 export function isSupabaseConfigured(): boolean {
   return _initOk && _supabase !== null;
 }
+
+/** Run a quick connectivity test (call once at app startup) */
+export async function testSupabaseConnection(): Promise<boolean> {
+  if (!_initOk || !_supabase) {
+    console.warn('[Supabase] Not configured — using IndexedDB');
+    return false;
+  }
+  try {
+    const { error } = await _supabase.from('projects').select('id').limit(1);
+    if (error) {
+      console.error('[Supabase] Connection test FAILED:', error.message);
+      return false;
+    }
+    console.log('[Supabase] Connection OK — data will sync to cloud');
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Connection test FAILED:', err);
+    return false;
+  }
+}

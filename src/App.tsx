@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Project } from './models/project';
 import { getProject } from './services/db/projectDB';
+import { testSupabaseConnection } from './services/db/supabase';
 import HomeScreen from './screens/Home/HomeScreen';
 import StudioScreen from './screens/Studio/StudioScreen';
 
@@ -11,6 +12,9 @@ type View =
 
 function App() {
   const [view, setView] = useState<View>({ screen: 'home' });
+
+  // Test Supabase connection on startup — result logged to browser console
+  useEffect(() => { testSupabaseConnection(); }, []);
 
   const openStudio = useCallback(async (project: Project | null) => {
     if (!project) {
