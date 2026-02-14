@@ -4,9 +4,8 @@
  * When VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY are set, all data goes to
  * Supabase Postgres + Storage. Otherwise falls back to local IndexedDB.
  *
- * Images are stored in Supabase Storage ("project-images" bucket) and only
- * their paths are kept in the DB row.  On read, paths are resolved back to
- * data URLs so the rest of the app is unchanged.
+ * If Supabase calls fail at runtime (auth error, network), the app
+ * auto-falls back to IndexedDB so the user is never stuck on a white page.
  */
 
 import type { Project, ProjectResult } from '../../models/project';
@@ -188,7 +187,7 @@ async function sbDelete(id: string): Promise<void> {
 }
 
 // ====================================================================
-// IndexedDB fallback (unchanged)
+// IndexedDB fallback
 // ====================================================================
 
 const DB_NAME = 'photostudio';
@@ -262,12 +261,50 @@ async function idbDelete(id: string): Promise<void> {
 }
 
 // ====================================================================
-// Public API — auto-selects Supabase or IndexedDB
+// Public API — Supabase with auto-fallback to IndexedDB on error
 // ====================================================================
 
 const useSB = isSupabaseConfigured();
 
-export const getAllProjects = useSB ? sbGetAll : idbGetAll;
-export const getProject = useSB ? sbGetProject : idbGetProject;
-export const saveProject = useSB ? sbSave : idbSave;
-export const deleteProject = useSB ? sbDelete : idbDelete;
+async function withFallback<T>(
+  sbFn: () => Promise<T>,
+  idbFn: () => Promise<T>,
+): Promise<T> {
+  if (!useSB) return idbFn();
+  try {
+    return await sbFn();
+  } catch (err) {
+    console.warn('[DB] Supabase call failed, falling back to IndexedDB:', err);
+    return idbFn();
+  }
+}
+
+export async function getAllProjects(): Promise<Project[]> {
+  return withFallback(sbGetAll, idbGetAll);
+}
+
+export async function getProject(id: string): Promise<Project | undefined> {
+  return withFallback(() => sbGetProject(id), () => idbGetProject(id));
+}
+
+export async function saveProject(project: Project): Promise<void> {
+  if (!useSB) return idbSave(project);
+  // For save, try Supabase first but always save to IndexedDB as well
+  try {
+    await sbSave(project);
+  } catch (err) {
+    console.warn('[DB] Supabase save failed, saving to IndexedDB:', err);
+  }
+  // Always keep a local copy
+  await idbSave(project);
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  if (!useSB) return idbDelete(id);
+  try {
+    await sbDelete(id);
+  } catch (err) {
+    console.warn('[DB] Supabase delete failed:', err);
+  }
+  await idbDelete(id);
+}
