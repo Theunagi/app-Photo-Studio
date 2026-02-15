@@ -48,6 +48,8 @@ export type PipelineEventCallback = (state: PipelineState, step: PipelineStep) =
 export interface PipelineRunOptions {
   config: PipelineConfig;
   inputFile: File;
+  /** Additional reference images (up to 4 more) as data URLs */
+  additionalImageDataUrls?: string[];
   onStateChange: PipelineEventCallback;
   abortSignal?: AbortSignal;
 }
@@ -83,7 +85,7 @@ async function executeStep<T>(
 // --- Main Pipeline Runner ---
 
 export async function runPipeline(options: PipelineRunOptions): Promise<PipelineState> {
-  const { config, inputFile, onStateChange } = options;
+  const { config, inputFile, additionalImageDataUrls, onStateChange } = options;
   const state = createInitialPipelineState();
 
   // =========================================================================
@@ -105,8 +107,11 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
     const response = await callOpenAIVision({
       apiKey: config.openaiApiKey,
       imageDataUrl: input.imageDataUrl,
+      additionalImageDataUrls: additionalImageDataUrls,
       systemPrompt: PRODUCT_ANALYSIS_SYSTEM_PROMPT,
-      userPrompt: 'Describe colors and materials and text of this product, short precise description.',
+      userPrompt: additionalImageDataUrls?.length
+        ? `Describe colors, materials, and text of this product from all ${1 + additionalImageDataUrls.length} reference views. Short precise description.`
+        : 'Describe colors and materials and text of this product, short precise description.',
       model: 'gpt-4o',
       maxTokens: 800,
       temperature: 0.1,
@@ -137,6 +142,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
     const response = await callGeminiImageGen({
       apiKey: config.geminiApiKey,
       imageDataUrl: input.imageDataUrl,
+      referenceImageDataUrls: additionalImageDataUrls,
       prompt: fullPrompt,
       model: config.generationModel ?? 'gemini-3-pro-image-preview',
       imageSize: config.imageSize ?? '2K',

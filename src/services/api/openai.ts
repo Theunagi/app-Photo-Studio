@@ -9,6 +9,8 @@
 export interface OpenAIVisionRequest {
   apiKey: string;
   imageDataUrl: string;
+  /** Additional reference images for richer analysis */
+  additionalImageDataUrls?: string[];
   systemPrompt: string;
   userPrompt: string;
   model?: string;
@@ -74,11 +76,12 @@ export async function callOpenAIVision(req: OpenAIVisionRequest): Promise<OpenAI
             { type: 'text', text: req.userPrompt },
             {
               type: 'image_url',
-              image_url: {
-                url: req.imageDataUrl,
-                detail: 'high',
-              },
+              image_url: { url: req.imageDataUrl, detail: 'high' },
             },
+            ...(req.additionalImageDataUrls ?? []).map(url => ({
+              type: 'image_url' as const,
+              image_url: { url, detail: 'high' as const },
+            })),
           ],
         },
       ],

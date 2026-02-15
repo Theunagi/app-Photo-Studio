@@ -12,6 +12,8 @@ import { callGeminiImageGen } from '../../services/api/gemini';
 import { saveProject } from '../../services/db/projectDB';
 import './StudioScreen.css';
 
+const MAX_IMAGES = 5;
+
 // --- Progress status messages (generic, no pipeline details exposed) ---
 const PROGRESS_MESSAGES = [
   'Analyzing your product...',
@@ -84,8 +86,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     return state;
   };
 
-  const [inputFile, setInputFile] = useState<File | null>(null);
-  const [inputPreview, setInputPreview] = useState<string | null>(project?.results.inputImage ?? null);
+  // Build initial previews from saved project
+  const buildInitialPreviews = (): string[] => {
+    const previews: string[] = [];
+    if (project?.results.inputImage) previews.push(project.results.inputImage);
+    if (project?.results.inputImages) previews.push(...project.results.inputImages);
+    return previews;
+  };
+
+  const [inputFiles, setInputFiles] = useState<File[]>([]);
+  const [inputPreviews, setInputPreviews] = useState<string[]>(buildInitialPreviews);
   const [pipelineState, setPipelineState] = useState<PipelineState>(buildRestoredState);
   const [isRunning, setIsRunning] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -99,13 +109,17 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
-  const inputPreviewRef = useRef<string | null>(inputPreview);
+  const inputPreviewsRef = useRef<string[]>(inputPreviews);
   const lifestyleImagesRef = useRef<{ image: string; prompt: string }[]>(lifestyleImages);
 
   // Keep refs in sync
   useEffect(() => { projectRef.current = project; }, [project]);
-  useEffect(() => { inputPreviewRef.current = inputPreview; }, [inputPreview]);
+  useEffect(() => { inputPreviewsRef.current = inputPreviews; }, [inputPreviews]);
   useEffect(() => { lifestyleImagesRef.current = lifestyleImages; }, [lifestyleImages]);
+
+  // Derived: primary image is the first one
+  const inputPreview = inputPreviews[0] ?? null;
+  const inputFile = inputFiles[0] ?? null;
 
   // --- Auto-save project results after pipeline completes (or partially completes) ---
   const autoSave = useCallback(async () => {
@@ -113,7 +127,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     if (!p) return; // Fast generation — no save
 
     const state = pipelineStateRef.current;
-    const preview = inputPreviewRef.current;
+    const previews = inputPreviewsRef.current;
 
     const getImg = (step: PipelineStep): string | undefined => {
       const r = state[step];
@@ -123,7 +137,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     };
 
     p.results = {
-      inputImage: preview ?? undefined,
+      inputImage: previews[0] ?? undefined,
+      inputImages: previews.length > 1 ? previews.slice(1) : undefined,
       analysis: state.analysis.status === 'completed' && state.analysis.data
         ? (state.analysis.data as { rawResponse: string }).rawResponse : undefined,
       luminanceClass: state.luminanceCheck.status === 'completed' && state.luminanceCheck.data
@@ -136,7 +151,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
       lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
     };
     // Use final output or studio render as thumbnail
-    p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? preview ?? undefined;
+    p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? previews[0] ?? undefined;
     p.config = { imageSize: config.imageSize, aspectRatio: config.aspectRatio };
     p.updatedAt = Date.now();
 
@@ -149,26 +164,52 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     }
   }, [config.imageSize, config.aspectRatio]);
 
-  // --- File Upload ---
+  // --- File Upload (multi-image) ---
+  const addFiles = useCallback((files: FileList | File[]) => {
+    const newFiles: File[] = [];
+    const readers: Promise<string>[] = [];
+
+    const filesToAdd = Array.from(files).filter(f => f.type.startsWith('image/'));
+    const available = MAX_IMAGES - inputPreviews.length;
+    const toProcess = filesToAdd.slice(0, available);
+
+    for (const file of toProcess) {
+      newFiles.push(file);
+      readers.push(new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      }));
+    }
+
+    if (newFiles.length === 0) return;
+
+    Promise.all(readers).then(dataUrls => {
+      setInputFiles(prev => [...prev, ...newFiles]);
+      setInputPreviews(prev => [...prev, ...dataUrls]);
+      // Reset pipeline when images change
+      if (inputPreviews.length === 0) {
+        setPipelineState(createInitialPipelineState());
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputPreviews.length]);
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setInputFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setInputPreview(reader.result as string);
-    reader.readAsDataURL(file);
-    setPipelineState(createInitialPipelineState());
-  }, []);
+    if (e.target.files) addFiles(e.target.files);
+    // Reset input value so same file can be re-selected
+    e.target.value = '';
+  }, [addFiles]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-    setInputFile(file);
-    const reader = new FileReader();
-    reader.onload = () => setInputPreview(reader.result as string);
-    reader.readAsDataURL(file);
+    if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  }, [addFiles]);
+
+  const removeImage = useCallback((index: number) => {
+    setInputFiles(prev => prev.filter((_, i) => i !== index));
+    setInputPreviews(prev => prev.filter((_, i) => i !== index));
     setPipelineState(createInitialPipelineState());
   }, []);
 
@@ -179,10 +220,15 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     const freshState = createInitialPipelineState();
     setPipelineState(freshState);
     pipelineStateRef.current = freshState;
+
+    // Additional reference image data URLs (all except the first)
+    const additionalImageDataUrls = inputPreviews.length > 1 ? inputPreviews.slice(1) : undefined;
+
     try {
       const result = await runPipeline({
         config,
         inputFile,
+        additionalImageDataUrls,
         onStateChange: (newState: PipelineState, _step: PipelineStep) => {
           pipelineStateRef.current = newState;
           setPipelineState({ ...newState });
@@ -196,11 +242,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
       // Always save — even partial results are valuable
       await autoSave();
     }
-  }, [inputFile, config, autoSave]);
+  }, [inputFile, inputPreviews, config, autoSave]);
 
   const handleReset = useCallback(() => {
-    setInputFile(null);
-    setInputPreview(null);
+    setInputFiles([]);
+    setInputPreviews([]);
     setPipelineState(createInitialPipelineState());
     setIsRunning(false);
   }, []);
@@ -280,11 +326,11 @@ High-end product photography style, natural lighting, shallow depth of field whe
 
   // --- Validation ---
   const missingItems: string[] = [];
-  if (!inputFile && !inputPreview) missingItems.push('Image');
+  if (inputPreviews.length === 0 && inputFiles.length === 0) missingItems.push('Image');
   if (!config.openaiApiKey) missingItems.push('OpenAI Key');
   if (!config.geminiApiKey) missingItems.push('Gemini Key');
   if (!config.falApiKey) missingItems.push('Fal.ai Key');
-  const canRun = missingItems.length === 0 && !isRunning && !!inputFile;
+  const canRun = missingItems.length === 0 && !isRunning && (!!inputFile || inputPreviews.length > 0);
 
   // --- Get image data from step result ---
   const getStepImage = (step: PipelineStep): string | null => {
@@ -309,6 +355,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
 
   const isFastMode = !project;
   const pipelineComplete = pipelineState.autoCrop.status === 'completed' && !!getStepImage('autoCrop');
+  const hasImages = inputPreviews.length > 0;
 
   // --- Render ---
   return (
@@ -386,34 +433,73 @@ High-end product photography style, natural lighting, shallow depth of field whe
         {/* Upload + Controls Section — hidden once results are ready */}
         {!pipelineComplete && (
           <section className="upload-section">
-            <div
-              className={`dropzone ${inputPreview ? 'has-image' : ''} ${isDragging ? 'dragging' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-              onDrop={handleDrop}
-              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                style={{ display: 'none' }}
-              />
-              {inputPreview ? (
-                <img src={inputPreview} alt="Input" className="dropzone-preview" />
-              ) : (
+            {/* Hidden file input (supports multi-select) */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+
+            {!hasImages ? (
+              /* Empty state — large dropzone */
+              <div
+                className={`dropzone ${isDragging ? 'dragging' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+              >
                 <div className="dropzone-placeholder">
                   <div className="dropzone-icon">
                     <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
                       <path d="M20 8v24M8 20h24" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   </div>
-                  <p className="dropzone-title">Drop your product photo</p>
-                  <p className="dropzone-hint">or click to browse</p>
+                  <p className="dropzone-title">Drop your product photos</p>
+                  <p className="dropzone-hint">Up to {MAX_IMAGES} reference images — or click to browse</p>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              /* Images uploaded — show grid */
+              <div
+                className={`image-grid ${isDragging ? 'dragging' : ''}`}
+                onDrop={handleDrop}
+                onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+              >
+                {inputPreviews.map((preview, i) => (
+                  <div key={i} className={`image-grid-item ${i === 0 ? 'primary' : ''}`}>
+                    <img src={preview} alt={`Reference ${i + 1}`} />
+                    {i === 0 && <span className="image-grid-badge">Main</span>}
+                    <button
+                      className="image-grid-remove"
+                      onClick={() => removeImage(i)}
+                      title="Remove"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+
+                {inputPreviews.length < MAX_IMAGES && (
+                  <button
+                    className="image-grid-add"
+                    onClick={() => fileInputRef.current?.click()}
+                    title={`Add image (${inputPreviews.length}/${MAX_IMAGES})`}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                      <path d="M14 6v16M6 14h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    <span>{inputPreviews.length}/{MAX_IMAGES}</span>
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Controls Bar */}
             <div className="controls-bar">
@@ -464,7 +550,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
               </div>
 
               <div className="controls-right">
-                {(inputFile || completedSteps > 0) && (
+                {(hasImages || completedSteps > 0) && (
                   <button className="btn-ghost" onClick={handleReset}>Reset</button>
                 )}
                 <button

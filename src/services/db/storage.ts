@@ -90,6 +90,20 @@ export async function uploadProjectImages(
     }
   });
 
+  // Upload additional input images
+  const inputImages = results.inputImages as string[] | undefined;
+  if (inputImages?.length) {
+    inputImages.forEach((img, i) => {
+      if (img.startsWith('data:')) {
+        uploads.push(
+          uploadImage(projectId, `inputImage-${i}`, img).then(path => {
+            storagePaths[`inputImage-${i}`] = path;
+          })
+        );
+      }
+    });
+  }
+
   // Upload lifestyle images
   const lifestyles = results.lifestyles as { image: string; prompt: string }[] | undefined;
   if (lifestyles?.length) {

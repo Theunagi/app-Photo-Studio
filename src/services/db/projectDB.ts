@@ -63,6 +63,16 @@ async function hydrateImages(project: Project): Promise<Project> {
     }
   }
 
+  // Collect additional input image storage paths
+  const inputImages = r.inputImages as string[] | undefined;
+  if (inputImages?.length) {
+    inputImages.forEach((img, i) => {
+      if (typeof img === 'string' && !img.startsWith('data:')) {
+        storagePaths[`inputImage-${i}`] = img;
+      }
+    });
+  }
+
   // Collect lifestyle storage paths
   const lifestyles = r.lifestyles as { image: string; prompt: string }[] | undefined;
   if (lifestyles?.length) {
@@ -81,6 +91,14 @@ async function hydrateImages(project: Project): Promise<Project> {
     if (dataUrls[slot]) {
       (r as Record<string, unknown>)[slot] = dataUrls[slot];
     }
+  }
+  // Hydrate additional input images
+  if (inputImages?.length) {
+    inputImages.forEach((_, i) => {
+      if (dataUrls[`inputImage-${i}`]) {
+        inputImages[i] = dataUrls[`inputImage-${i}`];
+      }
+    });
   }
   if (lifestyles?.length) {
     lifestyles.forEach((li, i) => {
@@ -147,6 +165,14 @@ async function sbSave(project: Project): Promise<void> {
     if (storagePaths[slot]) {
       results[slot] = storagePaths[slot];
     }
+  }
+
+  // Replace additional input image data URLs with paths
+  const inputImages = results.inputImages as string[] | undefined;
+  if (inputImages?.length) {
+    results.inputImages = inputImages.map((img, i) =>
+      storagePaths[`inputImage-${i}`] ?? img
+    );
   }
 
   // Replace lifestyle data URLs with paths

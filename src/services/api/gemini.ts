@@ -11,6 +11,8 @@
 export interface GeminiImageGenRequest {
   apiKey: string;
   imageDataUrl: string;
+  /** Additional reference images (e.g. other angles of the same product) */
+  referenceImageDataUrls?: string[];
   prompt: string;
   model?: string;
   imageSize?: string;
@@ -105,9 +107,27 @@ export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<Ge
   const model = req.model ?? 'gemini-3-pro-image-preview';
   const imageSize = req.imageSize ?? '2K';
   const aspectRatio = req.aspectRatio ?? '1:1';
-  const { mimeType, base64 } = parseDataUrl(req.imageDataUrl);
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${req.apiKey}`;
+
+  // Build parts: label + all reference images + prompt
+  const imageParts: { inlineData: { mimeType: string; data: string } }[] = [];
+
+  // Primary image
+  const primary = parseDataUrl(req.imageDataUrl);
+  imageParts.push({ inlineData: { mimeType: primary.mimeType, data: primary.base64 } });
+
+  // Additional reference images
+  if (req.referenceImageDataUrls?.length) {
+    for (const refUrl of req.referenceImageDataUrls) {
+      const ref = parseDataUrl(refUrl);
+      imageParts.push({ inlineData: { mimeType: ref.mimeType, data: ref.base64 } });
+    }
+  }
+
+  const refLabel = imageParts.length > 1
+    ? `[REFERENCE IMAGES: ${imageParts.length} views of the product — use as geometry/color/texture reference ONLY. Generate a completely NEW studio-lit product render based on these references.]`
+    : '[REFERENCE IMAGE: Front View — use this as geometry/color reference ONLY. Generate a completely NEW studio-lit product render based on this reference.]';
 
   // Use imageConfig (native to gemini-3-pro) with responseModalities as fallback
   const response = await fetch(url, {
@@ -117,8 +137,8 @@ export async function callGeminiImageGen(req: GeminiImageGenRequest): Promise<Ge
       contents: [
         {
           parts: [
-            { text: '[REFERENCE IMAGE: Front View — use this as geometry/color reference ONLY. Generate a completely NEW studio-lit product render based on this reference.]' },
-            { inlineData: { mimeType, data: base64 } },
+            { text: refLabel },
+            ...imageParts,
             { text: req.prompt },
           ],
         },

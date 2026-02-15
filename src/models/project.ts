@@ -4,6 +4,8 @@
 
 export interface ProjectResult {
   inputImage?: string;
+  /** Additional reference images (data URLs or storage paths) */
+  inputImages?: string[];
   analysis?: string;
   luminanceClass?: string;
   studioGeneration?: string;
