@@ -106,16 +106,22 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   const [lifestylePrompt, setLifestylePrompt] = useState('');
   const [lifestyleImages, setLifestyleImages] = useState<{ image: string; prompt: string }[]>(project?.results.lifestyles ?? []);
   const [isGeneratingLifestyle, setIsGeneratingLifestyle] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [editImages, setEditImages] = useState<{ image: string; prompt: string }[]>(project?.results.edits ?? []);
+  const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
   const inputPreviewsRef = useRef<string[]>(inputPreviews);
   const lifestyleImagesRef = useRef<{ image: string; prompt: string }[]>(lifestyleImages);
+  const editImagesRef = useRef<{ image: string; prompt: string }[]>(editImages);
 
   // Keep refs in sync
   useEffect(() => { projectRef.current = project; }, [project]);
   useEffect(() => { inputPreviewsRef.current = inputPreviews; }, [inputPreviews]);
   useEffect(() => { lifestyleImagesRef.current = lifestyleImages; }, [lifestyleImages]);
+  useEffect(() => { editImagesRef.current = editImages; }, [editImages]);
 
   // Derived: primary image is the first one
   const inputPreview = inputPreviews[0] ?? null;
@@ -149,6 +155,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
       shadowComposite: getImg('shadowComposite'),
       autoCrop: getImg('autoCrop'),
       lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
+      edits: editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
     };
     // Use final output or studio render as thumbnail
     p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? previews[0] ?? undefined;
@@ -323,6 +330,40 @@ High-end product photography style, natural lighting, shallow depth of field whe
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifestylePrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, lifestyleImages, autoSave]);
+
+  // --- AI Edit Generation ---
+  const handleEditImage = useCallback(async () => {
+    const sourceImage = getStepImage('autoCrop');
+    if (!sourceImage || !editPrompt.trim() || !config.geminiApiKey) return;
+    setIsGeneratingEdit(true);
+    try {
+      const prompt = `Edit this product photo on white background. Apply: ${editPrompt.trim()}.
+Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
+Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
+Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
+
+      const response = await callGeminiImageGen({
+        apiKey: config.geminiApiKey,
+        imageDataUrl: sourceImage,
+        prompt,
+        model: config.generationModel ?? 'gemini-3-pro-image-preview',
+        imageSize: config.imageSize ?? '2K',
+        aspectRatio: config.aspectRatio ?? '1:1',
+      });
+      const newEntry = { image: response.imageDataUrl, prompt: editPrompt.trim() };
+      const updated = [...editImages, newEntry];
+      setEditImages(updated);
+      editImagesRef.current = updated;
+      setActiveVariant(`edit-${editImages.length}`);
+      setEditPrompt('');
+      await autoSave();
+    } catch (err) {
+      console.error('Edit generation failed:', err);
+    } finally {
+      setIsGeneratingEdit(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editPrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, editImages, autoSave]);
 
   // --- Validation ---
   const missingItems: string[] = [];
@@ -603,7 +644,12 @@ High-end product photography style, natural lighting, shallow depth of field whe
             label: `Lifestyle ${i + 1}`,
             image: li.image,
           }));
-          const variants = [...base, ...lifeVariants];
+          const editVariants: Variant[] = editImages.map((ei, i) => ({
+            key: `edit-${i}`,
+            label: `Edit ${i + 1}`,
+            image: ei.image,
+          }));
+          const variants = [...base, ...lifeVariants, ...editVariants];
           const current = variants.find(v => v.key === activeVariant) ?? variants.find(v => v.key === 'final') ?? variants[0];
           const downloadSuffix = current.key;
 
@@ -659,6 +705,18 @@ High-end product photography style, natural lighting, shallow depth of field whe
                   </button>
 
                   <button
+                    className={`sidebar-action ${showEdit ? 'active' : ''}`}
+                    onClick={() => setShowEdit(prev => !prev)}
+                    title="Edit image with AI"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                      <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    </svg>
+                    <span>Edit</span>
+                  </button>
+
+                  <button
                     className="sidebar-action"
                     onClick={handleRunPipeline}
                     disabled={isRunning || !inputFile}
@@ -710,6 +768,46 @@ High-end product photography style, natural lighting, shallow depth of field whe
                   </div>
                   {isGeneratingLifestyle && (
                     <p className="lifestyle-status">Generating your lifestyle scene...</p>
+                  )}
+                </div>
+              )}
+
+              {/* AI Edit prompt panel */}
+              {showEdit && (
+                <div className="lifestyle-panel">
+                  <div className="lifestyle-header">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M11.5 1.5l3 3-8.5 8.5H3v-3l8.5-8.5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span>AI Edit</span>
+                  </div>
+                  <p className="lifestyle-hint">Retouch or modify the studio image (e.g. "new angle", "remove scratch", "brighter lighting")</p>
+                  <div className="lifestyle-input-row">
+                    <input
+                      type="text"
+                      className="lifestyle-input"
+                      placeholder="new angle, retouch details, adjust lighting..."
+                      value={editPrompt}
+                      onChange={e => setEditPrompt(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && !isGeneratingEdit) handleEditImage(); }}
+                      disabled={isGeneratingEdit}
+                    />
+                    <button
+                      className="lifestyle-generate"
+                      onClick={handleEditImage}
+                      disabled={isGeneratingEdit || !editPrompt.trim()}
+                    >
+                      {isGeneratingEdit ? (
+                        <span className="btn-spinner" />
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                          <path d="M3 15l12-6L3 3v5l8 1-8 1v5z" fill="currentColor"/>
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  {isGeneratingEdit && (
+                    <p className="lifestyle-status">Applying edit...</p>
                   )}
                 </div>
               )}

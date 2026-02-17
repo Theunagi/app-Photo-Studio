@@ -83,6 +83,16 @@ async function hydrateImages(project: Project): Promise<Project> {
     });
   }
 
+  // Collect edit storage paths
+  const edits = r.edits as { image: string; prompt: string }[] | undefined;
+  if (edits?.length) {
+    edits.forEach((ei, i) => {
+      if (!ei.image.startsWith('data:')) {
+        storagePaths[`edit-${i}`] = ei.image;
+      }
+    });
+  }
+
   // Download all in parallel
   const dataUrls = await downloadProjectImages(storagePaths);
 
@@ -104,6 +114,13 @@ async function hydrateImages(project: Project): Promise<Project> {
     lifestyles.forEach((li, i) => {
       if (dataUrls[`lifestyle-${i}`]) {
         li.image = dataUrls[`lifestyle-${i}`];
+      }
+    });
+  }
+  if (edits?.length) {
+    edits.forEach((ei, i) => {
+      if (dataUrls[`edit-${i}`]) {
+        ei.image = dataUrls[`edit-${i}`];
       }
     });
   }
@@ -181,6 +198,15 @@ async function sbSave(project: Project): Promise<void> {
     results.lifestyles = lifestyles.map((li, i) => ({
       ...li,
       image: storagePaths[`lifestyle-${i}`] ?? li.image,
+    }));
+  }
+
+  // Replace edit data URLs with paths
+  const edits = results.edits as { image: string; prompt: string }[] | undefined;
+  if (edits?.length) {
+    results.edits = edits.map((ei, i) => ({
+      ...ei,
+      image: storagePaths[`edit-${i}`] ?? ei.image,
     }));
   }
 

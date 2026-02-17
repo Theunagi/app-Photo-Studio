@@ -14,6 +14,7 @@ export interface ProjectResult {
   shadowComposite?: string;
   autoCrop?: string;
   lifestyles?: { image: string; prompt: string }[];
+  edits?: { image: string; prompt: string }[];
 }
 
 export interface Project {

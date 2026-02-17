@@ -40,22 +40,67 @@ export function isSupabaseConfigured(): boolean {
   return _initOk && _supabase !== null;
 }
 
-/** Run a quick connectivity test (call once at app startup) */
-export async function testSupabaseConnection(): Promise<boolean> {
+export interface SupabaseDiagnostic {
+  configured: boolean;
+  dbConnected: boolean;
+  dbError?: string;
+  dbWritable: boolean;
+  dbWriteError?: string;
+  storageConnected: boolean;
+  storageError?: string;
+  storageWritable: boolean;
+  storageWriteError?: string;
+}
+
+/** Run a comprehensive connectivity test (call once at app startup) */
+export async function testSupabaseConnection(): Promise<SupabaseDiagnostic> {
+  const result: SupabaseDiagnostic = {
+    configured: false, dbConnected: false, dbWritable: false,
+    storageConnected: false, storageWritable: false,
+  };
   if (!_initOk || !_supabase) {
     console.warn('[Supabase] Not configured — using IndexedDB');
-    return false;
+    return result;
   }
+  result.configured = true;
+
+  // 1. DB read
   try {
     const { error } = await _supabase.from('projects').select('id').limit(1);
-    if (error) {
-      console.error('[Supabase] Connection test FAILED:', error.message);
-      return false;
-    }
-    console.log('[Supabase] Connection OK — data will sync to cloud');
-    return true;
-  } catch (err) {
-    console.error('[Supabase] Connection test FAILED:', err);
-    return false;
+    if (error) { result.dbError = error.message; }
+    else { result.dbConnected = true; }
+  } catch (err) { result.dbError = String(err); }
+
+  // 2. DB write
+  if (result.dbConnected) {
+    try {
+      const testId = '00000000-0000-0000-0000-000000000000';
+      const { error } = await _supabase.from('projects').upsert({
+        id: testId, name: '_test', created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(), config: {}, results: {},
+      }, { onConflict: 'id' });
+      if (error) { result.dbWriteError = error.message; }
+      else { result.dbWritable = true; await _supabase.from('projects').delete().eq('id', testId); }
+    } catch (err) { result.dbWriteError = String(err); }
   }
+
+  // 3. Storage read
+  try {
+    const { error } = await _supabase.storage.from('project-images').list('', { limit: 1 });
+    if (error) { result.storageError = error.message; }
+    else { result.storageConnected = true; }
+  } catch (err) { result.storageError = String(err); }
+
+  // 4. Storage write
+  try {
+    const testPath = '_test/check.txt';
+    const { error } = await _supabase.storage
+      .from('project-images')
+      .upload(testPath, new Blob(['ok'], { type: 'text/plain' }), { contentType: 'text/plain', upsert: true });
+    if (error) { result.storageWriteError = error.message; }
+    else { result.storageWritable = true; await _supabase.storage.from('project-images').remove([testPath]); }
+  } catch (err) { result.storageWriteError = String(err); }
+
+  console.log('[Supabase] Diagnostic:', JSON.stringify(result, null, 2));
+  return result;
 }

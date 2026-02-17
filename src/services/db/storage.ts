@@ -118,6 +118,20 @@ export async function uploadProjectImages(
     });
   }
 
+  // Upload edit images
+  const edits = results.edits as { image: string; prompt: string }[] | undefined;
+  if (edits?.length) {
+    edits.forEach((ei, i) => {
+      if (ei.image.startsWith('data:')) {
+        uploads.push(
+          uploadImage(projectId, `edit-${i}`, ei.image).then(path => {
+            storagePaths[`edit-${i}`] = path;
+          })
+        );
+      }
+    });
+  }
+
   // Upload thumbnail
   let thumbnailPath: string | undefined;
   if (thumbnail?.startsWith('data:')) {
