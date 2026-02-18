@@ -2,13 +2,16 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Project } from './models/project';
 import { getProject } from './services/db/projectDB';
 import { testSupabaseConnection, onAuthStateChange, getCurrentUser, signOut, type SupabaseDiagnostic } from './services/db/supabase';
+import { getOrCreateProfile, type UserProfile } from './services/db/points';
 import HomeScreen from './screens/Home/HomeScreen';
 import StudioScreen from './screens/Studio/StudioScreen';
+import PricingScreen from './screens/Pricing/PricingScreen';
 import LoginScreen from './screens/Login/LoginScreen';
 
 type View =
   | { screen: 'home' }
   | { screen: 'studio'; project: Project | null }
+  | { screen: 'pricing' }
   | { screen: 'loading' };
 
 interface AppUser {
@@ -21,6 +24,7 @@ interface AppUser {
 function App() {
   const [view, setView] = useState<View>({ screen: 'home' });
   const [user, setUser] = useState<AppUser | null | undefined>(undefined); // undefined = loading
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [diag, setDiag] = useState<SupabaseDiagnostic | null>(null);
   const [showDiag, setShowDiag] = useState(false);
 
@@ -36,9 +40,10 @@ function App() {
     };
   }, []);
 
-  // Run diagnostics after login
+  // Load profile + run diagnostics after login
   useEffect(() => {
     if (user) {
+      getOrCreateProfile().then(p => setProfile(p)).catch(console.error);
       testSupabaseConnection().then(d => {
         setDiag(d);
         if (d.configured && (!d.dbConnected || !d.dbWritable || !d.storageConnected || !d.storageWritable)) {
@@ -47,6 +52,14 @@ function App() {
       });
     }
   }, [user]);
+
+  // Refresh profile when returning from pricing / after generation
+  const refreshProfile = useCallback(async () => {
+    try {
+      const p = await getOrCreateProfile();
+      setProfile(p);
+    } catch { /* silent */ }
+  }, []);
 
   const openStudio = useCallback(async (project: Project | null) => {
     if (!project) {
@@ -63,7 +76,8 @@ function App() {
     }
   }, []);
 
-  const goHome = useCallback(() => { setView({ screen: 'home' }); }, []);
+  const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); }, [refreshProfile]);
+  const goPricing = useCallback(() => { setView({ screen: 'pricing' }); }, []);
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -119,12 +133,25 @@ function App() {
     </div>
   ) : null;
 
-  // User avatar / sign out in top-right
+  // User avatar / points / sign out in top-right
   const userBadge = (
     <div style={{
       position: 'fixed', top: 12, right: 12, zIndex: 9999,
       display: 'flex', alignItems: 'center', gap: 8,
     }}>
+      {profile && (
+        <button
+          onClick={goPricing}
+          style={{
+            padding: '4px 12px', borderRadius: 20, fontSize: 11,
+            fontWeight: 700, background: 'var(--color-surface)',
+            border: '1px solid var(--color-primary)', color: 'var(--color-primary)',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          {profile.points_balance} pts
+        </button>
+      )}
       {user.avatar && (
         <img src={user.avatar} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid var(--color-border)' }} />
       )}
@@ -142,11 +169,20 @@ function App() {
     </div>
   );
 
+  const renderScreen = () => {
+    switch (view.screen) {
+      case 'studio':
+        return <StudioScreen project={view.project} onBack={goHome} pointsBalance={profile?.points_balance ?? 0} onPointsChanged={refreshProfile} />;
+      case 'pricing':
+        return <PricingScreen currentPlan={profile?.plan ?? 'free'} pointsBalance={profile?.points_balance ?? 0} userEmail={user.email} userId={user.id} onBack={goHome} />;
+      default:
+        return <HomeScreen onOpenStudio={openStudio} />;
+    }
+  };
+
   return (
     <>
-      {view.screen === 'studio'
-        ? <StudioScreen project={view.project} onBack={goHome} />
-        : <HomeScreen onOpenStudio={openStudio} />}
+      {renderScreen()}
       {userBadge}
       {diagBanner}
     </>

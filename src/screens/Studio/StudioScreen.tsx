@@ -10,6 +10,7 @@ import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import { callGeminiImageGen } from '../../services/api/gemini';
 import { saveProject } from '../../services/db/projectDB';
+import { deductPoints, GENERATION_COST } from '../../services/db/points';
 import './StudioScreen.css';
 
 const MAX_IMAGES = 5;
@@ -29,9 +30,11 @@ const PROGRESS_MESSAGES = [
 export interface StudioScreenProps {
   project: Project | null;
   onBack: () => void;
+  pointsBalance: number;
+  onPointsChanged: () => void;
 }
 
-const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
+const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBalance, onPointsChanged }) => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
     openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY ?? '',
@@ -224,6 +227,22 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
   // --- Pipeline Execution ---
   const handleRunPipeline = useCallback(async () => {
     if (!inputFile) return;
+
+    // Check & deduct points before running
+    const cost = GENERATION_COST[config.imageSize] ?? 2;
+    if (pointsBalance < cost) {
+      alert(`Points insuffisants. Il faut ${cost} pts pour une generation ${config.imageSize}. Vous avez ${pointsBalance} pts.`);
+      return;
+    }
+
+    try {
+      await deductPoints(cost);
+      onPointsChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to deduct points');
+      return;
+    }
+
     setIsRunning(true);
     const freshState = createInitialPipelineState();
     setPipelineState(freshState);
@@ -250,7 +269,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
       // Always save — even partial results are valuable
       await autoSave();
     }
-  }, [inputFile, inputPreviews, config, autoSave]);
+  }, [inputFile, inputPreviews, config, autoSave, pointsBalance, onPointsChanged]);
 
   const handleReset = useCallback(() => {
     setInputFiles([]);
@@ -606,7 +625,7 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
                       Processing...
                     </>
                   ) : (
-                    'Generate'
+                    `Generate (${GENERATION_COST[config.imageSize] ?? 2} pts)`
                   )}
                 </button>
               </div>
