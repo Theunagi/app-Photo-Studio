@@ -10,6 +10,13 @@
 
 import type { Project, ProjectResult } from '../../models/project';
 import { supabase, isSupabaseConfigured } from './supabase';
+
+/** Get current authenticated user's ID (throws if not logged in) */
+async function getAuthUserId(): Promise<string> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) throw new Error('Not authenticated');
+  return data.user.id;
+}
 import {
   uploadProjectImages,
   downloadProjectImages,
@@ -24,6 +31,7 @@ import {
 /** DB row shape — images stored as storage paths, not data URLs */
 interface ProjectRow {
   id: string;
+  user_id: string;
   name: string;
   created_at: string;
   updated_at: string;
@@ -136,9 +144,11 @@ async function hydrateImages(project: Project): Promise<Project> {
 // --- Supabase CRUD ---
 
 async function sbGetAll(): Promise<Project[]> {
+  const userId = await getAuthUserId();
   const { data, error } = await supabase
     .from('projects')
     .select('*')
+    .eq('user_id', userId)
     .order('updated_at', { ascending: false });
 
   if (error) throw new Error(`Supabase getAllProjects: ${error.message}`);
@@ -210,8 +220,10 @@ async function sbSave(project: Project): Promise<void> {
     }));
   }
 
+  const userId = await getAuthUserId();
   const row = {
     id: project.id,
+    user_id: userId,
     name: project.name,
     created_at: new Date(project.createdAt).toISOString(),
     updated_at: new Date().toISOString(),

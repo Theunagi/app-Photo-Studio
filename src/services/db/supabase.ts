@@ -17,9 +17,9 @@ if (supabaseUrl && supabaseAnonKey) {
   try {
     _supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
     });
     _initOk = true;
@@ -38,6 +38,53 @@ export const supabase = _supabase as SupabaseClient;
 /** Check if Supabase is properly configured and client was created */
 export function isSupabaseConfigured(): boolean {
   return _initOk && _supabase !== null;
+}
+
+// --- Auth helpers ---
+
+export async function signInWithGoogle() {
+  if (!_supabase) throw new Error('Supabase not configured');
+  const { error } = await _supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw error;
+}
+
+export async function signOut() {
+  if (!_supabase) return;
+  await _supabase.auth.signOut();
+}
+
+export function onAuthStateChange(callback: (user: { id: string; email?: string; name?: string; avatar?: string } | null) => void) {
+  if (!_supabase) return { unsubscribe: () => {} };
+  const { data } = _supabase.auth.onAuthStateChange((_event, session) => {
+    if (session?.user) {
+      const u = session.user;
+      callback({
+        id: u.id,
+        email: u.email ?? undefined,
+        name: u.user_metadata?.full_name ?? u.user_metadata?.name ?? undefined,
+        avatar: u.user_metadata?.avatar_url ?? u.user_metadata?.picture ?? undefined,
+      });
+    } else {
+      callback(null);
+    }
+  });
+  return data.subscription;
+}
+
+export async function getCurrentUser() {
+  if (!_supabase) return null;
+  const { data } = await _supabase.auth.getUser();
+  if (!data.user) return null;
+  const u = data.user;
+  return {
+    id: u.id,
+    email: u.email ?? undefined,
+    name: u.user_metadata?.full_name ?? u.user_metadata?.name ?? undefined,
+    avatar: u.user_metadata?.avatar_url ?? u.user_metadata?.picture ?? undefined,
+  };
 }
 
 export interface SupabaseDiagnostic {

@@ -1,26 +1,52 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Project } from './models/project';
 import { getProject } from './services/db/projectDB';
-import { testSupabaseConnection, type SupabaseDiagnostic } from './services/db/supabase';
+import { testSupabaseConnection, onAuthStateChange, getCurrentUser, signOut, type SupabaseDiagnostic } from './services/db/supabase';
 import HomeScreen from './screens/Home/HomeScreen';
 import StudioScreen from './screens/Studio/StudioScreen';
+import LoginScreen from './screens/Login/LoginScreen';
 
 type View =
   | { screen: 'home' }
   | { screen: 'studio'; project: Project | null }
   | { screen: 'loading' };
 
+interface AppUser {
+  id: string;
+  email?: string;
+  name?: string;
+  avatar?: string;
+}
+
 function App() {
   const [view, setView] = useState<View>({ screen: 'home' });
+  const [user, setUser] = useState<AppUser | null | undefined>(undefined); // undefined = loading
   const [diag, setDiag] = useState<SupabaseDiagnostic | null>(null);
   const [showDiag, setShowDiag] = useState(false);
 
+  // Listen to auth state changes
   useEffect(() => {
-    testSupabaseConnection().then(d => {
-      setDiag(d);
-      if (d.configured) setShowDiag(true);
-    });
+    // Check current session first
+    getCurrentUser().then(u => setUser(u));
+
+    // Subscribe to changes
+    const sub = onAuthStateChange(u => setUser(u));
+    return () => {
+      if (sub && 'unsubscribe' in sub) sub.unsubscribe();
+    };
   }, []);
+
+  // Run diagnostics after login
+  useEffect(() => {
+    if (user) {
+      testSupabaseConnection().then(d => {
+        setDiag(d);
+        if (d.configured && (!d.dbConnected || !d.dbWritable || !d.storageConnected || !d.storageWritable)) {
+          setShowDiag(true);
+        }
+      });
+    }
+  }, [user]);
 
   const openStudio = useCallback(async (project: Project | null) => {
     if (!project) {
@@ -39,6 +65,26 @@ function App() {
 
   const goHome = useCallback(() => { setView({ screen: 'home' }); }, []);
 
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    setView({ screen: 'home' });
+  }, []);
+
+  // Loading auth state
+  if (user === undefined) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--color-text-muted)', fontSize: '14px' }}>
+        Loading...
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  // Loading project
   if (view.screen === 'loading') {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--color-text-muted)', fontSize: '14px' }}>
@@ -70,30 +116,38 @@ function App() {
       <Line ok={diag.dbWritable} label="DB write (upsert)" err={diag.dbWriteError} />
       <Line ok={diag.storageConnected} label="Storage read" err={diag.storageError} />
       <Line ok={diag.storageWritable} label="Storage write" err={diag.storageWriteError} />
-      {!diag.dbConnected && (
-        <div style={{ marginTop: 10, fontSize: 11, color: '#a0a0a0', lineHeight: 1.5 }}>
-          Table missing? Run in SQL Editor:<br/>
-          <code style={{ background: '#2a2a3a', padding: '2px 6px', borderRadius: 4, fontSize: 10, wordBreak: 'break-all' }}>
-            CREATE TABLE projects (id uuid PRIMARY KEY, name text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), thumbnail text, config jsonb DEFAULT '{"{}"}'::jsonb, results jsonb DEFAULT '{"{}"}'::jsonb);
-          </code>
-        </div>
-      )}
-      {diag.dbConnected && !diag.dbWritable && (
-        <div style={{ marginTop: 10, fontSize: 11, color: '#a0a0a0', lineHeight: 1.5 }}>
-          RLS blocking writes? Run:<br/>
-          <code style={{ background: '#2a2a3a', padding: '2px 6px', borderRadius: 4, fontSize: 10, wordBreak: 'break-all' }}>
-            CREATE POLICY "anon_all" ON projects FOR ALL USING (true) WITH CHECK (true);
-          </code>
-        </div>
-      )}
     </div>
   ) : null;
+
+  // User avatar / sign out in top-right
+  const userBadge = (
+    <div style={{
+      position: 'fixed', top: 12, right: 12, zIndex: 9999,
+      display: 'flex', alignItems: 'center', gap: 8,
+    }}>
+      {user.avatar && (
+        <img src={user.avatar} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid var(--color-border)' }} />
+      )}
+      <button
+        onClick={handleSignOut}
+        style={{
+          padding: '4px 12px', borderRadius: 20, fontSize: 11,
+          fontWeight: 600, background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)', color: 'var(--color-text-dim)',
+          cursor: 'pointer',
+        }}
+      >
+        Sign out
+      </button>
+    </div>
+  );
 
   return (
     <>
       {view.screen === 'studio'
         ? <StudioScreen project={view.project} onBack={goHome} />
         : <HomeScreen onOpenStudio={openStudio} />}
+      {userBadge}
       {diagBanner}
     </>
   );
