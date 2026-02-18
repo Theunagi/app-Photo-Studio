@@ -12,6 +12,7 @@ export interface PipelineConfig {
   openaiApiKey: string;
   geminiApiKey: string;
   falApiKey: string;
+  nanoBananaApiKey?: string;
   /** Vision model for product analysis (Step 1) & luminance check (Step 3) */
   visionModel: 'gpt-4o' | 'gemini-1.5-pro';
   /** Image generation model (Step 2) */

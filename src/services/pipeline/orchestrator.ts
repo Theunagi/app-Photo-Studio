@@ -33,6 +33,7 @@ import {
 // API Services
 import { callOpenAIVision, PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../api/openai';
 import { callGeminiImageGen, buildStudioPrompt } from '../api/gemini';
+import { callNanoBananaImageGen } from '../api/nanobanana';
 import { removeBackground } from '../api/bria';
 
 // Image Processing (DSP)
@@ -134,11 +135,30 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 2: STUDIO GENERATION (Gemini gemini-3-pro-image-preview)
+  // STEP 2: STUDIO GENERATION (NanoBanana Pro or Gemini fallback)
   // =========================================================================
   const studioGen = await executeStep<StudioGeneration>(state, 'studioGeneration', onStateChange, async () => {
     const fullPrompt = buildStudioPrompt(analysis.description);
 
+    if (config.nanoBananaApiKey) {
+      // Use Nano Banana Pro (kie.ai)
+      console.log('[Pipeline] Step 2: Using Nano Banana Pro');
+      const response = await callNanoBananaImageGen({
+        apiKey: config.nanoBananaApiKey,
+        imageDataUrl: input.imageDataUrl,
+        referenceImageDataUrls: additionalImageDataUrls,
+        prompt: fullPrompt,
+        imageSize: config.imageSize ?? '2K',
+        aspectRatio: config.aspectRatio ?? '1:1',
+      });
+      return {
+        imageBlob: dataUrlToBlob(response.imageDataUrl),
+        imageDataUrl: response.imageDataUrl,
+      };
+    }
+
+    // Fallback: Gemini
+    console.log('[Pipeline] Step 2: Using Gemini');
     const response = await callGeminiImageGen({
       apiKey: config.geminiApiKey,
       imageDataUrl: input.imageDataUrl,

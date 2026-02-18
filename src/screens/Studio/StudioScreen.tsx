@@ -37,6 +37,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack }) => {
     openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY ?? '',
     geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
     falApiKey: import.meta.env.VITE_FAL_API_KEY ?? '',
+    nanoBananaApiKey: import.meta.env.VITE_NANOBANANA_API_KEY || undefined,
     visionModel: 'gpt-4o',
     generationModel: DEFAULT_PIPELINE_CONFIG.generationModel!,
     imageSize: project?.config.imageSize ?? DEFAULT_PIPELINE_CONFIG.imageSize!,
