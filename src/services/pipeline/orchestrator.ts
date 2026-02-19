@@ -32,7 +32,7 @@ import {
 
 // API Services
 import { callOpenAIVision, PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../api/openai';
-import { callGeminiImageGen, buildStudioPrompt } from '../api/gemini';
+import { buildStudioPrompt } from '../api/gemini';
 import { callNanoBananaImageGen } from '../api/nanobanana';
 import { callFalImageGen } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
@@ -136,38 +136,17 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 2: STUDIO GENERATION (NanoBanana → Fal.ai → Gemini)
+  // STEP 2: STUDIO GENERATION (Fal.ai → NanoBanana)
   // =========================================================================
   const studioGen = await executeStep<StudioGeneration>(state, 'studioGeneration', onStateChange, async () => {
     const fullPrompt = buildStudioPrompt(analysis.description);
 
-    // --- Fallback chain: NanoBanana → Fal.ai → Gemini ---
+    // --- Fallback chain: Fal.ai → NanoBanana (kie.ai) ---
 
-    // 1) Try NanoBanana Pro (kie.ai) — PRIMARY
-    if (config.nanoBananaApiKey) {
-      try {
-        console.log('[Pipeline] Step 2: Using NanoBanana Pro (primary)');
-        const response = await callNanoBananaImageGen({
-          apiKey: config.nanoBananaApiKey,
-          imageDataUrl: input.imageDataUrl,
-          referenceImageDataUrls: additionalImageDataUrls,
-          prompt: fullPrompt,
-          imageSize: config.imageSize ?? '2K',
-          aspectRatio: config.aspectRatio ?? '1:1',
-        });
-        return {
-          imageBlob: dataUrlToBlob(response.imageDataUrl),
-          imageDataUrl: response.imageDataUrl,
-        };
-      } catch (nbErr) {
-        console.warn('[Pipeline] NanoBanana failed, trying Fal.ai:', nbErr);
-      }
-    }
-
-    // 2) Try Fal.ai Flux Dev (fallback 1)
+    // 1) Try Fal.ai Flux Dev — PRIMARY
     if (config.falApiKey) {
       try {
-        console.log('[Pipeline] Step 2: Using Fal.ai Flux (fallback 1)');
+        console.log('[Pipeline] Step 2: Using Fal.ai Flux (primary)');
         const response = await callFalImageGen({
           falApiKey: config.falApiKey,
           imageDataUrl: input.imageDataUrl,
@@ -179,22 +158,23 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
           imageDataUrl: response.imageDataUrl,
         };
       } catch (falErr) {
-        console.warn('[Pipeline] Fal.ai failed, trying Gemini:', falErr);
+        console.warn('[Pipeline] Fal.ai failed, trying NanoBanana:', falErr);
       }
     }
 
-    // 3) Gemini (last resort)
-    console.log('[Pipeline] Step 2: Using Gemini (fallback 2)');
-    const response = await callGeminiImageGen({
-      apiKey: config.geminiApiKey,
+    // 2) NanoBanana Pro (kie.ai) — fallback
+    if (!config.nanoBananaApiKey) {
+      throw new Error('No image generation API available (Fal.ai and NanoBanana both unavailable)');
+    }
+    console.log('[Pipeline] Step 2: Using NanoBanana Pro (fallback)');
+    const response = await callNanoBananaImageGen({
+      apiKey: config.nanoBananaApiKey,
       imageDataUrl: input.imageDataUrl,
       referenceImageDataUrls: additionalImageDataUrls,
       prompt: fullPrompt,
-      model: config.generationModel ?? 'gemini-3-pro-image-preview',
       imageSize: config.imageSize ?? '2K',
       aspectRatio: config.aspectRatio ?? '1:1',
     });
-
     return {
       imageBlob: dataUrlToBlob(response.imageDataUrl),
       imageDataUrl: response.imageDataUrl,
