@@ -13,7 +13,6 @@ export interface FalImageGenRequest {
   falApiKey: string;
   imageDataUrl: string;
   prompt: string;
-  imageSize?: string;
 }
 
 export interface FalImageGenResponse {
