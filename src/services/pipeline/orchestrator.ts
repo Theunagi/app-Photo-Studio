@@ -6,7 +6,7 @@
  * real-time UI updates at each stage.
  *
  * Pipeline Flow:
- *   Input → Analysis(Vision) → StudioGen(Gemini) → LuminanceCheck(GPT-4o)
+ *   Input → Analysis(Vision) → StudioGen(NanoBanana|Fal.ai|Gemini) → LuminanceCheck(GPT-4o)
  *   → Retouch(DSP) → BgRemoval(Fal.ai/Bria) → ShadowComposer(DSP) → AutoCrop(DSP)
  */
 
@@ -34,6 +34,7 @@ import {
 import { callOpenAIVision, PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../api/openai';
 import { callGeminiImageGen, buildStudioPrompt } from '../api/gemini';
 import { callNanoBananaImageGen } from '../api/nanobanana';
+import { callFalImageGen } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
 
 // Image Processing (DSP)
@@ -140,6 +141,9 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   const studioGen = await executeStep<StudioGeneration>(state, 'studioGeneration', onStateChange, async () => {
     const fullPrompt = buildStudioPrompt(analysis.description);
 
+    // --- Fallback chain: NanoBanana → Fal.ai → Gemini ---
+
+    // 1) Try NanoBanana Pro (kie.ai)
     if (config.nanoBananaApiKey) {
       try {
         console.log('[Pipeline] Step 2: Using Nano Banana Pro');
@@ -156,12 +160,32 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
           imageDataUrl: response.imageDataUrl,
         };
       } catch (nbErr) {
-        console.warn('[Pipeline] NanoBanana failed, falling back to Gemini:', nbErr);
+        console.warn('[Pipeline] NanoBanana failed, trying Fal.ai:', nbErr);
       }
     }
 
-    // Fallback: Gemini
-    console.log('[Pipeline] Step 2: Using Gemini (fallback)');
+    // 2) Try Fal.ai Flux Dev (image-to-image)
+    if (config.falApiKey) {
+      try {
+        console.log('[Pipeline] Step 2: Using Fal.ai Flux (fallback 1)');
+        const response = await callFalImageGen({
+          falApiKey: config.falApiKey,
+          imageDataUrl: input.imageDataUrl,
+          prompt: fullPrompt,
+          imageSize: config.imageSize ?? '2K',
+          strength: 0.75,
+        });
+        return {
+          imageBlob: dataUrlToBlob(response.imageDataUrl),
+          imageDataUrl: response.imageDataUrl,
+        };
+      } catch (falErr) {
+        console.warn('[Pipeline] Fal.ai failed, trying Gemini:', falErr);
+      }
+    }
+
+    // 3) Gemini (last resort)
+    console.log('[Pipeline] Step 2: Using Gemini (fallback 2)');
     const response = await callGeminiImageGen({
       apiKey: config.geminiApiKey,
       imageDataUrl: input.imageDataUrl,
