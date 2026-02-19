@@ -174,7 +174,7 @@ function App() {
       case 'studio':
         return <StudioScreen project={view.project} onBack={goHome} pointsBalance={profile?.points_balance ?? 0} onPointsChanged={refreshProfile} />;
       case 'pricing':
-        return <PricingScreen currentPlan={profile?.plan ?? 'free'} pointsBalance={profile?.points_balance ?? 0} userEmail={user.email} userId={user.id} onBack={goHome} />;
+        return <PricingScreen currentPlan={profile?.plan ?? 'free'} pointsBalance={profile?.points_balance ?? 0} userEmail={user.email} userId={user.id} onBack={goHome} onPlanChanged={refreshProfile} />;
       default:
         return <HomeScreen onOpenStudio={openStudio} />;
     }

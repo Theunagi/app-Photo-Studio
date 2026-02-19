@@ -1,9 +1,18 @@
 /**
- * Pricing Screen — Subscription plans with Stripe checkout.
+ * Pricing Screen — Subscription plans via RevenueCat + Stripe.
+ * Falls back to direct Stripe Payment Links if RevenueCat is not configured.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PLANS } from '../../services/db/points';
+import {
+  isRevenueCatConfigured,
+  initRevenueCat,
+  fetchOfferings,
+  purchasePackage,
+  getActiveEntitlement,
+} from '../../services/payments/revenuecat';
+import type { Package } from '@revenuecat/purchases-js';
 import './PricingScreen.css';
 
 interface PricingScreenProps {
@@ -12,29 +21,118 @@ interface PricingScreenProps {
   userEmail?: string;
   userId?: string;
   onBack: () => void;
+  onPlanChanged?: () => void;
 }
 
+/** Map RevenueCat package identifiers to our plan IDs */
+const RC_PACKAGE_TO_PLAN: Record<string, string> = {
+  starter: 'starter',
+  pro: 'pro',
+  business: 'business',
+};
+
+/** Fallback: Stripe Payment Links (used when RevenueCat is not configured) */
 const STRIPE_LINKS: Record<string, string | undefined> = {
   starter: import.meta.env.VITE_STRIPE_LINK_STARTER,
   pro: import.meta.env.VITE_STRIPE_LINK_PRO,
   business: import.meta.env.VITE_STRIPE_LINK_BUSINESS,
 };
 
-const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalance, userEmail, userId, onBack }) => {
+const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalance, userEmail, userId, onBack, onPlanChanged }) => {
   const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [rcPackages, setRcPackages] = useState<Map<string, Package>>(new Map());
+  const [showCheckout, setShowCheckout] = useState(false);
+  const checkoutRef = useRef<HTMLDivElement>(null);
+  const useRC = isRevenueCatConfigured();
 
-  const handleSubscribe = (planId: string) => {
-    const link = STRIPE_LINKS[planId];
-    if (!link) {
-      alert('Payment link not configured. Add VITE_STRIPE_LINK_* to your .env file.');
+  // Initialize RevenueCat and fetch offerings
+  useEffect(() => {
+    if (!useRC || !userId) return;
+
+    try { initRevenueCat(userId); } catch { /* already initialized */ }
+
+    fetchOfferings().then(offerings => {
+      const current = offerings.current;
+      if (!current) {
+        console.warn('[RC] No current offering found');
+        return;
+      }
+
+      const pkgMap = new Map<string, Package>();
+      for (const pkg of current.availablePackages) {
+        // Match by package identifier (e.g. "starter", "pro", "business")
+        const planId = RC_PACKAGE_TO_PLAN[pkg.identifier] ?? pkg.identifier;
+        pkgMap.set(planId, pkg);
+      }
+      setRcPackages(pkgMap);
+      console.log('[RC] Offerings loaded:', [...pkgMap.keys()]);
+    }).catch(err => {
+      console.error('[RC] Failed to load offerings:', err);
+    });
+  }, [useRC, userId]);
+
+  // Handle purchase via RevenueCat
+  const handleRCPurchase = useCallback(async (planId: string) => {
+    const pkg = rcPackages.get(planId);
+    if (!pkg) {
+      setError(`Package "${planId}" not found in RevenueCat offerings`);
       return;
     }
 
+    setLoading(planId);
+    setError(null);
+    setShowCheckout(true);
+
+    // Wait for checkout div to mount
+    await new Promise(r => setTimeout(r, 100));
+
+    if (!checkoutRef.current) {
+      setError('Checkout container not found');
+      setLoading(null);
+      setShowCheckout(false);
+      return;
+    }
+
+    try {
+      await purchasePackage(pkg, checkoutRef.current, userEmail);
+
+      // After successful purchase, check entitlement
+      const activePlan = await getActiveEntitlement();
+      console.log('[RC] Purchase complete, active plan:', activePlan);
+
+      setShowCheckout(false);
+      onPlanChanged?.();
+      onBack();
+    } catch (err) {
+      console.error('[RC] Purchase failed:', err);
+      setError(err instanceof Error ? err.message : 'Purchase failed');
+      setShowCheckout(false);
+    } finally {
+      setLoading(null);
+    }
+  }, [rcPackages, userEmail, onBack, onPlanChanged]);
+
+  // Fallback: direct Stripe Payment Links
+  const handleStripePurchase = (planId: string) => {
+    const link = STRIPE_LINKS[planId];
+    if (!link) {
+      setError('Payment link not configured. Add VITE_STRIPE_LINK_* to .env.');
+      return;
+    }
     setLoading(planId);
     const url = new URL(link);
     if (userId) url.searchParams.set('client_reference_id', userId);
     if (userEmail) url.searchParams.set('prefilled_email', userEmail);
     window.location.href = url.toString();
+  };
+
+  const handleSubscribe = (planId: string) => {
+    if (useRC && rcPackages.has(planId)) {
+      handleRCPurchase(planId);
+    } else {
+      handleStripePurchase(planId);
+    }
   };
 
   return (
@@ -56,6 +154,13 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
         <h1>Choose your plan</h1>
         <p>Each generation costs <strong>2 pts</strong> (2K) or <strong>3 pts</strong> (4K)</p>
       </div>
+
+      {error && (
+        <div className="pricing-error">
+          {error}
+          <button onClick={() => setError(null)}>x</button>
+        </div>
+      )}
 
       <div className="pricing-cards">
         {PLANS.map((plan, index) => {
@@ -94,12 +199,26 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
                 onClick={() => handleSubscribe(plan.id)}
                 disabled={isCurrent || loading === plan.id}
               >
-                {loading === plan.id ? 'Redirecting...' : isCurrent ? 'Active' : 'Subscribe'}
+                {loading === plan.id ? 'Processing...' : isCurrent ? 'Active' : 'Subscribe'}
               </button>
             </div>
           );
         })}
       </div>
+
+      {/* RevenueCat checkout overlay — Stripe Elements renders here */}
+      {showCheckout && (
+        <div className="rc-checkout-overlay">
+          <div className="rc-checkout-container">
+            <button className="rc-checkout-close" onClick={() => { setShowCheckout(false); setLoading(null); }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+            <div ref={checkoutRef} className="rc-checkout-target" />
+          </div>
+        </div>
+      )}
 
       <div className="pricing-footer">
         <p>Secure payment via Stripe. Cancel anytime.</p>
