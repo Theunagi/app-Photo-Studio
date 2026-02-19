@@ -34,6 +34,7 @@ import {
 import { callOpenAIVision, PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../api/openai';
 import { callGeminiImageGen, buildStudioPrompt } from '../api/gemini';
 import { callNanoBananaImageGen } from '../api/nanobanana';
+import { callFalImageGen } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
 
 // Image Processing (DSP)
@@ -135,12 +136,12 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 2: STUDIO GENERATION (NanoBanana → Gemini fallback)
+  // STEP 2: STUDIO GENERATION (NanoBanana → Fal.ai → Gemini)
   // =========================================================================
   const studioGen = await executeStep<StudioGeneration>(state, 'studioGeneration', onStateChange, async () => {
     const fullPrompt = buildStudioPrompt(analysis.description);
 
-    // --- Fallback chain: NanoBanana → Gemini ---
+    // --- Fallback chain: NanoBanana → Fal.ai → Gemini ---
 
     // 1) Try NanoBanana Pro (kie.ai) — PRIMARY
     if (config.nanoBananaApiKey) {
@@ -159,12 +160,31 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
           imageDataUrl: response.imageDataUrl,
         };
       } catch (nbErr) {
-        console.warn('[Pipeline] NanoBanana failed, trying Gemini:', nbErr);
+        console.warn('[Pipeline] NanoBanana failed, trying Fal.ai:', nbErr);
       }
     }
 
-    // 2) Gemini (fallback)
-    console.log('[Pipeline] Step 2: Using Gemini (fallback)');
+    // 2) Try Fal.ai Flux Dev (fallback 1)
+    if (config.falApiKey) {
+      try {
+        console.log('[Pipeline] Step 2: Using Fal.ai Flux (fallback 1)');
+        const response = await callFalImageGen({
+          falApiKey: config.falApiKey,
+          imageDataUrl: input.imageDataUrl,
+          prompt: fullPrompt,
+          imageSize: config.imageSize ?? '2K',
+        });
+        return {
+          imageBlob: dataUrlToBlob(response.imageDataUrl),
+          imageDataUrl: response.imageDataUrl,
+        };
+      } catch (falErr) {
+        console.warn('[Pipeline] Fal.ai failed, trying Gemini:', falErr);
+      }
+    }
+
+    // 3) Gemini (last resort)
+    console.log('[Pipeline] Step 2: Using Gemini (fallback 2)');
     const response = await callGeminiImageGen({
       apiKey: config.geminiApiKey,
       imageDataUrl: input.imageDataUrl,
