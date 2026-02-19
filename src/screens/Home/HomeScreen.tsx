@@ -10,9 +10,10 @@ import './HomeScreen.css';
 
 interface HomeScreenProps {
   onOpenStudio: (project: Project | null) => void;
+  userBadge?: React.ReactNode;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio, userBadge }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -73,6 +74,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio }) => {
               <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+          {userBadge}
         </div>
       </header>
 

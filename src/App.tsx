@@ -133,12 +133,9 @@ function App() {
     </div>
   ) : null;
 
-  // User avatar / points / sign out in top-right
+  // User badge (points / avatar / sign out) — passed into headers
   const userBadge = (
-    <div style={{
-      position: 'fixed', top: 12, right: 12, zIndex: 9999,
-      display: 'flex', alignItems: 'center', gap: 8,
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       {profile && (
         <button
           onClick={goPricing}
@@ -172,18 +169,17 @@ function App() {
   const renderScreen = () => {
     switch (view.screen) {
       case 'studio':
-        return <StudioScreen project={view.project} onBack={goHome} pointsBalance={profile?.points_balance ?? 0} onPointsChanged={refreshProfile} />;
+        return <StudioScreen project={view.project} onBack={goHome} pointsBalance={profile?.points_balance ?? 0} onPointsChanged={refreshProfile} userBadge={userBadge} />;
       case 'pricing':
         return <PricingScreen currentPlan={profile?.plan ?? 'free'} pointsBalance={profile?.points_balance ?? 0} userEmail={user.email} userId={user.id} onBack={goHome} onPlanChanged={refreshProfile} />;
       default:
-        return <HomeScreen onOpenStudio={openStudio} />;
+        return <HomeScreen onOpenStudio={openStudio} userBadge={userBadge} />;
     }
   };
 
   return (
     <>
       {renderScreen()}
-      {userBadge}
       {diagBanner}
     </>
   );

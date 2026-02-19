@@ -33,9 +33,10 @@ export interface StudioScreenProps {
   onBack: () => void;
   pointsBalance: number;
   onPointsChanged: () => void;
+  userBadge?: React.ReactNode;
 }
 
-const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBalance, onPointsChanged }) => {
+const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBalance, onPointsChanged, userBadge }) => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
     openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY ?? '',
@@ -450,6 +451,7 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
               <path d="M9 1.5V3M9 15v1.5M1.5 9H3M15 9h1.5M3.4 3.4l1.1 1.1M13.5 13.5l1.1 1.1M3.4 14.6l1.1-1.1M13.5 4.5l1.1-1.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
           </button>
+          {userBadge}
         </div>
       </header>
 
