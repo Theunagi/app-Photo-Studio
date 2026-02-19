@@ -141,24 +141,27 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
     const fullPrompt = buildStudioPrompt(analysis.description);
 
     if (config.nanoBananaApiKey) {
-      // Use Nano Banana Pro (kie.ai)
-      console.log('[Pipeline] Step 2: Using Nano Banana Pro');
-      const response = await callNanoBananaImageGen({
-        apiKey: config.nanoBananaApiKey,
-        imageDataUrl: input.imageDataUrl,
-        referenceImageDataUrls: additionalImageDataUrls,
-        prompt: fullPrompt,
-        imageSize: config.imageSize ?? '2K',
-        aspectRatio: config.aspectRatio ?? '1:1',
-      });
-      return {
-        imageBlob: dataUrlToBlob(response.imageDataUrl),
-        imageDataUrl: response.imageDataUrl,
-      };
+      try {
+        console.log('[Pipeline] Step 2: Using Nano Banana Pro');
+        const response = await callNanoBananaImageGen({
+          apiKey: config.nanoBananaApiKey,
+          imageDataUrl: input.imageDataUrl,
+          referenceImageDataUrls: additionalImageDataUrls,
+          prompt: fullPrompt,
+          imageSize: config.imageSize ?? '2K',
+          aspectRatio: config.aspectRatio ?? '1:1',
+        });
+        return {
+          imageBlob: dataUrlToBlob(response.imageDataUrl),
+          imageDataUrl: response.imageDataUrl,
+        };
+      } catch (nbErr) {
+        console.warn('[Pipeline] NanoBanana failed, falling back to Gemini:', nbErr);
+      }
     }
 
     // Fallback: Gemini
-    console.log('[Pipeline] Step 2: Using Gemini');
+    console.log('[Pipeline] Step 2: Using Gemini (fallback)');
     const response = await callGeminiImageGen({
       apiKey: config.geminiApiKey,
       imageDataUrl: input.imageDataUrl,
