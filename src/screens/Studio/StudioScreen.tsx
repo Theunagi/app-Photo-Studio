@@ -233,7 +233,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
     // Check & deduct points before running
     const cost = GENERATION_COST[config.imageSize] ?? 2;
     if (pointsBalance < cost) {
-      alert(`Points insuffisants. Il faut ${cost} pts pour une generation ${config.imageSize}. Vous avez ${pointsBalance} pts.`);
+      alert(`Crédits insuffisants. Il faut ${cost} crédits pour une génération ${config.imageSize}. Vous avez ${pointsBalance} crédits.`);
       return;
     }
 
@@ -241,7 +241,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
       await deductPoints(cost);
       onPointsChanged();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to deduct points');
+      alert(err instanceof Error ? err.message : 'Failed to deduct credits');
       return;
     }
 
@@ -625,7 +625,7 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
                       Processing...
                     </>
                   ) : (
-                    `Generate (${GENERATION_COST[config.imageSize] ?? 2} pts)`
+                    `Generate (${GENERATION_COST[config.imageSize] ?? 2} credits)`
                   )}
                 </button>
               </div>

@@ -146,13 +146,13 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
         </button>
         <div className="pricing-balance">
           <span className="balance-label">Your credits</span>
-          <span className="balance-value">{pointsBalance} pts</span>
+          <span className="balance-value">{pointsBalance} credits</span>
         </div>
       </header>
 
       <div className="pricing-hero">
         <h1>Choose your plan</h1>
-        <p>Each generation costs <strong>2 pts</strong> (2K) or <strong>3 pts</strong> (4K)</p>
+        <p>Each generation costs <strong>2 credits</strong> (2K) or <strong>3 credits</strong> (4K)</p>
       </div>
 
       {error && (
@@ -180,7 +180,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
 
               <div className="pricing-points">
                 <span className="points-amount">{plan.points}</span>
-                <span className="points-label">points / month</span>
+                <span className="points-label">credits / month</span>
               </div>
 
               <ul className="pricing-features">

@@ -146,7 +146,7 @@ function App() {
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
           }}
         >
-          {profile.points_balance} pts
+          {profile.points_balance} credits
         </button>
       )}
       {user.avatar && (

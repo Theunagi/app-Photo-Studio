@@ -8,9 +8,9 @@ import { supabase } from './supabase';
 // --- Plans & Costs ---
 
 export const PLANS = [
-  { id: 'starter', name: 'Starter', price: 9.90, points: 70, features: ['~35 images 2K', '~23 images 4K', 'All pipeline steps'] },
-  { id: 'pro', name: 'Pro', price: 19.90, points: 180, features: ['~90 images 2K', '~60 images 4K', 'All pipeline steps', 'Priority support'] },
-  { id: 'business', name: 'Business', price: 39.90, points: 420, features: ['~210 images 2K', '~140 images 4K', 'All pipeline steps', 'Priority support', 'Custom branding'] },
+  { id: 'starter', name: 'Starter', price: 9.90, points: 70, features: ['70 credits', '~35 images 2K', '~23 images 4K', 'All pipeline steps'] },
+  { id: 'pro', name: 'Pro', price: 19.90, points: 180, features: ['180 credits', '~90 images 2K', '~60 images 4K', 'All pipeline steps', 'Priority support'] },
+  { id: 'business', name: 'Business', price: 39.90, points: 420, features: ['420 credits', '~210 images 2K', '~140 images 4K', 'All pipeline steps', 'Priority support', 'Custom branding'] },
 ] as const;
 
 export const GENERATION_COST: Record<string, number> = {
@@ -73,7 +73,7 @@ export async function deductPoints(amount: number): Promise<number> {
   });
 
   if (error) {
-    if (error.message.includes('Insufficient')) throw new Error('Points insuffisants');
+    if (error.message.includes('Insufficient')) throw new Error('Crédits insuffisants');
     throw new Error(`Deduct points: ${error.message}`);
   }
 
