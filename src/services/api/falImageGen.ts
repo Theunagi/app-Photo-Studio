@@ -39,7 +39,7 @@ export async function callFalImageGen(
         'Authorization': `Key ${req.falApiKey}`,
       },
       body: JSON.stringify({
-        image_url: req.imageDataUrl,
+        image_urls: [req.imageDataUrl],
         prompt: req.prompt,
       }),
     });
