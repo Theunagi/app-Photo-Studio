@@ -79,15 +79,22 @@ async function createTask(
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(`NanoBanana createTask error ${response.status}: ${JSON.stringify(err)}`);
+    const errText = await response.text().catch(() => '');
+    throw new Error(`NanoBanana createTask HTTP ${response.status}: ${errText.slice(0, 500)}`);
   }
 
   const data = await response.json();
-  if (data.code !== 200) throw new Error(`NanoBanana createTask: ${data.message}`);
+  console.log('[NanoBanana] createTask response:', JSON.stringify(data));
 
-  console.log('[NanoBanana] Task created:', data.data.taskId);
-  return data.data.taskId;
+  if (data.code !== 200 && data.code !== 0) {
+    throw new Error(`NanoBanana createTask: ${data.message ?? data.msg ?? JSON.stringify(data)}`);
+  }
+
+  const taskId = data.data?.taskId ?? data.data?.task_id ?? data.taskId;
+  if (!taskId) throw new Error(`NanoBanana: no taskId in response: ${JSON.stringify(data).slice(0, 300)}`);
+
+  console.log('[NanoBanana] Task created:', taskId);
+  return taskId;
 }
 
 async function pollTaskResult(apiKey: string, taskId: string): Promise<string[]> {
@@ -104,16 +111,21 @@ async function pollTaskResult(apiKey: string, taskId: string): Promise<string[]>
     }
 
     const data = await response.json();
-    const state = data.data?.state;
+    console.log(`[NanoBanana] Poll ${i + 1} response:`, JSON.stringify(data).slice(0, 300));
+    const taskData = data.data ?? data;
+    const state = taskData.state ?? taskData.status;
 
-    if (state === 'success') {
-      const resultJson = JSON.parse(data.data.resultJson);
-      console.log('[NanoBanana] Task completed, result URLs:', resultJson.resultUrls);
-      return resultJson.resultUrls;
+    if (state === 'success' || state === 'completed') {
+      const resultJson = typeof taskData.resultJson === 'string'
+        ? JSON.parse(taskData.resultJson)
+        : taskData.resultJson ?? taskData;
+      const urls = resultJson.resultUrls ?? resultJson.result_urls ?? resultJson.output;
+      console.log('[NanoBanana] Task completed, result URLs:', urls);
+      return Array.isArray(urls) ? urls : [urls];
     }
 
-    if (state === 'fail') {
-      throw new Error(`NanoBanana task failed: ${data.data.failMsg ?? 'Unknown error'}`);
+    if (state === 'fail' || state === 'failed' || state === 'error') {
+      throw new Error(`NanoBanana task failed: ${taskData.failMsg ?? taskData.message ?? 'Unknown error'}`);
     }
 
     console.log(`[NanoBanana] Poll ${i + 1}/${MAX_POLL_ATTEMPTS} — state: ${state ?? 'processing'}`);
