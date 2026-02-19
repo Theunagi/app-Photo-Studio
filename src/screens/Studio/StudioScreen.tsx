@@ -8,6 +8,7 @@ import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/p
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
+import { callFalEdit } from '../../services/api/falImageGen';
 import { callGeminiImageGen } from '../../services/api/gemini';
 import { saveProject } from '../../services/db/projectDB';
 import { deductPoints, GENERATION_COST } from '../../services/db/points';
@@ -351,10 +352,10 @@ High-end product photography style, natural lighting, shallow depth of field whe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifestylePrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, lifestyleImages, autoSave]);
 
-  // --- AI Edit Generation ---
+  // --- AI Edit Generation (via Fal.ai NanoBanana Pro Edit) ---
   const handleEditImage = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
-    if (!sourceImage || !editPrompt.trim() || !config.geminiApiKey) return;
+    if (!sourceImage || !editPrompt.trim() || !config.falApiKey) return;
     setIsGeneratingEdit(true);
     try {
       const prompt = `Edit this product photo on white background. Apply: ${editPrompt.trim()}.
@@ -362,13 +363,10 @@ Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
 Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
 Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
 
-      const response = await callGeminiImageGen({
-        apiKey: config.geminiApiKey,
+      const response = await callFalEdit({
+        falApiKey: config.falApiKey,
         imageDataUrl: sourceImage,
         prompt,
-        model: config.generationModel ?? 'gemini-3-pro-image-preview',
-        imageSize: config.imageSize ?? '2K',
-        aspectRatio: config.aspectRatio ?? '1:1',
       });
       const newEntry = { image: response.imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
@@ -383,7 +381,7 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
       setIsGeneratingEdit(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editPrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, editImages, autoSave]);
+  }, [editPrompt, config.falApiKey, editImages, autoSave]);
 
   // --- Validation ---
   const missingItems: string[] = [];
