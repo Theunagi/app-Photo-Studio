@@ -253,16 +253,17 @@
   border-radius: 16px;
   width: 90%;
   max-width: 500px;
+  min-height: 400px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: visible;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .rc-checkout-close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 1;
+  top: -12px;
+  right: -12px;
+  z-index: 10001;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: 50%;
@@ -277,5 +278,15 @@
 .rc-checkout-close:hover { background: #f3f4f6; }
 
 .rc-checkout-target {
-  min-height: 300px;
+  min-height: 400px;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* RevenueCat injects iframes and divs — make sure they fill the container */
+.rc-checkout-target iframe,
+.rc-checkout-target > div {
+  width: 100% !important;
+  min-height: 400px !important;
 }
