@@ -143,15 +143,16 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
 
     // --- Fallback chain: Fal.ai → NanoBanana (kie.ai) ---
 
-    // 1) Try Fal.ai Flux Dev — PRIMARY
+    // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
     if (config.falApiKey) {
       try {
-        console.log('[Pipeline] Step 2: Using Fal.ai Flux (primary)');
+        console.log('[Pipeline] Step 2: Using Fal.ai nano-banana-pro/edit (primary)');
         const response = await callFalImageGen({
           falApiKey: config.falApiKey,
           imageDataUrl: input.imageDataUrl,
           prompt: fullPrompt,
-          imageSize: config.imageSize ?? '2K',
+          resolution: config.imageSize ?? '2K',
+          aspectRatio: config.aspectRatio ?? '1:1',
         });
         return {
           imageBlob: dataUrlToBlob(response.imageDataUrl),
