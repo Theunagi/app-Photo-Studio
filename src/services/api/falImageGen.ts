@@ -13,6 +13,8 @@ export interface FalImageGenRequest {
   falApiKey: string;
   imageDataUrl: string;
   prompt: string;
+  /** '2K' or '4K' — mapped to pixel dimensions */
+  imageSize?: string;
 }
 
 export interface FalImageGenResponse {
@@ -26,8 +28,14 @@ export interface FalImageGenResponse {
 export async function callFalImageGen(
   req: FalImageGenRequest,
 ): Promise<FalImageGenResponse> {
-  console.log('[Fal.ai] Calling nano-banana-pro/edit...');
-  console.log('[Fal.ai] API key present:', !!req.falApiKey);
+  // Map 2K/4K to pixel dimensions for Fal.ai
+  const sizeMap: Record<string, { width: number; height: number }> = {
+    '2K': { width: 2048, height: 2048 },
+    '4K': { width: 4096, height: 4096 },
+  };
+  const imageSize = sizeMap[req.imageSize ?? '2K'] ?? sizeMap['2K'];
+
+  console.log('[Fal.ai] Calling nano-banana-pro/edit...', req.imageSize, '→', imageSize);
 
   let response: Response;
   try {
@@ -40,6 +48,7 @@ export async function callFalImageGen(
       body: JSON.stringify({
         image_urls: [req.imageDataUrl],
         prompt: req.prompt,
+        image_size: imageSize,
       }),
     });
   } catch (fetchErr) {

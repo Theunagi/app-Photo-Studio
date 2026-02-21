@@ -151,6 +151,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
           falApiKey: config.falApiKey,
           imageDataUrl: input.imageDataUrl,
           prompt: fullPrompt,
+          imageSize: config.imageSize ?? '2K',
         });
         return {
           imageBlob: dataUrlToBlob(response.imageDataUrl),
