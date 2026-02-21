@@ -26,9 +26,9 @@ interface PricingScreenProps {
 
 /** Map RevenueCat package identifiers to our plan IDs */
 const RC_PACKAGE_TO_PLAN: Record<string, string> = {
-  starter: 'starter',
-  pro: 'pro',
-  business: 'business',
+  '$rc_monthly': 'starter',
+  '$rc_annual': 'pro',
+  '$rc_lifetime': 'business',
 };
 
 /** Fallback: Stripe Payment Links (used when RevenueCat is not configured) */

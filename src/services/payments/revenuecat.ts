@@ -74,9 +74,13 @@ export async function getActiveEntitlement(): Promise<string | null> {
   const info = await getCustomerInfo();
   const active = info.entitlements.active;
 
-  // Check known entitlement IDs (configure these in RevenueCat dashboard)
-  for (const id of ['business', 'pro', 'starter']) {
-    if (active[id]?.isActive) return id;
+  // The single entitlement "pro_access" is shared by all 3 plans
+  if (active['pro_access']?.isActive) {
+    // Determine which plan based on the product identifier
+    const productId = active['pro_access'].productIdentifier ?? '';
+    if (productId.includes('business') || productId.includes('lifetime')) return 'business';
+    if (productId.includes('pro') || productId.includes('annual')) return 'pro';
+    return 'starter';
   }
   return null;
 }
