@@ -58,13 +58,24 @@ export async function purchasePackage(
   htmlTarget: HTMLElement,
   customerEmail?: string,
 ): Promise<CustomerInfo> {
-  const result = await getInstance().purchase({
-    rcPackage,
-    htmlTarget,
-    customerEmail,
-    selectedLocale: 'fr',
-  });
-  return result.customerInfo;
+  console.log('[RC] purchasePackage called');
+  console.log('[RC] Package:', rcPackage.identifier, rcPackage);
+  console.log('[RC] htmlTarget:', htmlTarget, 'offsetWidth:', htmlTarget.offsetWidth, 'offsetHeight:', htmlTarget.offsetHeight);
+  console.log('[RC] customerEmail:', customerEmail);
+
+  try {
+    const result = await getInstance().purchase({
+      rcPackage,
+      htmlTarget,
+      customerEmail,
+      selectedLocale: 'fr',
+    });
+    console.log('[RC] Purchase result:', result);
+    return result.customerInfo;
+  } catch (err) {
+    console.error('[RC] Purchase error:', err);
+    throw err;
+  }
 }
 
 /**

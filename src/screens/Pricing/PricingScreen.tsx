@@ -80,12 +80,13 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
       return;
     }
 
+    console.log('[RC] handleRCPurchase:', planId, 'pkg:', pkg.identifier);
     setLoading(planId);
     setError(null);
     setShowCheckout(true);
 
-    // Wait for checkout div to mount
-    await new Promise(r => setTimeout(r, 100));
+    // Wait for checkout div to mount (increased timeout)
+    await new Promise(r => setTimeout(r, 500));
 
     if (!checkoutRef.current) {
       setError('Checkout container not found');
@@ -93,6 +94,8 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
       setShowCheckout(false);
       return;
     }
+
+    console.log('[RC] checkoutRef ready, dimensions:', checkoutRef.current.offsetWidth, 'x', checkoutRef.current.offsetHeight);
 
     try {
       await purchasePackage(pkg, checkoutRef.current, userEmail);
