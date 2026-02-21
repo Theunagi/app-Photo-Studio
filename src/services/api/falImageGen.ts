@@ -1,11 +1,12 @@
 /**
- * Fal.ai NanoBanana Pro Edit
+ * Fal.ai NanoBanana Pro Edit + AI Upscaler
  *
  * Used for:
- * 1) Step 2 generation (primary) — callFalImageGen
+ * 1) Step 2 generation (primary) — callFalImageGen (gen + upscale)
  * 2) AI Edit feature — callFalEdit (same API, convenience alias)
  *
- * Endpoint: https://fal.run/fal-ai/nano-banana-pro/edit
+ * Endpoint gen:     https://fal.run/fal-ai/nano-banana-pro/edit
+ * Endpoint upscale: https://fal.run/fal-ai/real-esrgan
  * Auth: Key-based (VITE_FAL_API_KEY)
  */
 
@@ -13,7 +14,7 @@ export interface FalImageGenRequest {
   falApiKey: string;
   imageDataUrl: string;
   prompt: string;
-  /** '2K' or '4K' — mapped to pixel dimensions */
+  /** '2K' or '4K' — used to determine upscale factor */
   imageSize?: string;
 }
 
@@ -22,24 +23,18 @@ export interface FalImageGenResponse {
 }
 
 /**
- * Generate/edit an image using Fal.ai NanoBanana Pro Edit.
- * Used as primary for Step 2 studio generation.
+ * Generate an image using NanoBanana Pro Edit, then upscale to 2K/4K
+ * using Real-ESRGAN. The gen model outputs ~1K natively.
  */
 export async function callFalImageGen(
   req: FalImageGenRequest,
 ): Promise<FalImageGenResponse> {
-  // Map 2K/4K to pixel dimensions for Fal.ai
-  const sizeMap: Record<string, { width: number; height: number }> = {
-    '2K': { width: 2048, height: 2048 },
-    '4K': { width: 4096, height: 4096 },
-  };
-  const imageSize = sizeMap[req.imageSize ?? '2K'] ?? sizeMap['2K'];
+  console.log('[Fal.ai] Step 1/2: Generating with nano-banana-pro/edit...');
 
-  console.log('[Fal.ai] Calling nano-banana-pro/edit...', req.imageSize, '→', imageSize);
-
-  let response: Response;
+  // --- 1) Generate ---
+  let genResponse: Response;
   try {
-    response = await fetch('https://fal.run/fal-ai/nano-banana-pro/edit', {
+    genResponse = await fetch('https://fal.run/fal-ai/nano-banana-pro/edit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,44 +43,97 @@ export async function callFalImageGen(
       body: JSON.stringify({
         image_urls: [req.imageDataUrl],
         prompt: req.prompt,
-        image_size: imageSize,
       }),
     });
   } catch (fetchErr) {
-    console.error('[Fal.ai] Fetch failed:', fetchErr);
-    throw new Error(`Fal.ai network error: ${fetchErr}`);
+    console.error('[Fal.ai] Gen fetch failed:', fetchErr);
+    throw new Error(`Fal.ai gen network error: ${fetchErr}`);
   }
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    console.error('[Fal.ai] HTTP error:', response.status, errText.slice(0, 500));
-    throw new Error(`Fal.ai HTTP ${response.status}: ${errText.slice(0, 500)}`);
+  if (!genResponse.ok) {
+    const errText = await genResponse.text().catch(() => '');
+    console.error('[Fal.ai] Gen HTTP error:', genResponse.status, errText.slice(0, 500));
+    throw new Error(`Fal.ai gen HTTP ${genResponse.status}: ${errText.slice(0, 500)}`);
   }
 
-  const data = await response.json();
-  console.log('[Fal.ai] Response keys:', Object.keys(data));
+  const genData = await genResponse.json();
+  console.log('[Fal.ai] Gen response keys:', Object.keys(genData));
 
-  const resultUrl = data.images?.[0]?.url ?? data.image?.url ?? data.image;
-  if (!resultUrl) {
-    throw new Error(`Fal.ai: no result image: ${JSON.stringify(data).slice(0, 300)}`);
+  const genUrl = genData.images?.[0]?.url ?? genData.image?.url ?? genData.image;
+  if (!genUrl) {
+    throw new Error(`Fal.ai gen: no result image: ${JSON.stringify(genData).slice(0, 300)}`);
   }
 
-  if (resultUrl.startsWith('data:')) {
-    return { imageDataUrl: resultUrl };
+  // Get generated image as data URL
+  let genDataUrl: string;
+  if (genUrl.startsWith('data:')) {
+    genDataUrl = genUrl;
+  } else {
+    const imgResp = await fetch(genUrl);
+    if (!imgResp.ok) throw new Error(`Failed to download gen result: ${imgResp.status}`);
+    const blob = await imgResp.blob();
+    genDataUrl = await blobToDataUrl(blob);
   }
 
-  const imageResponse = await fetch(resultUrl);
-  if (!imageResponse.ok) {
-    throw new Error(`Failed to download Fal.ai result: ${imageResponse.status}`);
+  console.log('[Fal.ai] Generation done. Image size:', Math.round(genDataUrl.length / 1024), 'KB');
+
+  // --- 2) Upscale with Real-ESRGAN ---
+  // nano-banana-pro outputs ~1024px. scale=2 → 2048px (2K), scale=4 → 4096px (4K)
+  const scale = req.imageSize === '4K' ? 4 : 2;
+  console.log(`[Fal.ai] Step 2/2: Upscaling ${scale}x with Real-ESRGAN...`);
+
+  let upResponse: Response;
+  try {
+    upResponse = await fetch('https://fal.run/fal-ai/real-esrgan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Key ${req.falApiKey}`,
+      },
+      body: JSON.stringify({
+        image_url: genDataUrl,
+        scale,
+      }),
+    });
+  } catch (upErr) {
+    console.warn('[Fal.ai] Upscale failed, returning original:', upErr);
+    return { imageDataUrl: genDataUrl };
   }
 
-  const resultBlob = await imageResponse.blob();
-  const imageDataUrl = await blobToDataUrl(resultBlob);
-  console.log('[Fal.ai] Image generated successfully');
-  return { imageDataUrl };
+  if (!upResponse.ok) {
+    const errText = await upResponse.text().catch(() => '');
+    console.warn('[Fal.ai] Upscale HTTP error:', upResponse.status, errText.slice(0, 300));
+    // Return unscaled image rather than failing entirely
+    return { imageDataUrl: genDataUrl };
+  }
+
+  const upData = await upResponse.json();
+  console.log('[Fal.ai] Upscale response keys:', Object.keys(upData));
+
+  const upUrl = upData.image?.url ?? upData.images?.[0]?.url ?? upData.image;
+  if (!upUrl) {
+    console.warn('[Fal.ai] Upscale: no result image, returning original');
+    return { imageDataUrl: genDataUrl };
+  }
+
+  let finalDataUrl: string;
+  if (upUrl.startsWith('data:')) {
+    finalDataUrl = upUrl;
+  } else {
+    const upImgResp = await fetch(upUrl);
+    if (!upImgResp.ok) {
+      console.warn('[Fal.ai] Failed to download upscaled image, returning original');
+      return { imageDataUrl: genDataUrl };
+    }
+    const upBlob = await upImgResp.blob();
+    finalDataUrl = await blobToDataUrl(upBlob);
+  }
+
+  console.log('[Fal.ai] Upscale done. Final size:', Math.round(finalDataUrl.length / 1024), 'KB');
+  return { imageDataUrl: finalDataUrl };
 }
 
-// Alias for AI Edit (same API)
+// Alias for AI Edit (no upscale needed)
 export interface FalEditRequest {
   falApiKey: string;
   imageDataUrl: string;
@@ -97,7 +145,44 @@ export interface FalEditResponse {
 }
 
 export async function callFalEdit(req: FalEditRequest): Promise<FalEditResponse> {
-  return callFalImageGen(req);
+  // AI Edit: generate only, no upscale
+  console.log('[Fal.ai Edit] Calling nano-banana-pro/edit...');
+
+  const response = await fetch('https://fal.run/fal-ai/nano-banana-pro/edit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Key ${req.falApiKey}`,
+    },
+    body: JSON.stringify({
+      image_urls: [req.imageDataUrl],
+      prompt: req.prompt,
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Fal.ai Edit HTTP ${response.status}: ${errText.slice(0, 500)}`);
+  }
+
+  const data = await response.json();
+  const resultUrl = data.images?.[0]?.url ?? data.image?.url ?? data.image;
+  if (!resultUrl) {
+    throw new Error(`Fal.ai Edit: no result image: ${JSON.stringify(data).slice(0, 300)}`);
+  }
+
+  if (resultUrl.startsWith('data:')) {
+    return { imageDataUrl: resultUrl };
+  }
+
+  const imageResponse = await fetch(resultUrl);
+  if (!imageResponse.ok) {
+    throw new Error(`Failed to download Fal.ai Edit result: ${imageResponse.status}`);
+  }
+
+  const resultBlob = await imageResponse.blob();
+  const imageDataUrl = await blobToDataUrl(resultBlob);
+  return { imageDataUrl };
 }
 
 // --- Utility ---
