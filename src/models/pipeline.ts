@@ -15,6 +15,8 @@ export interface PipelineConfig {
   aspectRatio: string;
   /** Output format: background + shadow combination */
   outputFormat: OutputFormat;
+  /** Session ID for Storage paths (auto-generated per pipeline run) */
+  sessionId?: string;
 }
 
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {

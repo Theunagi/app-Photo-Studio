@@ -8,7 +8,9 @@ import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/p
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
-import { proxyLifestyle, proxyEdit } from '../../services/api/studioProxy';
+import { editImage } from '../../services/api/falImageGen';
+import { generateLifestyleImage } from '../../services/api/gemini';
+import { supabase } from '../../services/db/supabase';
 import { saveProject } from '../../services/db/projectDB';
 import { deductPoints, GENERATION_COST } from '../../services/db/points';
 import './StudioScreen.css';
@@ -308,6 +310,25 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
     }));
   }, []);
 
+  // --- Helper: Upload data URL image to Storage for Edge Functions ---
+  const uploadForEdgeFunction = useCallback(async (dataUrl: string, label: string): Promise<string> => {
+    const parts = dataUrl.split(',');
+    const bstr = atob(parts[1]);
+    const n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      u8arr[i] = bstr.charCodeAt(i);
+    }
+    const sessionId = crypto.randomUUID();
+    const path = `temp-pipeline/${sessionId}/${label}-${Date.now()}.png`;
+    const { error } = await supabase.storage
+      .from('project-images')
+      .upload(path, u8arr, { contentType: 'image/png', upsert: true });
+    if (error) throw new Error(`Upload failed: ${error.message}`);
+    const { data } = supabase.storage.from('project-images').getPublicUrl(path);
+    return data.publicUrl;
+  }, []);
+
   // --- Lifestyle Generation ---
   const handleGenerateLifestyle = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
@@ -315,12 +336,23 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
 
     setIsGeneratingLifestyle(true);
     try {
-      const imageDataUrl = await proxyLifestyle(
-        sourceImage,
-        lifestylePrompt.trim(),
-        config.imageSize ?? '2K',
-        config.aspectRatio ?? '1:1',
-      );
+      // Upload image to Storage, send only URL + user prompt to edge function
+      const imageUrl = await uploadForEdgeFunction(sourceImage, 'lifestyle-input');
+
+      const response = await generateLifestyleImage(imageUrl, lifestylePrompt.trim(), {
+        imageSize: config.imageSize ?? '2K',
+        aspectRatio: config.aspectRatio ?? '1:1',
+      });
+
+      // Download result image for display
+      const imgResponse = await fetch(response.resultImageUrl);
+      const blob = await imgResponse.blob();
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
 
       const newEntry = { image: imageDataUrl, prompt: lifestylePrompt.trim() };
       const updated = [...lifestyleImages, newEntry];
@@ -328,7 +360,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
       lifestyleImagesRef.current = updated;
       setActiveVariant(`lifestyle-${lifestyleImages.length}`);
       setLifestylePrompt('');
-      // Save lifestyle to project
       await autoSave();
     } catch (err) {
       console.error('Lifestyle generation failed:', err);
@@ -336,15 +367,29 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
       setIsGeneratingLifestyle(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lifestylePrompt, config.imageSize, config.aspectRatio, lifestyleImages, autoSave]);
+  }, [lifestylePrompt, config.imageSize, config.aspectRatio, lifestyleImages, autoSave, uploadForEdgeFunction]);
 
-  // --- AI Edit Generation (via Edge Function → Fal.ai NanoBanana Pro Edit) ---
+  // --- AI Edit Generation (via Edge Function) ---
   const handleEditImage = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
     if (!sourceImage || !editPrompt.trim()) return;
     setIsGeneratingEdit(true);
     try {
-      const imageDataUrl = await proxyEdit(sourceImage, editPrompt.trim());
+      // Upload image to Storage, send only URL + user edit instruction
+      const imageUrl = await uploadForEdgeFunction(sourceImage, 'edit-input');
+
+      const response = await editImage(imageUrl, editPrompt.trim());
+
+      // Download result image for display
+      const imgResponse = await fetch(response.resultImageUrl);
+      const blob = await imgResponse.blob();
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
       const newEntry = { image: imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
       setEditImages(updated);
@@ -358,7 +403,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
       setIsGeneratingEdit(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editPrompt, editImages, autoSave]);
+  }, [editPrompt, editImages, autoSave, uploadForEdgeFunction]);
 
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;
@@ -413,7 +458,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
           </div>
         </div>
         <div className="header-right">
-          <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 700 }}>SECURED</span>
           {userBadge}
         </div>
       </header>
