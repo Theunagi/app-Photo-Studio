@@ -5,9 +5,12 @@
  * Each step updates the shared PipelineState via a callback, enabling
  * real-time UI updates at each stage.
  *
+ * API calls (Steps 1, 2, 3, 5) go through the Supabase Edge Function proxy.
+ * DSP steps (Steps 4, 6, 7) run client-side using Canvas 2D API.
+ *
  * Pipeline Flow:
- *   Input → Analysis(Vision) → StudioGen(NanoBanana|Gemini) → LuminanceCheck(GPT-4o)
- *   → Retouch(DSP) → BgRemoval(Fal.ai/Bria) → ShadowComposer(DSP) → AutoCrop(DSP)
+ *   Input → Analysis(proxy) → StudioGen(proxy) → LuminanceCheck(proxy)
+ *   → Retouch(DSP) → BgRemoval(proxy) → ShadowComposer(DSP) → AutoCrop(DSP)
  */
 
 import type {
@@ -30,14 +33,10 @@ import {
   createInitialPipelineState,
 } from '../../models/pipeline';
 
-// API Services
-import { callOpenAIVision, PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../api/openai';
-import { buildStudioPrompt } from '../api/gemini';
-import { callNanoBananaImageGen } from '../api/nanobanana';
-import { callFalImageGen } from '../api/falImageGen';
-import { removeBackground } from '../api/bria';
+// Server-side proxy (API keys + prompts are on the server)
+import { proxyAnalyze, proxyLuminance, proxyGenerate, proxyBgRemove } from '../api/studioProxy';
 
-// Image Processing (DSP)
+// Image Processing (DSP — runs client-side, no API keys needed)
 import { applyColorGrading } from '../imageProcessing/colorGrading';
 import { composeShadow } from '../imageProcessing/shadowComposer';
 import { autoCrop } from '../imageProcessing/autoCrop';
@@ -103,22 +102,10 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 1: PRODUCT ANALYSIS (Vision — GPT-4o)
+  // STEP 1: PRODUCT ANALYSIS (via Edge Function → OpenAI GPT-4o Vision)
   // =========================================================================
   const analysis = await executeStep<ProductAnalysis>(state, 'analysis', onStateChange, async () => {
-    const response = await callOpenAIVision({
-      apiKey: config.openaiApiKey,
-      imageDataUrl: input.imageDataUrl,
-      additionalImageDataUrls: additionalImageDataUrls,
-      systemPrompt: PRODUCT_ANALYSIS_SYSTEM_PROMPT,
-      userPrompt: additionalImageDataUrls?.length
-        ? `Describe colors, materials, and text of this product from all ${1 + additionalImageDataUrls.length} reference views. Short precise description.`
-        : 'Describe colors and materials and text of this product, short precise description.',
-      model: 'gpt-4o',
-      maxTokens: 800,
-      temperature: 0.1,
-      topP: 0.1,
-    });
+    const response = await proxyAnalyze(input.imageDataUrl, additionalImageDataUrls);
 
     // Parse the raw response into structured fields
     const raw = response.text;
@@ -136,73 +123,31 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 2: STUDIO GENERATION (Fal.ai → NanoBanana)
+  // STEP 2: STUDIO GENERATION (via Edge Function → Fal.ai / NanoBanana)
   // =========================================================================
   const studioGen = await executeStep<StudioGeneration>(state, 'studioGeneration', onStateChange, async () => {
-    const fullPrompt = buildStudioPrompt(analysis.description);
-
-    // --- Fallback chain: Fal.ai → NanoBanana (kie.ai) ---
-
-    // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
-    if (config.falApiKey) {
-      try {
-        console.log('[Pipeline] Step 2: Using Fal.ai nano-banana-pro/edit (primary)');
-        const response = await callFalImageGen({
-          falApiKey: config.falApiKey,
-          imageDataUrl: input.imageDataUrl,
-          prompt: fullPrompt,
-          resolution: config.imageSize ?? '2K',
-          aspectRatio: config.aspectRatio ?? '1:1',
-        });
-        return {
-          imageBlob: dataUrlToBlob(response.imageDataUrl),
-          imageDataUrl: response.imageDataUrl,
-        };
-      } catch (falErr) {
-        console.warn('[Pipeline] Fal.ai failed, trying NanoBanana:', falErr);
-      }
-    }
-
-    // 2) NanoBanana Pro (kie.ai) — fallback
-    if (!config.nanoBananaApiKey) {
-      throw new Error('No image generation API available (Fal.ai and NanoBanana both unavailable)');
-    }
-    console.log('[Pipeline] Step 2: Using NanoBanana Pro (fallback)');
-    const response = await callNanoBananaImageGen({
-      apiKey: config.nanoBananaApiKey,
-      imageDataUrl: input.imageDataUrl,
-      referenceImageDataUrls: additionalImageDataUrls,
-      prompt: fullPrompt,
-      imageSize: config.imageSize ?? '2K',
-      aspectRatio: config.aspectRatio ?? '1:1',
-    });
+    const imageDataUrl = await proxyGenerate(
+      input.imageDataUrl,
+      analysis.description,
+      config.imageSize ?? '2K',
+      config.aspectRatio ?? '1:1',
+      additionalImageDataUrls,
+    );
     return {
-      imageBlob: dataUrlToBlob(response.imageDataUrl),
-      imageDataUrl: response.imageDataUrl,
+      imageBlob: dataUrlToBlob(imageDataUrl),
+      imageDataUrl,
     };
   });
 
   // =========================================================================
-  // STEP 3: LUMINANCE CLASSIFICATION (GPT-4o — Logic Gate)
+  // STEP 3: LUMINANCE CLASSIFICATION (via Edge Function → OpenAI GPT-4o)
   // =========================================================================
   const luminanceClass = await executeStep<LuminanceClass>(state, 'luminanceCheck', onStateChange, async () => {
-    const response = await callOpenAIVision({
-      apiKey: config.openaiApiKey,
-      imageDataUrl: studioGen.imageDataUrl,
-      systemPrompt: LUMINANCE_CHECK_SYSTEM_PROMPT,
-      userPrompt: 'Just tell me if the product is light or dark. Only output accepted: Light or Dark.',
-      model: 'gpt-4o',
-      maxTokens: 10,
-      temperature: 0.0,
-      topP: 0.1,
-    });
-
-    const normalized = response.text.trim().toLowerCase();
-    return normalized.includes('dark') ? 'Dark' : 'Light';
+    return proxyLuminance(studioGen.imageDataUrl);
   });
 
   // =========================================================================
-  // STEP 4: PARAMETRIC RETOUCH (Color Grading — Pure DSP)
+  // STEP 4: PARAMETRIC RETOUCH (Color Grading — Pure DSP, client-side)
   // =========================================================================
   const retouch = await executeStep<RetouchResult>(state, 'retouch', onStateChange, async () => {
     const preset = luminanceClass === 'Dark' ? RETOUCH_PRESET_DARK : RETOUCH_PRESET_LIGHT;
@@ -216,23 +161,18 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 5: BACKGROUND REMOVAL (Fal.ai / Bria 2.3)
+  // STEP 5: BACKGROUND REMOVAL (via Edge Function → Fal.ai Bria 2.3)
   // =========================================================================
   const cutout = await executeStep<CutoutResult>(state, 'cutout', onStateChange, async () => {
-    const result = await removeBackground({
-      falApiKey: config.falApiKey,
-      imageDataUrl: retouch.imageDataUrl,
-      keepShadows: false,
-    });
-
+    const imageDataUrl = await proxyBgRemove(retouch.imageDataUrl);
     return {
-      imageBlob: result.imageBlob,
-      imageDataUrl: result.imageDataUrl,
+      imageBlob: dataUrlToBlob(imageDataUrl),
+      imageDataUrl,
     };
   });
 
   // =========================================================================
-  // STEP 6: SMART SHADOW COMPOSER (DSP — "The Secret")
+  // STEP 6: SMART SHADOW COMPOSER (DSP — client-side)
   // Skipped for 'transparent-clean' output format.
   // =========================================================================
   let step6ImageDataUrl: string;
@@ -261,7 +201,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   }
 
   // =========================================================================
-  // STEP 7: AUTO CROP & CENTER
+  // STEP 7: AUTO CROP & CENTER (DSP — client-side)
   // =========================================================================
   await executeStep<AutoCropResult>(state, 'autoCrop', onStateChange, async () => {
     const result = await autoCrop(

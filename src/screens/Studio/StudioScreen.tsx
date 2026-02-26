@@ -8,8 +8,7 @@ import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/p
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
-import { callFalEdit } from '../../services/api/falImageGen';
-import { callGeminiImageGen } from '../../services/api/gemini';
+import { proxyLifestyle, proxyEdit } from '../../services/api/studioProxy';
 import { saveProject } from '../../services/db/projectDB';
 import { deductPoints, GENERATION_COST } from '../../services/db/points';
 import './StudioScreen.css';
@@ -39,15 +38,9 @@ export interface StudioScreenProps {
 const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBalance, onPointsChanged, userBadge }) => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
-    openaiApiKey: import.meta.env.VITE_OPENAI_API_KEY ?? '',
-    geminiApiKey: import.meta.env.VITE_GEMINI_API_KEY ?? '',
-    falApiKey: import.meta.env.VITE_FAL_API_KEY ?? '',
-    nanoBananaApiKey: import.meta.env.VITE_NANOBANANA_API_KEY || undefined,
-    visionModel: 'gpt-4o',
-    generationModel: DEFAULT_PIPELINE_CONFIG.generationModel!,
-    imageSize: project?.config.imageSize ?? DEFAULT_PIPELINE_CONFIG.imageSize!,
-    aspectRatio: project?.config.aspectRatio ?? DEFAULT_PIPELINE_CONFIG.aspectRatio!,
-    outputFormat: DEFAULT_PIPELINE_CONFIG.outputFormat!,
+    imageSize: project?.config.imageSize ?? DEFAULT_PIPELINE_CONFIG.imageSize,
+    aspectRatio: project?.config.aspectRatio ?? DEFAULT_PIPELINE_CONFIG.aspectRatio,
+    outputFormat: DEFAULT_PIPELINE_CONFIG.outputFormat,
   });
 
   // --- Restore saved results into initial pipeline state ---
@@ -104,7 +97,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
   const [inputPreviews, setInputPreviews] = useState<string[]>(buildInitialPreviews);
   const [pipelineState, setPipelineState] = useState<PipelineState>(buildRestoredState);
   const [isRunning, setIsRunning] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeVariant, setActiveVariant] = useState<string>('final');
@@ -319,25 +311,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
   // --- Lifestyle Generation ---
   const handleGenerateLifestyle = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
-    if (!sourceImage || !lifestylePrompt.trim() || !config.geminiApiKey) return;
+    if (!sourceImage || !lifestylePrompt.trim()) return;
 
     setIsGeneratingLifestyle(true);
     try {
-      const prompt = `Using this product image on white background as reference, generate a lifestyle photo of this product ${lifestylePrompt.trim()}.
-The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
-Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
-High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
+      const imageDataUrl = await proxyLifestyle(
+        sourceImage,
+        lifestylePrompt.trim(),
+        config.imageSize ?? '2K',
+        config.aspectRatio ?? '1:1',
+      );
 
-      const response = await callGeminiImageGen({
-        apiKey: config.geminiApiKey,
-        imageDataUrl: sourceImage,
-        prompt,
-        model: config.generationModel ?? 'gemini-3-pro-image-preview',
-        imageSize: config.imageSize ?? '2K',
-        aspectRatio: config.aspectRatio ?? '1:1',
-      });
-
-      const newEntry = { image: response.imageDataUrl, prompt: lifestylePrompt.trim() };
+      const newEntry = { image: imageDataUrl, prompt: lifestylePrompt.trim() };
       const updated = [...lifestyleImages, newEntry];
       setLifestyleImages(updated);
       lifestyleImagesRef.current = updated;
@@ -351,25 +336,16 @@ High-end product photography style, natural lighting, shallow depth of field whe
       setIsGeneratingLifestyle(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lifestylePrompt, config.geminiApiKey, config.generationModel, config.imageSize, config.aspectRatio, lifestyleImages, autoSave]);
+  }, [lifestylePrompt, config.imageSize, config.aspectRatio, lifestyleImages, autoSave]);
 
-  // --- AI Edit Generation (via Fal.ai NanoBanana Pro Edit) ---
+  // --- AI Edit Generation (via Edge Function → Fal.ai NanoBanana Pro Edit) ---
   const handleEditImage = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
-    if (!sourceImage || !editPrompt.trim() || !config.falApiKey) return;
+    if (!sourceImage || !editPrompt.trim()) return;
     setIsGeneratingEdit(true);
     try {
-      const prompt = `Edit this product photo on white background. Apply: ${editPrompt.trim()}.
-Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
-Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
-Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
-
-      const response = await callFalEdit({
-        falApiKey: config.falApiKey,
-        imageDataUrl: sourceImage,
-        prompt,
-      });
-      const newEntry = { image: response.imageDataUrl, prompt: editPrompt.trim() };
+      const imageDataUrl = await proxyEdit(sourceImage, editPrompt.trim());
+      const newEntry = { image: imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
       setEditImages(updated);
       editImagesRef.current = updated;
@@ -382,15 +358,11 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
       setIsGeneratingEdit(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editPrompt, config.falApiKey, editImages, autoSave]);
+  }, [editPrompt, editImages, autoSave]);
 
   // --- Validation ---
-  const missingItems: string[] = [];
-  if (inputPreviews.length === 0 && inputFiles.length === 0) missingItems.push('Image');
-  if (!config.openaiApiKey) missingItems.push('OpenAI Key');
-  if (!config.geminiApiKey) missingItems.push('Gemini Key');
-  if (!config.falApiKey) missingItems.push('Fal.ai Key');
-  const canRun = missingItems.length === 0 && !isRunning && (!!inputFile || inputPreviews.length > 0);
+  const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;
+  const canRun = hasImage && !isRunning && (!!inputFile || inputPreviews.length > 0);
 
   // --- Get image data from step result ---
   const getStepImage = (step: PipelineStep): string | null => {
@@ -441,56 +413,11 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
           </div>
         </div>
         <div className="header-right">
-          <button
-            className="settings-toggle"
-            onClick={() => setShowSettings(!showSettings)}
-            title="Settings"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <circle cx="9" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
-              <path d="M9 1.5V3M9 15v1.5M1.5 9H3M15 9h1.5M3.4 3.4l1.1 1.1M13.5 13.5l1.1 1.1M3.4 14.6l1.1-1.1M13.5 4.5l1.1-1.1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-          </button>
           {userBadge}
         </div>
       </header>
 
       <main className={`studio-main ${pipelineComplete ? 'studio-main--results' : ''}`}>
-        {/* Settings Panel */}
-        {showSettings && (
-          <section className="settings-panel">
-            <div className="settings-grid">
-              <div className="setting-field">
-                <label>OpenAI API Key</label>
-                <input
-                  type="text"
-                  placeholder="sk-proj-..."
-                  value={config.openaiApiKey}
-                  onChange={e => updateConfig('openaiApiKey', e.target.value)}
-                />
-              </div>
-              <div className="setting-field">
-                <label>Gemini API Key</label>
-                <input
-                  type="text"
-                  placeholder="AI..."
-                  value={config.geminiApiKey}
-                  onChange={e => updateConfig('geminiApiKey', e.target.value)}
-                />
-              </div>
-              <div className="setting-field">
-                <label>Fal.ai API Key</label>
-                <input
-                  type="text"
-                  placeholder="xxxxxxxx-xxxx-..."
-                  value={config.falApiKey}
-                  onChange={e => updateConfig('falApiKey', e.target.value)}
-                />
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* Upload + Controls Section — hidden once results are ready */}
         {!pipelineComplete && (
           <section className="upload-section">
@@ -603,9 +530,9 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
                   <span className="toggle-label">White BG</span>
                 </button>
 
-                {missingItems.length > 0 && !isRunning && (
+                {!hasImage && !isRunning && (
                   <span className="missing-hint">
-                    {missingItems.join(' + ')} required
+                    Image required
                   </span>
                 )}
               </div>

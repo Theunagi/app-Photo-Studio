@@ -9,14 +9,6 @@
 export type OutputFormat = 'transparent-shadow' | 'white-shadow' | 'transparent-clean';
 
 export interface PipelineConfig {
-  openaiApiKey: string;
-  geminiApiKey: string;
-  falApiKey: string;
-  nanoBananaApiKey?: string;
-  /** Vision model for product analysis (Step 1) & luminance check (Step 3) */
-  visionModel: 'gpt-4o' | 'gemini-1.5-pro';
-  /** Image generation model (Step 2) */
-  generationModel: string;
   /** Image gen resolution */
   imageSize: string;
   /** Image gen aspect ratio */
@@ -25,9 +17,7 @@ export interface PipelineConfig {
   outputFormat: OutputFormat;
 }
 
-export const DEFAULT_PIPELINE_CONFIG: Partial<PipelineConfig> = {
-  visionModel: 'gpt-4o',
-  generationModel: 'gemini-3-pro-image-preview',
+export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   imageSize: '2K',
   aspectRatio: '1:1',
   outputFormat: 'transparent-shadow',

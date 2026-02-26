@@ -1,10 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_OPENAI_API_KEY?: string;
-  readonly VITE_GEMINI_API_KEY?: string;
-  readonly VITE_FAL_API_KEY?: string;
-  readonly VITE_NANOBANANA_API_KEY?: string;
   readonly VITE_REVENUECAT_API_KEY?: string;
   readonly VITE_STRIPE_LINK_STARTER?: string;
   readonly VITE_STRIPE_LINK_PRO?: string;
