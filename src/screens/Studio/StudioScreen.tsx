@@ -413,6 +413,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({ project, onBack, pointsBala
           </div>
         </div>
         <div className="header-right">
+          <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 700 }}>SECURED</span>
           {userBadge}
         </div>
       </header>
