@@ -4,13 +4,14 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PLANS } from '../../services/db/points';
+import { PLANS, refreshProfile, provisionCredits, getCreditsForPlan } from '../../services/db/points';
 import {
   isRevenueCatConfigured,
   initRevenueCat,
   fetchOfferings,
   purchasePackage,
   getActiveEntitlement,
+  getCustomerInfo,
 } from '../../services/payments/revenuecat';
 import type { Package } from '@revenuecat/purchases-js';
 import './PricingScreen.css';
@@ -72,6 +73,61 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
     });
   }, [useRC, userId]);
 
+  // Ref to track if credits were already provisioned (prevents double-provisioning)
+  const provisionedRef = useRef(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, []);
+
+  /** Provision credits and close checkout (called once) */
+  const finalizePurchase = useCallback(async (planId: string, source: string) => {
+    if (provisionedRef.current) return; // Already provisioned
+    provisionedRef.current = true;
+
+    // Stop polling
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+
+    console.log(`[RC] finalizePurchase from ${source} for plan: ${planId}`);
+
+    // Determine the plan from the entitlement or fallback to the selected planId
+    let confirmedPlan = planId;
+    try {
+      const activePlan = await getActiveEntitlement();
+      if (activePlan) confirmedPlan = activePlan;
+      console.log('[RC] Active entitlement plan:', activePlan);
+    } catch (entErr) {
+      console.warn('[RC] Could not check entitlement, using selected plan:', planId);
+    }
+
+    // Provision credits directly in Supabase
+    try {
+      const updatedProfile = await provisionCredits(confirmedPlan);
+      console.log('[RC] Credits provisioned:', updatedProfile.plan, updatedProfile.points_balance, 'credits');
+    } catch (provisionErr) {
+      console.error('[RC] Credit provisioning failed:', provisionErr);
+      // Fallback: try refreshProfile in case webhook already handled it
+      try {
+        const fallbackProfile = await refreshProfile();
+        console.log('[RC] Fallback profile:', fallbackProfile.plan, fallbackProfile.points_balance, 'credits');
+      } catch (syncErr) {
+        console.warn('[RC] Profile sync also failed:', syncErr);
+      }
+    }
+
+    setShowCheckout(false);
+    setLoading(null);
+    onPlanChanged?.();
+    onBack();
+  }, [onBack, onPlanChanged]);
+
   // Handle purchase via RevenueCat
   const handleRCPurchase = useCallback(async (planId: string) => {
     const pkg = rcPackages.get(planId);
@@ -81,11 +137,12 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
     }
 
     console.log('[RC] handleRCPurchase:', planId, 'pkg:', pkg.identifier);
+    provisionedRef.current = false; // Reset for new purchase
     setLoading(planId);
     setError(null);
     setShowCheckout(true);
 
-    // Wait for checkout div to mount (increased timeout)
+    // Wait for checkout div to mount
     await new Promise(r => setTimeout(r, 500));
 
     if (!checkoutRef.current) {
@@ -97,24 +154,73 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
 
     console.log('[RC] checkoutRef ready, dimensions:', checkoutRef.current.offsetWidth, 'x', checkoutRef.current.offsetHeight);
 
+    // --- Strategy: Race between purchase() Promise and polling ---
+
+    // Snapshot entitlements BEFORE checkout to detect changes
+    let snapshotBefore = '';
     try {
-      await purchasePackage(pkg, checkoutRef.current, userEmail);
+      const infoBefore = await getCustomerInfo();
+      const activeBefore = infoBefore.entitlements?.active ?? {};
+      // Create a fingerprint: keys + product IDs + expiration dates
+      snapshotBefore = JSON.stringify(
+        Object.entries(activeBefore).map(([k, v]) => ({
+          key: k,
+          product: (v as { productIdentifier?: string }).productIdentifier ?? '',
+          expires: (v as { expirationDate?: string }).expirationDate ?? '',
+        }))
+      );
+      console.log('[RC] Entitlement snapshot before checkout:', snapshotBefore);
+    } catch {
+      console.warn('[RC] Could not snapshot entitlements before checkout');
+    }
 
-      // After successful purchase, check entitlement
-      const activePlan = await getActiveEntitlement();
-      console.log('[RC] Purchase complete, active plan:', activePlan);
+    // 1. Start polling getCustomerInfo() every 3s to detect entitlement CHANGES
+    pollingRef.current = setInterval(async () => {
+      if (provisionedRef.current) return;
+      try {
+        const info = await getCustomerInfo();
+        const activeNow = info.entitlements?.active ?? {};
+        const snapshotNow = JSON.stringify(
+          Object.entries(activeNow).map(([k, v]) => ({
+            key: k,
+            product: (v as { productIdentifier?: string }).productIdentifier ?? '',
+            expires: (v as { expirationDate?: string }).expirationDate ?? '',
+          }))
+        );
+        // Detect ANY change in entitlements (new, different product, different expiry)
+        if (snapshotNow !== snapshotBefore && Object.keys(activeNow).length > 0) {
+          console.log('[RC] Polling detected entitlement CHANGE:', snapshotNow);
+          finalizePurchase(planId, 'polling');
+        }
+      } catch (pollErr) {
+        // Silently ignore polling errors
+        console.debug('[RC] Poll error (ignored):', pollErr);
+      }
+    }, 3000);
 
-      setShowCheckout(false);
-      onPlanChanged?.();
-      onBack();
+    // 2. Also await purchase() in case it resolves
+    try {
+      const customerInfo = await purchasePackage(pkg, checkoutRef.current, userEmail);
+      console.log('[RC] purchase() Promise resolved:', customerInfo);
+      finalizePurchase(planId, 'promise');
     } catch (err) {
       console.error('[RC] Purchase failed:', err);
-      setError(err instanceof Error ? err.message : 'Purchase failed');
-      setShowCheckout(false);
-    } finally {
-      setLoading(null);
+      // Stop polling on error
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+      // Don't show error if already provisioned (polling handled it) or user cancelled
+      if (!provisionedRef.current) {
+        const message = err instanceof Error ? err.message : 'Purchase failed';
+        if (!message.includes('cancelled') && !message.includes('canceled')) {
+          setError(message);
+        }
+        setShowCheckout(false);
+        setLoading(null);
+      }
     }
-  }, [rcPackages, userEmail, onBack, onPlanChanged]);
+  }, [rcPackages, userEmail, finalizePurchase]);
 
   // Fallback: direct Stripe Payment Links
   const handleStripePurchase = (planId: string) => {

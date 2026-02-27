@@ -2,7 +2,13 @@ import './LoginScreen.css';
 import { signInWithGoogle } from '../../services/db/supabase';
 import { useState } from 'react';
 
-function LoginScreen() {
+const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
+
+interface LoginScreenProps {
+  onDevLogin?: () => void;
+}
+
+function LoginScreen({ onDevLogin }: LoginScreenProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +54,15 @@ function LoginScreen() {
           )}
           {loading ? 'Connecting...' : 'Continue with Google'}
         </button>
+
+        {DEV_BYPASS && onDevLogin && (
+          <button
+            className="login-dev-btn"
+            onClick={onDevLogin}
+          >
+            Dev Mode
+          </button>
+        )}
 
         {error && <p className="login-error">{error}</p>}
       </div>

@@ -62,13 +62,10 @@ export async function getPointsBalance(): Promise<number> {
 /**
  * Atomically deduct points. Returns new balance.
  * Throws if insufficient points.
+ * Uses deduct_my_points which uses auth.uid() internally (no IDOR).
  */
 export async function deductPoints(amount: number): Promise<number> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-
-  const { data, error } = await supabase.rpc('deduct_points', {
-    user_id_input: user.id,
+  const { data, error } = await supabase.rpc('deduct_my_points', {
     amount_input: amount,
   });
 
@@ -83,4 +80,64 @@ export async function deductPoints(amount: number): Promise<number> {
 export async function hasEnoughPoints(amount: number): Promise<boolean> {
   const balance = await getPointsBalance();
   return balance >= amount;
+}
+
+/**
+ * Refresh profile from server (call after purchase to get updated credits).
+ * Uses the get_my_profile RPC for a clean server-side read.
+ */
+export async function refreshProfile(): Promise<UserProfile> {
+  const { data, error } = await supabase.rpc('get_my_profile');
+
+  if (error || !data) {
+    // Fallback to direct query
+    return getOrCreateProfile();
+  }
+
+  return data as UserProfile;
+}
+
+/**
+ * Get plan credits for a given plan ID.
+ */
+export function getCreditsForPlan(planId: string): number {
+  const plan = PLANS.find(p => p.id === planId);
+  return plan?.points ?? 0;
+}
+
+/**
+ * Provision credits after a successful purchase.
+ * Calls the secure provision-credits Edge Function which:
+ *  1. Verifies the JWT
+ *  2. Checks RevenueCat API for active subscription
+ *  3. Maps product → credits server-side
+ *  4. Updates DB with service_role
+ *
+ * The frontend CANNOT set arbitrary credit amounts.
+ */
+export async function provisionCredits(_planId: string): Promise<UserProfile> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  const response = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/provision-credits`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Provision credits: ${result.error ?? 'Unknown error'}`);
+  }
+
+  console.log(`[Points] Provisioned ${result.credits} credits for plan "${result.plan}"`);
+
+  // Return updated profile
+  return refreshProfile();
 }

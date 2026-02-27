@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Project } from './models/project';
 import { getProject } from './services/db/projectDB';
 import { testSupabaseConnection, onAuthStateChange, getCurrentUser, signOut, type SupabaseDiagnostic } from './services/db/supabase';
-import { getOrCreateProfile, type UserProfile } from './services/db/points';
+import { getOrCreateProfile, refreshProfile as refreshProfileFromServer, type UserProfile } from './services/db/points';
 import HomeScreen from './screens/Home/HomeScreen';
 import StudioScreen from './screens/Studio/StudioScreen';
 import PricingScreen from './screens/Pricing/PricingScreen';
@@ -56,10 +56,27 @@ function App() {
   // Refresh profile when returning from pricing / after generation
   const refreshProfile = useCallback(async () => {
     try {
-      const p = await getOrCreateProfile();
+      const p = await refreshProfileFromServer();
       setProfile(p);
-    } catch { /* silent */ }
+    } catch {
+      // Fallback to direct query
+      try {
+        const p = await getOrCreateProfile();
+        setProfile(p);
+      } catch { /* silent */ }
+    }
   }, []);
+
+  // Handle return from Stripe Payment Links (URL params: ?payment=success)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Refresh profile to pick up new credits (webhook may have fired)
+      refreshProfile();
+    }
+  }, [refreshProfile]);
 
   const openStudio = useCallback(async (project: Project | null) => {
     if (!project) {
@@ -84,6 +101,15 @@ function App() {
     setView({ screen: 'home' });
   }, []);
 
+  // Dev bypass login
+  const handleDevLogin = useCallback(() => {
+    setUser({
+      id: 'dev-user-00000000',
+      email: 'dev@localhost',
+      name: 'Dev User',
+    });
+  }, []);
+
   // Loading auth state
   if (user === undefined) {
     return (
@@ -95,7 +121,7 @@ function App() {
 
   // Not logged in
   if (!user) {
-    return <LoginScreen />;
+    return <LoginScreen onDevLogin={handleDevLogin} />;
   }
 
   // Loading project

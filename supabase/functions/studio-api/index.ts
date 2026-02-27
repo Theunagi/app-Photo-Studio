@@ -19,15 +19,12 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// ─── CORS (uses shared whitelist — no more wildcard *) ───────────────────────
+// _corsReq is set at the start of each request to provide origin-aware headers
+let _corsReq: Request | null = null;
+function CORS() { return _corsReq ? corsHeaders(_corsReq) : { "Access-Control-Allow-Origin": "http://localhost:3000", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" }; }
 
 // ─── Prompts (server-side only — never sent to frontend) ─────────────────────
 
@@ -102,7 +99,7 @@ OUTPUT
 function jsonResponse(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    headers: { ...CORS(), "Content-Type": "application/json" },
   });
 }
 
@@ -586,9 +583,10 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
 // ─── Main Handler ────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
+  _corsReq = req;
   // CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: CORS() });
   }
 
   if (req.method !== "POST") {

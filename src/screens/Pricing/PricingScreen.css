@@ -1,127 +1,166 @@
-/* ==================== Pricing Screen ==================== */
+/* ==================== Pricing Screen — Apple-style Minimalism ==================== */
 
 .pricing {
   min-height: 100vh;
-  background: var(--color-bg);
-  padding: 20px;
+  background: #FFFFFF;
+  padding: 24px 20px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+               'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* ── Header ─────────────────────────────────────────────────── */
 
 .pricing-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  max-width: 960px;
-  margin: 0 auto 32px;
+  max-width: 1080px;
+  margin: 0 auto 40px;
 }
 
 .pricing-back {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: none;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text);
+  border: none;
+  padding: 4px 0;
+  font-size: 17px;
+  font-weight: 400;
+  color: #007AFF;
   cursor: pointer;
+  transition: opacity 0.15s ease;
 }
-.pricing-back:hover { background: var(--color-surface); }
+.pricing-back:hover {
+  opacity: 0.7;
+}
+.pricing-back svg {
+  color: #007AFF;
+}
 
 .pricing-balance {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 6px 14px;
+  background: #F5F5F7;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 16px;
 }
-.balance-label { font-size: 12px; color: var(--color-text-dim); }
-.balance-value { font-size: 14px; font-weight: 700; color: var(--color-primary); }
+.balance-label {
+  font-size: 13px;
+  font-weight: 400;
+  color: #86868B;
+}
+.balance-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1D1D1F;
+}
 
-/* Hero */
+/* ── Hero ────────────────────────────────────────────────────── */
+
 .pricing-hero {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 48px;
 }
 .pricing-hero h1 {
-  font-size: 28px;
+  font-size: 48px;
   font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 8px;
+  color: #1D1D1F;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0 0 12px;
 }
 .pricing-hero p {
-  font-size: 14px;
-  color: var(--color-text-dim);
-  margin: 0;
+  font-size: 18px;
+  font-weight: 400;
+  color: #86868B;
+  margin: 0 auto;
+  max-width: 500px;
+  line-height: 1.5;
 }
 
-/* Cards */
+/* ── Card Grid ──────────────────────────────────────────────── */
+
 .pricing-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  max-width: 960px;
+  max-width: 1080px;
   margin: 0 auto;
 }
 
+/* ── Card ────────────────────────────────────────────────────── */
+
 .pricing-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 28px 24px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5EA;
+  border-radius: 20px;
+  padding: 36px;
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 .pricing-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
 .pricing-card.popular {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary);
+  border: 2px solid #007AFF;
 }
+.pricing-card.popular:hover {
+  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.12);
+}
+
 .pricing-card.current {
-  border-color: #22c55e;
+  border-color: #34C759;
 }
+
+/* ── Badges ──────────────────────────────────────────────────── */
 
 .popular-badge {
   position: absolute;
-  top: -10px;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-primary);
-  color: white;
-  font-size: 11px;
+  background: #007AFF;
+  color: #FFFFFF;
+  font-size: 12px;
   font-weight: 600;
-  padding: 3px 14px;
+  padding: 4px 16px;
   border-radius: 20px;
+  white-space: nowrap;
 }
 
 .current-badge {
   position: absolute;
-  top: -10px;
+  top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: #22c55e;
-  color: white;
-  font-size: 11px;
+  background: #34C759;
+  color: #FFFFFF;
+  font-size: 12px;
   font-weight: 600;
-  padding: 3px 14px;
+  padding: 4px 16px;
   border-radius: 20px;
+  white-space: nowrap;
 }
 
+/* ── Plan name ───────────────────────────────────────────────── */
+
 .pricing-card h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #1D1D1F;
+  margin: 0 0 20px;
 }
+
+/* ── Price row ───────────────────────────────────────────────── */
 
 .pricing-price {
   display: flex;
@@ -130,99 +169,126 @@
   margin-bottom: 8px;
 }
 .price-amount {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--color-text);
+  font-size: 48px;
+  font-weight: 700;
+  color: #1D1D1F;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 .price-period {
-  font-size: 13px;
-  color: var(--color-text-dim);
+  font-size: 16px;
+  font-weight: 400;
+  color: #86868B;
 }
+
+/* ── Credits row ─────────────────────────────────────────────── */
 
 .pricing-points {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #F5F5F7;
 }
 .points-amount {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: #007AFF;
+  line-height: 1;
 }
 .points-label {
-  font-size: 12px;
-  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 400;
+  color: #86868B;
 }
+
+/* ── Features list ───────────────────────────────────────────── */
 
 .pricing-features {
   list-style: none;
   padding: 0;
-  margin: 0 0 24px;
+  margin: 0 0 28px;
   flex: 1;
 }
 .pricing-features li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-dim);
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 400;
+  color: #1D1D1F;
   padding: 5px 0;
+  line-height: 1.4;
 }
-.pricing-features li svg { color: #22c55e; flex-shrink: 0; }
+.pricing-features li svg {
+  color: #34C759;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
 
 .pricing-btn {
   width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  font-size: 14px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  transition: background 0.15s;
+  border: 1px solid #D2D2D7;
+  background: #FFFFFF;
+  color: #1D1D1F;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.pricing-btn:hover:not(:disabled) { background: var(--color-border); }
-.pricing-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pricing-btn:hover:not(:disabled) {
+  background: #F5F5F7;
+  border-color: #C7C7CC;
+}
+.pricing-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
 .pricing-btn-primary {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
+  background: #007AFF;
+  color: #FFFFFF;
+  border-color: #007AFF;
 }
-.pricing-btn-primary:hover:not(:disabled) { opacity: 0.9; background: var(--color-primary); }
+.pricing-btn-primary:hover:not(:disabled) {
+  background: #0056CC;
+  border-color: #0056CC;
+}
 
-/* Footer */
+/* ── Footer ──────────────────────────────────────────────────── */
+
 .pricing-footer {
   text-align: center;
-  margin-top: 32px;
+  margin-top: 40px;
 }
 .pricing-footer p {
-  font-size: 12px;
-  color: var(--color-text-dim);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .pricing-cards {
-    grid-template-columns: 1fr;
-    max-width: 400px;
-  }
-}
-
-/* Error banner */
-.pricing-error {
-  max-width: 960px;
-  margin: 0 auto 16px;
-  padding: 10px 16px;
-  background: #fef2f2;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
-  color: #dc2626;
   font-size: 13px;
+  font-weight: 400;
+  color: #AEAEB2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Error banner ────────────────────────────────────────────── */
+
+.pricing-error {
+  max-width: 1080px;
+  margin: 0 auto 20px;
+  padding: 12px 16px;
+  background: #FFF2F2;
+  border: 1px solid #FFD1D1;
+  border-radius: 12px;
+  color: #FF3B30;
+  font-size: 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -230,63 +296,356 @@
 .pricing-error button {
   background: none;
   border: none;
-  color: #dc2626;
+  color: #FF3B30;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
+  padding: 0 4px;
 }
 
-/* RevenueCat checkout overlay */
+/* ── Responsive ──────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .pricing {
+    padding: 16px 16px 40px;
+  }
+  .pricing-hero h1 {
+    font-size: 34px;
+  }
+  .pricing-hero p {
+    font-size: 16px;
+  }
+  .pricing-cards {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+  .pricing-card {
+    padding: 28px 24px;
+  }
+  .price-amount {
+    font-size: 40px;
+  }
+  .points-amount {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pricing {
+    padding: 12px 12px 32px;
+  }
+  .pricing-header {
+    margin-bottom: 28px;
+  }
+  .pricing-hero {
+    margin-bottom: 32px;
+  }
+  .pricing-hero h1 {
+    font-size: 28px;
+  }
+  .pricing-hero p {
+    font-size: 15px;
+  }
+  .pricing-cards {
+    max-width: 100%;
+    gap: 16px;
+  }
+  .pricing-card {
+    padding: 24px 20px;
+    border-radius: 16px;
+  }
+  .price-amount {
+    font-size: 36px;
+  }
+}
+
+/* ============================================================
+   RevenueCat Checkout — Apple Design System Colors
+   Font sizes, weights, colors matched to pricing card tokens
+   ============================================================ */
+
+/* ── Overlay ──────────────────────────────────────────────── */
 .rc-checkout-overlay {
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(29, 29, 31, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
+/* display:contents so RC layout becomes direct flex child */
 .rc-checkout-container {
-  position: relative;
-  background: white;
-  border-radius: 16px;
-  width: 90%;
-  max-width: 500px;
-  min-height: 400px;
-  max-height: 90vh;
-  overflow: visible;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: contents;
 }
 
+/* ── Close button ─────────────────────────────────────────── */
 .rc-checkout-close {
-  position: absolute;
-  top: -12px;
-  right: -12px;
+  position: fixed;
+  top: 16px;
+  right: 16px;
   z-index: 10001;
-  background: white;
-  border: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #666;
+  color: #1D1D1F;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  transition: all 0.15s ease;
 }
-.rc-checkout-close:hover { background: #f3f4f6; }
-
-.rc-checkout-target {
-  min-height: 400px;
-  width: 100%;
-  border-radius: 16px;
-  overflow: hidden;
+.rc-checkout-close:hover {
+  background: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
 }
 
-/* RevenueCat injects iframes and divs — make sure they fill the container */
-.rc-checkout-target iframe,
-.rc-checkout-target > div {
+/* ── Svelte wrapper fix ───────────────────────────────────── */
+.rc-checkout-target,
+.rc-checkout-target > div,
+.rc-checkout-target > div > div {
+  display: contents !important;
+}
+
+/* ── Modal card (same border-radius as .pricing-card: 20px) ─ */
+.rc-checkout-target .rcb-ui-layout {
+  overflow: hidden !important;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #E5E5EA;
+  box-shadow: 0 8px 32px rgba(29, 29, 31, 0.10);
+  width: 90% !important;
+  max-width: 420px !important;
+  min-height: 0 !important;
+  height: auto !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+               'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Prevent flex stretching */
+.rc-checkout-target .rcb-ui-main {
+  flex: 0 0 auto !important;
+}
+
+/* ── Header — same padding as .pricing-card (36px) ────────── */
+.rc-checkout-target .rcb-ui-navbar {
+  padding: 28px 24px 20px !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #E5E5EA;
+  text-align: center;
+}
+
+.rc-checkout-target .rcb-navbar,
+.rc-checkout-target .layout-wrapper,
+.rc-checkout-target .layout-content {
+  padding: 0 !important;
+  max-width: none !important;
+  background: #F5F5F7 !important;
+}
+
+.rc-checkout-target .layout-wrapper-outer.rcb-navbar,
+.rc-checkout-target .layout-content.rcb-navbar,
+.rc-checkout-target div[class*="rcb-navbar"],
+.rc-checkout-target div[class*="layout-wrapper"][class*="rcb-navbar"],
+.rc-checkout-target div[class*="layout-content"][class*="rcb-navbar"] {
+  background: #F5F5F7 !important;
+}
+
+/* Disabled button — use a lighter blue instead of opacity */
+.rc-checkout-target .rc-checkout-pay-container button:disabled,
+.rc-checkout-target .rc-checkout-pay-container button[disabled],
+.rc-checkout-target button.intent-primary:disabled,
+.rc-checkout-target button.intent-primary[disabled] {
+  opacity: 1 !important;
+  background: #99CAFF !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  cursor: not-allowed;
+}
+
+/* "Photo Studio" — small label */
+.rc-checkout-target .rcb-header {
+  padding: 0 !important;
+  justify-content: center !important;
+}
+
+.rc-checkout-target .rcb-title {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: #86868B !important;
+}
+
+/* Hide "S'abonner à" — redundant */
+.rc-checkout-target .rcb-subscribe-to {
+  display: none !important;
+}
+
+/* Product title — same as .pricing-card h2 (22px / 600 / #1D1D1F) */
+.rc-checkout-target .rcb-product-title {
+  font-size: 22px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  color: #1D1D1F !important;
+  margin: 8px 0 4px !important;
+  text-align: center !important;
+}
+
+/* Price — same as .price-amount (48px / 700 / #1D1D1F) */
+.rc-checkout-target .rcb-product-price-container {
+  margin: 0 !important;
+  justify-content: center !important;
+  align-items: baseline !important;
+  text-align: center !important;
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  color: #1D1D1F !important;
+  line-height: 1.3 !important;
+}
+
+.rc-checkout-target .rcb-product-price-container > div {
+  font-size: 32px !important;
+  font-weight: 700 !important;
+  color: #1D1D1F !important;
+  text-align: center !important;
+}
+
+/* Pricing info — centered with tighter gap */
+.rc-checkout-target .rcb-pricing-info {
+  padding: 0 !important;
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+.rc-checkout-target .rcb-pricing-info-header {
+  margin: 0 !important;
+  align-items: center !important;
+}
+
+/* Total row — separator + spread layout */
+.rc-checkout-target .rcb-pricing-table {
+  border-top: 1px solid #E5E5EA !important;
+  padding: 12px 0 0 !important;
+  margin: 8px 0 0 !important;
   width: 100% !important;
-  min-height: 400px !important;
+}
+
+.rc-checkout-target .rcb-pricing-table-row {
+  font-size: 14px !important;
+  color: #86868B !important;
+  padding: 2px 0 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: baseline !important;
+}
+
+.rc-checkout-target .rcb-pricing-table-header {
+  font-weight: 500 !important;
+}
+
+/* Total value — Apple blue accent */
+.rc-checkout-target .rcb-pricing-table-value {
+  font-weight: 700 !important;
+  color: #007AFF !important;
+  font-size: 20px !important;
+}
+
+/* ── Form section — same padding as card ──────────────────── */
+.rc-checkout-target .rcb-main-block {
+  padding: 20px 24px 16px !important;
+}
+
+.rc-checkout-target .rc-checkout-form-container,
+.rc-checkout-target .rc-checkout-form {
+  padding: 0 !important;
+}
+
+.rc-checkout-target .rc-elements-container {
+  padding: 0 !important;
+  margin-bottom: 4px !important;
+}
+
+/* ── Pay button — Apple blue ──────────────────────────────── */
+.rc-checkout-target .rc-checkout-pay-container {
+  margin: 8px 0 0 !important;
+  padding: 0 !important;
+}
+
+.rc-checkout-target .rc-checkout-pay-container button {
+  background: #007AFF !important;
+  border: none !important;
+  border-radius: 12px !important;
+  padding: 12px 24px !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: white !important;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.rc-checkout-target .rc-checkout-pay-container button:hover {
+  background: #0056CC !important;
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+/* ── Footer — compact, centered ───────────────────────────── */
+.rc-checkout-target .footer-caption-container {
+  padding: 12px 0 0 !important;
+  margin: 0 !important;
+  border-top: 1px solid #F5F5F7;
+}
+
+.rc-checkout-target .footer-caption {
+  font-size: 11px !important;
+  color: #86868B !important;
+  line-height: 1.5 !important;
+  text-align: center !important;
+}
+
+.rc-checkout-target .rc-checkout-secure-container {
+  padding: 4px 0 0 !important;
+  margin: 0 !important;
+  text-align: center;
+}
+
+.rc-checkout-target .rc-checkout-secure-container * {
+  font-size: 11px !important;
+  color: #86868B !important;
+}
+
+/* Remove extra padding in main wrappers */
+.rc-checkout-target .rcb-ui-main .layout-wrapper-outer,
+.rc-checkout-target .rcb-ui-main .layout-wrapper,
+.rc-checkout-target .rcb-ui-main .layout-content {
+  padding-bottom: 0 !important;
+  background: #FFFFFF !important;
+}
+
+/* ── Info/warning message ─────────────────────────────────── */
+.rc-checkout-target .rcb-info {
+  margin: 0 0 12px !important;
+  padding: 12px 16px !important;
+  border-radius: 12px !important;
+  background: #FFF8E1 !important;
+  border: 1px solid #FFE082 !important;
+}
+
+.rc-checkout-target .rcb-info-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #92400e !important;
+}
+
+.rc-checkout-target .rcb-info-message {
+  font-size: 12px !important;
+  color: #a16207 !important;
 }

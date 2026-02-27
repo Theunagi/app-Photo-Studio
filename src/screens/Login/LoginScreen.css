@@ -1,85 +1,188 @@
+/* ============================================
+   Login Screen — Apple-style minimalist design
+   ============================================ */
+
+/* --- Staggered fade-in keyframes --- */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --- Full-page wrapper --- */
+
 .login {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg);
-  padding: var(--sp-6);
+  background: #ffffff;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* --- Centered card — no visible border, floats on page --- */
 
 .login-card {
   text-align: center;
   max-width: 380px;
   width: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
-  padding: var(--sp-12) var(--sp-8);
-  box-shadow: var(--shadow-lg);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
+
+/* --- Logo --- */
 
 .login-logo {
-  margin-bottom: var(--sp-5);
+  margin-bottom: 28px;
+  animation: fadeInUp 0.8s ease-out both;
+  animation-delay: 0.1s;
 }
+
+.login-logo svg {
+  width: 64px;
+  height: 64px;
+}
+
+/* --- Title — large, thin weight, tight tracking --- */
 
 .login-title {
-  font-size: var(--text-2xl);
-  font-weight: var(--fw-bold);
-  color: var(--color-text);
-  margin-bottom: var(--sp-2);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-size: 44px;
+  font-weight: 300;
+  letter-spacing: -0.022em;
+  line-height: 1.1;
+  color: #1D1D1F;
+  margin: 0 0 10px 0;
+  animation: fadeInUp 0.8s ease-out both;
+  animation-delay: 0.25s;
 }
 
+/* --- Subtitle — small, light gray, generous bottom spacing --- */
+
 .login-subtitle {
-  font-size: var(--text-sm);
-  color: var(--color-text-dim);
-  margin-bottom: var(--sp-8);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  color: #86868B;
+  margin: 0 0 44px 0;
+  animation: fadeInUp 0.8s ease-out both;
+  animation-delay: 0.4s;
 }
+
+/* --- Google sign-in button — Apple-style rounded rectangle --- */
 
 .login-google-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-3);
+  gap: 10px;
   width: 100%;
-  padding: var(--sp-3) var(--sp-6);
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  font-weight: var(--fw-semibold);
-  background: var(--color-text);
-  color: white;
-  border: none;
+  height: 50px;
+  padding: 0 24px;
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: #1D1D1F;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  min-height: 48px;
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  animation: fadeInUp 0.8s ease-out both;
+  animation-delay: 0.55s;
 }
 
 .login-google-btn:hover:not(:disabled) {
-  background: var(--color-primary);
-  box-shadow: 0 4px 14px rgba(67, 56, 202, 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+.login-google-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .login-google-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
+
+.login-google-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* --- Loading spinner — thin, clean circle --- */
 
 .login-spinner {
   display: inline-block;
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 1.5px solid rgba(29, 29, 31, 0.15);
+  border-top-color: #1D1D1F;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: spin 0.7s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* --- Dev mode button — dashed outline, subtle --- */
+
+.login-dev-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 42px;
+  margin-top: 12px;
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #86868B;
+  background: transparent;
+  border: 1.5px dashed rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+  animation: fadeInUp 0.8s ease-out both;
+  animation-delay: 0.7s;
 }
+
+.login-dev-btn:hover {
+  border-color: rgba(0, 0, 0, 0.25);
+  color: #1D1D1F;
+}
+
+/* --- Error message — subtle red text --- */
 
 .login-error {
-  margin-top: var(--sp-4);
-  font-size: var(--text-xs);
-  color: var(--color-danger);
-  font-weight: var(--fw-medium);
+  margin-top: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #FF3B30;
+  animation: fadeInUp 0.4s ease-out both;
 }
