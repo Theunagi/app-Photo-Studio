@@ -20,7 +20,7 @@ export async function analyzeProduct(
   imageUrl: string,
   additionalImageUrls?: string[],
 ): Promise<OpenAIVisionResponse> {
-  return invokeEdgeFunction<OpenAIVisionResponse>('openai-vision', {
+  return invokeEdgeFunction<OpenAIVisionResponse>('studio-api', {
     action: 'analyze',
     imageUrl,
     additionalImageUrls,
@@ -31,7 +31,7 @@ export async function analyzeProduct(
  * Check luminance of a product image (Step 3).
  */
 export async function checkLuminance(imageUrl: string): Promise<'Light' | 'Dark'> {
-  const result = await invokeEdgeFunction<{ classification: string }>('openai-vision', {
+  const result = await invokeEdgeFunction<{ classification: string }>('studio-api', {
     action: 'luminance',
     imageUrl,
   });

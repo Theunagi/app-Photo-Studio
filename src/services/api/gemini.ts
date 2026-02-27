@@ -21,27 +21,27 @@ export async function generateLifestyleImage(
     sessionId?: string;
   },
 ): Promise<{ resultImageUrl: string }> {
-  return invokeEdgeFunction<{ resultImageUrl: string }>('gemini-generate', {
+  const result = await invokeEdgeFunction<{ imageUrl?: string; imageDataUrl?: string }>('studio-api', {
     action: 'lifestyle',
     imageUrl,
-    lifestylePrompt,
-    referenceImageUrls: options?.referenceImageUrls,
-    imageSize: options?.imageSize,
+    userPrompt: lifestylePrompt,
+    resolution: options?.imageSize,
     aspectRatio: options?.aspectRatio,
-    sessionId: options?.sessionId,
   });
+  // studio-api may return imageUrl (Storage URL) or imageDataUrl (base64 fallback)
+  return { resultImageUrl: result.imageUrl ?? result.imageDataUrl ?? '' };
 }
 
 /**
  * Call Gemini Vision for text-only analysis (fallback).
+ * Note: studio-api doesn't have a 'vision' action — this uses 'analyze' as fallback.
  */
 export async function callGeminiVision(
   imageUrl: string,
   visionPrompt: string,
 ): Promise<{ text: string }> {
-  return invokeEdgeFunction<{ text: string }>('gemini-generate', {
-    action: 'vision',
+  return invokeEdgeFunction<{ text: string }>('studio-api', {
+    action: 'analyze',
     imageUrl,
-    visionPrompt,
   });
 }

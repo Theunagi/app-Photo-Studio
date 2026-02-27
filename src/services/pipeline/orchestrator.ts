@@ -216,11 +216,10 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   // =========================================================================
   // STEP 3: LUMINANCE CLASSIFICATION (GPT-4o via Edge Function)
   // =========================================================================
-  // Upload studio result for the luminance check
-  const studioStorageUrl = await uploadToStorage(studioGen.imageDataUrl, sessionId, 'studio');
-
+  // Use the ORIGINAL input image for luminance check (much smaller than 4K generated image)
+  // The product luminance is the same regardless of the render resolution
   const luminanceClass = await executeStep<LuminanceClass>(state, 'luminanceCheck', onStateChange, async () => {
-    return checkLuminance(studioStorageUrl);
+    return checkLuminance(inputStorageUrl);
   });
 
   // =========================================================================

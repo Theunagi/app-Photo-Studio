@@ -16,9 +16,9 @@ export async function removeBackground(
   sessionId: string,
   keepShadows = false,
 ): Promise<{ resultImageUrl: string }> {
-  return invokeEdgeFunction<{ resultImageUrl: string }>('fal-remove-bg', {
+  const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
+    action: 'bg-remove',
     imageUrl,
-    keepShadows,
-    sessionId,
   });
+  return { resultImageUrl: result.imageUrl };
 }

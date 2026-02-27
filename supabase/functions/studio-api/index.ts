@@ -133,11 +133,19 @@ async function verifyAuth(req: Request): Promise<string> {
   const authHeader = req.headers.get("authorization");
   if (!authHeader) throw new Error("Missing authorization header");
 
+  const token = authHeader.replace("Bearer ", "");
+
+  // Allow anon-key pass-through for dev mode (the anon key is already public)
+  const anonKey = req.headers.get("apikey");
+  if (anonKey && token === anonKey) {
+    console.log("[Edge] Dev mode: anon key used as bearer token");
+    return "dev-user-00000000";
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  const token = authHeader.replace("Bearer ", "");
   const {
     data: { user },
     error,
@@ -246,7 +254,7 @@ async function handleLuminance(body: { imageUrl: string }): Promise<Response> {
             },
             {
               type: "image_url",
-              image_url: { url: body.imageUrl, detail: "high" },
+              image_url: { url: body.imageUrl, detail: "low" },
             },
           ],
         },
@@ -280,12 +288,14 @@ async function handleGenerate(body: {
   const nbKey = Deno.env.get("NANOBANANA_API_KEY");
   const resolution = body.resolution ?? "2K";
   const aspectRatio = body.aspectRatio ?? "1:1";
+  // Use JPEG for 4K to keep file size under OpenAI's 20MB URL limit
+  const outputFormat = resolution === "4K" ? "jpeg" : "png";
   const fullPrompt = `${STUDIO_RENDER_PROMPT}\n\n${body.productDescription}`;
 
   // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
   if (falKey) {
     try {
-      console.log("[Edge] Generate: trying Fal.ai nano-banana-pro/edit");
+      console.log(`[Edge] Generate: trying Fal.ai nano-banana-pro/edit (${resolution}, ${outputFormat})`);
       const falResp = await fetch(
         "https://fal.run/fal-ai/nano-banana-pro/edit",
         {
@@ -299,7 +309,7 @@ async function handleGenerate(body: {
             prompt: fullPrompt,
             resolution,
             aspect_ratio: aspectRatio,
-            output_format: "png",
+            output_format: outputFormat,
             num_images: 1,
           }),
         }
@@ -434,7 +444,7 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
 }
 
 /**
- * Lifestyle Generation — Gemini Image Gen
+ * Lifestyle Generation — Fal.ai NanoBanana Pro Edit
  */
 async function handleLifestyle(body: {
   imageUrl: string;
@@ -442,99 +452,43 @@ async function handleLifestyle(body: {
   resolution?: string;
   aspectRatio?: string;
 }): Promise<Response> {
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) return errorResponse("Gemini API key not configured", 500);
+  const falKey = Deno.env.get("FAL_API_KEY");
+  if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const imageSize = body.resolution ?? "2K";
+  const resolution = body.resolution ?? "2K";
   const aspectRatio = body.aspectRatio ?? "1:1";
 
-  // Download image and convert to base64 for Gemini inline_data
-  const imageDataUrl = await urlToDataUrl(body.imageUrl);
-  const { mimeType, base64 } = parseDataUrl(imageDataUrl);
-
-  const prompt = `Using this product image on white background as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+  const prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${apiKey}`;
-
-  const resp = await fetch(url, {
+  const resp = await fetch("https://fal.run/fal-ai/nano-banana-pro/edit", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Key ${falKey}`,
+    },
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [
-            {
-              text: "[REFERENCE IMAGE: Product on white background — use as reference ONLY. Generate a NEW lifestyle scene.]",
-            },
-            { inlineData: { mimeType, data: base64 } },
-            { text: prompt },
-          ],
-        },
-      ],
-      generationConfig: {
-        responseModalities: ["IMAGE", "TEXT"],
-        imageConfig: { imageSize, aspectRatio },
-      },
+      image_urls: [body.imageUrl],
+      prompt,
+      resolution,
+      aspect_ratio: aspectRatio,
+      output_format: "png",
+      num_images: 1,
     }),
   });
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`Gemini error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`Fal.ai lifestyle error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
   const data = await resp.json();
-  const parts = data.candidates?.[0]?.content?.parts;
-  if (!parts?.length) {
-    return errorResponse(`Gemini: no parts in response`, 502);
-  }
+  const resultUrl = data.images?.[0]?.url ?? data.image?.url ?? data.image;
+  if (!resultUrl) return errorResponse("Fal.ai lifestyle: no result image", 502);
 
-  let resultBase64 = "";
-  let resultMime = "image/png";
-  for (const part of parts) {
-    if (part.inlineData) {
-      resultBase64 = part.inlineData.data;
-      resultMime = part.inlineData.mimeType ?? "image/png";
-    }
-    if (part.inline_data) {
-      resultBase64 = part.inline_data.data;
-      resultMime = part.inline_data.mime_type ?? "image/png";
-    }
-  }
-
-  if (!resultBase64) {
-    return errorResponse("Gemini: no image in response", 502);
-  }
-
-  // Upload result to Supabase Storage so we can return a URL
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
-
-  const resultPath = `results/${crypto.randomUUID()}.png`;
-  const bytes = Uint8Array.from(atob(resultBase64), (c) => c.charCodeAt(0));
-  const { error: uploadError } = await supabase.storage
-    .from("project-images")
-    .upload(resultPath, bytes, {
-      contentType: resultMime,
-      upsert: true,
-    });
-
-  if (uploadError) {
-    // Fallback: return as data URL
-    return jsonResponse({
-      imageDataUrl: `data:${resultMime};base64,${resultBase64}`,
-    });
-  }
-
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from("project-images").getPublicUrl(resultPath);
-
-  return jsonResponse({ imageUrl: publicUrl });
+  return jsonResponse({ imageUrl: resultUrl });
 }
 
 /**

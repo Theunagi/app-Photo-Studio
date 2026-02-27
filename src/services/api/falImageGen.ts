@@ -20,14 +20,14 @@ export async function generateStudioImage(
     sessionId?: string;
   },
 ): Promise<{ resultImageUrl: string }> {
-  return invokeEdgeFunction<{ resultImageUrl: string }>('fal-generate', {
-    action: 'studio',
+  const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
+    action: 'generate',
     imageUrl,
     productDescription,
     resolution: options?.resolution,
     aspectRatio: options?.aspectRatio,
-    sessionId: options?.sessionId,
   });
+  return { resultImageUrl: result.imageUrl };
 }
 
 /**
@@ -39,10 +39,10 @@ export async function editImage(
   editPrompt: string,
   sessionId?: string,
 ): Promise<{ resultImageUrl: string }> {
-  return invokeEdgeFunction<{ resultImageUrl: string }>('fal-generate', {
+  const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
     action: 'edit',
     imageUrl,
-    editPrompt,
-    sessionId,
+    userPrompt: editPrompt,
   });
+  return { resultImageUrl: result.imageUrl };
 }
