@@ -159,47 +159,36 @@ function App() {
     </div>
   ) : null;
 
-  // User badge (points / avatar / sign out) — passed into headers
-  const userBadge = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      {profile && (
-        <button
-          onClick={goPricing}
-          style={{
-            padding: '4px 12px', borderRadius: 20, fontSize: 11,
-            fontWeight: 700, background: 'var(--color-surface)',
-            border: '1px solid var(--color-primary)', color: 'var(--color-primary)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-          }}
-        >
-          {profile.points_balance} credits
-        </button>
-      )}
-      {user.avatar && (
-        <img src={user.avatar} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid var(--color-border)' }} />
-      )}
-      <button
-        onClick={handleSignOut}
-        style={{
-          padding: '4px 12px', borderRadius: 20, fontSize: 11,
-          fontWeight: 600, background: 'var(--color-surface)',
-          border: '1px solid var(--color-border)', color: 'var(--color-text-dim)',
-          cursor: 'pointer',
-        }}
-      >
-        Sign out
-      </button>
-    </div>
-  );
-
   const renderScreen = () => {
     switch (view.screen) {
       case 'studio':
-        return <StudioScreen project={view.project} onBack={goHome} pointsBalance={profile?.points_balance ?? 0} onPointsChanged={refreshProfile} userBadge={userBadge} />;
+        return (
+          <StudioScreen
+            project={view.project}
+            onBack={goHome}
+            onOpenStudio={openStudio}
+            pointsBalance={profile?.points_balance ?? 0}
+            onPointsChanged={refreshProfile}
+            userName={user.name || user.email || 'User'}
+            userAvatar={user.avatar}
+            credits={profile?.points_balance}
+            onSignOut={handleSignOut}
+            onGoPricing={goPricing}
+          />
+        );
       case 'pricing':
         return <PricingScreen currentPlan={profile?.plan ?? 'free'} pointsBalance={profile?.points_balance ?? 0} userEmail={user.email} userId={user.id} onBack={goHome} onPlanChanged={refreshProfile} />;
       default:
-        return <HomeScreen onOpenStudio={openStudio} userBadge={userBadge} />;
+        return (
+          <HomeScreen
+            onOpenStudio={openStudio}
+            userName={user.name || user.email || 'User'}
+            userAvatar={user.avatar}
+            credits={profile?.points_balance}
+            onSignOut={handleSignOut}
+            onGoPricing={goPricing}
+          />
+        );
     }
   };
 

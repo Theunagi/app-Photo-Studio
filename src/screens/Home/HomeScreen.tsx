@@ -1,5 +1,5 @@
 /**
- * Home Screen — Project gallery + Fast Generation entry point.
+ * Home Screen — Sidebar layout with project gallery.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -10,10 +10,21 @@ import './HomeScreen.css';
 
 interface HomeScreenProps {
   onOpenStudio: (project: Project | null) => void;
-  userBadge?: React.ReactNode;
+  userName?: string;
+  userAvatar?: string;
+  credits?: number;
+  onSignOut?: () => void;
+  onGoPricing?: () => void;
 }
 
-const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio, userBadge }) => {
+const HomeScreen: React.FC<HomeScreenProps> = ({
+  onOpenStudio,
+  userName = 'User',
+  userAvatar,
+  credits,
+  onSignOut,
+  onGoPricing,
+}) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -59,121 +70,185 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio, userBadge }) => {
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Get recent projects (last 3 with names)
+  const recentProjects = projects.slice(0, 3);
+
   return (
     <div className="home">
-      {/* Header */}
-      <header className="home-header">
-        <div className="logo">
-          <span className="logo-mark">P</span>
-          <span className="logo-text">PHOTO STUDIO</span>
-        </div>
-        <div className="header-actions">
-          <button className="btn-header-primary" onClick={() => onOpenStudio(null)}>
-            Create Visual Now
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
-          {userBadge}
-        </div>
-      </header>
-
-      <main className="home-main">
-        {/* Hero — Fast Generation */}
-        <section className="hero-card" onClick={() => onOpenStudio(null)}>
-          <div className="hero-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M17.5 4L7 18h8l-1.5 10L25 14h-8l1.5-10z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <div className="hero-text">
-            <h2>Fast Generation</h2>
-            <p>Quick one-off render without saving to a project</p>
-          </div>
-          <svg className="hero-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M7 4l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* ===== Sidebar ===== */}
+      <aside className="sidebar">
+        {/* Logo */}
+        <div className="sidebar-logo">
+          <svg className="sidebar-logo-icon" width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="currentColor" strokeWidth="1.5"/>
+            <circle cx="14" cy="14" r="5" stroke="currentColor" strokeWidth="1.5"/>
+            <circle cx="20" cy="8" r="2" fill="currentColor"/>
           </svg>
-        </section>
+          <span className="sidebar-logo-text">Photo Studio</span>
+        </div>
 
-        {/* Projects Section */}
-        <section className="projects-section">
-          <div className="projects-header">
-            <h3>My Projects</h3>
-            <button className="btn-new" onClick={() => setShowNewModal(true)}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-              New Project
-            </button>
+        {/* Actions */}
+        <div className="sidebar-actions">
+          <button className="sidebar-btn-primary" onClick={() => setShowNewModal(true)}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+              <path d="M6 8h4M8 6v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            New Project
+          </button>
+          <button className="sidebar-btn-ghost" onClick={() => onOpenStudio(null)}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M9.5 3L5 9h4l-1 4L13 7H9l.5-4z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Fast Generation
+          </button>
+        </div>
+
+        {/* Workspace */}
+        <div className="sidebar-section">
+          <span className="sidebar-label">/ WORKSPACE</span>
+          <button className="sidebar-nav-item active">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+              <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
+            </svg>
+            All Projects
+          </button>
+        </div>
+
+        {/* Recent */}
+        {recentProjects.length > 0 && (
+          <div className="sidebar-section">
+            <span className="sidebar-label">/ RECENT</span>
+            {recentProjects.map(p => (
+              <button
+                key={p.id}
+                className="sidebar-nav-item"
+                onClick={() => onOpenStudio(p)}
+              >
+                <span className="sidebar-dot" />
+                <span className="sidebar-project-name">{p.name}</span>
+              </button>
+            ))}
           </div>
+        )}
 
-          {loading ? (
-            <div className="projects-empty">
-              <span className="loading-dots">Loading...</span>
+        {/* Spacer */}
+        <div className="sidebar-spacer" />
+
+        {/* Bottom — User */}
+        <div className="sidebar-bottom">
+          <div className="sidebar-user" onClick={onGoPricing}>
+            <div className="sidebar-avatar">
+              {userAvatar ? (
+                <img src={userAvatar} alt="" />
+              ) : (
+                <span>{(userName || 'U')[0].toUpperCase()}</span>
+              )}
             </div>
-          ) : projects.length === 0 ? (
-            <div className="projects-empty">
-              <div className="empty-icon">
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <rect x="6" y="10" width="28" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-                  <path d="M6 16h28M14 10V7a1 1 0 011-1h10a1 1 0 011 1v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <p>No projects yet</p>
-              <span>Create a project to organize and save your renders</span>
+            <span className="sidebar-username">{userName}</span>
+            {credits !== undefined && (
+              <span className="sidebar-credits">{credits} credits</span>
+            )}
+          </div>
+          <button className="sidebar-bottom-btn" onClick={onGoPricing}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M8 5v6M5.5 7.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Settings
+          </button>
+          <button className="sidebar-bottom-btn" onClick={onSignOut}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 13H3.5A1.5 1.5 0 012 11.5v-7A1.5 1.5 0 013.5 3H6M10.5 11L14 8l-3.5-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* ===== Main Content ===== */}
+      <main className="home-main">
+        {/* Projects Header */}
+        <div className="projects-header">
+          <h1>My Projects</h1>
+          <button className="btn-new" onClick={() => setShowNewModal(true)}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            New Project
+          </button>
+        </div>
+
+        {/* Projects Grid */}
+        {loading ? (
+          <div className="projects-empty">
+            <span className="loading-dots">Loading...</span>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="projects-empty">
+            <div className="empty-icon">
+              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                <rect x="6" y="10" width="28" height="22" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                <path d="M6 16h28M14 10V7a1 1 0 011-1h10a1 1 0 011 1v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
             </div>
-          ) : (
-            <div className="projects-grid">
-              {projects.map(project => (
-                <div
-                  key={project.id}
-                  className="project-card"
-                  onClick={() => onOpenStudio(project)}
-                >
-                  {/* Thumbnail */}
-                  <div className="project-thumb">
-                    {project.thumbnail ? (
-                      <img src={project.thumbnail} alt={project.name} />
-                    ) : (
-                      <div className="thumb-placeholder">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                          <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
-                          <circle cx="8.5" cy="8.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
-                          <path d="M3 16l5-5 4 4 3-3 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Info */}
-                  <div className="project-info">
-                    <span className="project-name">{project.name}</span>
-                    <span className="project-date">{formatDate(project.updatedAt)}</span>
-                  </div>
-
-                  {/* Delete */}
-                  <button
-                    className="project-delete"
-                    title="Delete project"
-                    onClick={e => { e.stopPropagation(); setDeleteConfirm(project.id); }}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M2 4h10M5 4V2.5A.5.5 0 015.5 2h3a.5.5 0 01.5.5V4M11 4v7.5a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 013 11.5V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-
-                  {/* Image count badge */}
-                  {project.results.autoCrop && (
-                    <span className="project-badge">Done</span>
+            <p>No projects yet</p>
+            <span>Create a project to organize and save your renders</span>
+          </div>
+        ) : (
+          <div className="projects-grid">
+            {projects.map(project => (
+              <div
+                key={project.id}
+                className="project-card"
+                onClick={() => onOpenStudio(project)}
+              >
+                {/* Thumbnail */}
+                <div className="project-thumb">
+                  {project.thumbnail ? (
+                    <img src={project.thumbnail} alt={project.name} />
+                  ) : (
+                    <div className="thumb-placeholder">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                        <circle cx="8.5" cy="8.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
+                        <path d="M3 16l5-5 4 4 3-3 6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
+
+                {/* Info */}
+                <div className="project-info">
+                  <span className="project-name">{project.name}</span>
+                  <span className="project-date">{formatDate(project.updatedAt)}</span>
+                </div>
+
+                {/* Delete */}
+                <button
+                  className="project-delete"
+                  title="Delete project"
+                  onClick={e => { e.stopPropagation(); setDeleteConfirm(project.id); }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 4h10M5 4V2.5A.5.5 0 015.5 2h3a.5.5 0 01.5.5V4M11 4v7.5a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 013 11.5V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+
+                {/* Badge */}
+                {project.results.autoCrop && (
+                  <span className="project-badge">Done</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </main>
 
-      {/* New Project Modal */}
+      {/* ===== New Project Modal ===== */}
       {showNewModal && (
         <div className="modal-overlay" onClick={() => { setShowNewModal(false); setNewName(''); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -200,7 +275,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenStudio, userBadge }) => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ===== Delete Confirmation Modal ===== */}
       {deleteConfirm && (
         <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
           <div className="modal modal-danger" onClick={e => e.stopPropagation()}>
