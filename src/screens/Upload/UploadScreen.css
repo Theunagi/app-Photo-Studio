@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100vh;
   background: #FAFAF8;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
 }
 
 .upload-topbar {

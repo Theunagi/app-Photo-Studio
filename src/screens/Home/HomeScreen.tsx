@@ -128,8 +128,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           </button>
           {onMassImport && (
             <button className="sidebar-btn-ghost" onClick={onMassImport}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M2 10v3a1 1 0 001 1h10a1 1 0 001-1v-3M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 8.5v3a1 1 0 001 1h10a1 1 0 001-1v-3M7 1.5v7M4.5 4L7 1.5 9.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Mass Import
             </button>
@@ -246,11 +246,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 onClick={() => setGridSize('large')}
                 title="Large"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                  <rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                  <rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                  <rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="1" width="5" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="8" y="1" width="5" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="1" y="8" width="5" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="8" y="8" width="5" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.2"/>
                 </svg>
               </button>
               <button
@@ -258,16 +258,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 onClick={() => setGridSize('medium')}
                 title="Medium"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="0.5" y="0.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="6" y="0.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="11.5" y="0.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="0.5" y="6" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="6" y="6" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="11.5" y="6" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="0.5" y="11.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="6" y="11.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
-                  <rect x="11.5" y="11.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="1" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="5.5" y="1" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="10" y="1" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="1" y="5.5" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="5.5" y="5.5" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="10" y="5.5" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="1" y="10" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="5.5" y="10" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
+                  <rect x="10" y="10" width="3" height="3" rx="0.8" stroke="currentColor" strokeWidth="1.1"/>
                 </svg>
               </button>
               <button
@@ -275,22 +275,23 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 onClick={() => setGridSize('small')}
                 title="Small"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="0.5" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="4" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="7.5" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="11" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="14" y="0.5" width="1.5" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="0.5" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="4" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="7.5" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="1" y="1" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4.5" y="1" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="8" y="1" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="11" y="1" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="1" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4.5" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="8" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
                   <rect x="11" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="14" y="4.5" width="1.5" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="0.5" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="4" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="7.5" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="11" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
-                  <rect x="14" y="8.5" width="1.5" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="1" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4.5" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="8" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="11" y="8" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="1" y="11" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4.5" y="11" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="8" y="11" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="11" y="11" width="2" height="2" rx="0.5" fill="currentColor"/>
                 </svg>
               </button>
             </div>

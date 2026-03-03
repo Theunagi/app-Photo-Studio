@@ -20,7 +20,7 @@
   display: flex;
   background: #FAFAF8;
   color: #1D1D1F;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+  font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
     Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -82,7 +82,7 @@
   border: none;
   border-radius: 10px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   background: #2D2D2D;
   color: #FFFFFF;
   cursor: pointer;
@@ -128,10 +128,11 @@
 .sidebar-label {
   display: block;
   font-size: 11px;
-  font-weight: 600;
-  color: #ff4000;
+  font-weight: 500;
+  color: #86868B;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-style: italic;
+  letter-spacing: 0.04em;
   padding: 0 8px;
   margin-bottom: 6px;
 }
@@ -160,7 +161,7 @@
 
 .sidebar-nav-item.active {
   background: #F5F4F0;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .sidebar-nav-item svg {
@@ -176,8 +177,8 @@
 .sidebar-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: #ff4000;
+  border-radius: 3px;
+  background: #D5D5D0;
   flex-shrink: 0;
 }
 
@@ -185,7 +186,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   color: #6B6B6B;
 }
 
@@ -260,11 +262,11 @@
 
 .sidebar-credits {
   font-size: 11px;
-  font-weight: 600;
-  color: #ff4000;
+  font-weight: 500;
+  color: #6B6B6B;
   padding: 2px 8px;
   border-radius: 10px;
-  border: 1px solid #ff4000;
+  border: 1px solid #D5D5D0;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -277,7 +279,7 @@
   padding: 8px 10px;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   background: transparent;
   color: #6B6B6B;
@@ -346,8 +348,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: none;
   border-radius: 6px;
   background: transparent;

@@ -4,7 +4,7 @@
   min-height: 100vh;
   background: #FFFFFF;
   padding: 24px 20px 48px;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+  font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
                'Helvetica Neue', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -426,7 +426,7 @@
   max-width: 420px !important;
   min-height: 0 !important;
   height: auto !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+  font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
                'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
