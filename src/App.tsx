@@ -7,11 +7,13 @@ import HomeScreen from './screens/Home/HomeScreen';
 import StudioScreen from './screens/Studio/StudioScreen';
 import PricingScreen from './screens/Pricing/PricingScreen';
 import LoginScreen from './screens/Login/LoginScreen';
+import UploadScreen from './screens/Upload/UploadScreen';
 
 type View =
-  | { screen: 'home' }
+  | { screen: 'home'; collectionFilter?: string }
   | { screen: 'studio'; project: Project | null }
   | { screen: 'pricing' }
+  | { screen: 'upload' }
   | { screen: 'loading' };
 
 interface AppUser {
@@ -95,6 +97,11 @@ function App() {
 
   const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); }, [refreshProfile]);
   const goPricing = useCallback(() => { setView({ screen: 'pricing' }); }, []);
+  const goUpload = useCallback(() => { setView({ screen: 'upload' }); }, []);
+  const goHomeWithCollection = useCallback((collectionId: string) => {
+    refreshProfile();
+    setView({ screen: 'home', collectionFilter: collectionId });
+  }, [refreshProfile]);
 
   const handleSignOut = useCallback(async () => {
     await signOut();
@@ -178,15 +185,26 @@ function App() {
         );
       case 'pricing':
         return <PricingScreen currentPlan={profile?.plan ?? 'free'} pointsBalance={profile?.points_balance ?? 0} userEmail={user.email} userId={user.id} onBack={goHome} onPlanChanged={refreshProfile} />;
+      case 'upload':
+        return (
+          <UploadScreen
+            onBack={goHome}
+            onDone={goHomeWithCollection}
+            creditsAvailable={profile?.points_balance ?? 0}
+            onCreditsChanged={refreshProfile}
+          />
+        );
       default:
         return (
           <HomeScreen
             onOpenStudio={openStudio}
+            onMassImport={goUpload}
             userName={user.name || user.email || 'User'}
             userAvatar={user.avatar}
             credits={profile?.points_balance}
             onSignOut={handleSignOut}
             onGoPricing={goPricing}
+            collectionFilter={(view as { collectionFilter?: string }).collectionFilter}
           />
         );
     }
