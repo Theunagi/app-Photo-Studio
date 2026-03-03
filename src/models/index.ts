@@ -7,3 +7,6 @@ export * from './pipeline';
 
 // Projects
 export * from './project';
+
+// Collections
+export * from './collection';
