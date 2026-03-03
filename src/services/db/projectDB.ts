@@ -258,7 +258,7 @@ async function sbDelete(id: string): Promise<void> {
 // ====================================================================
 
 const DB_NAME = 'photostudio';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'projects';
 
 function idbOpen(): Promise<IDBDatabase> {
@@ -269,6 +269,11 @@ function idbOpen(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'id' });
         store.createIndex('updatedAt', 'updatedAt', { unique: false });
+      }
+      // Collections store (shared DB — both modules must create both stores)
+      if (!db.objectStoreNames.contains('collections')) {
+        const colStore = db.createObjectStore('collections', { keyPath: 'id' });
+        colStore.createIndex('updatedAt', 'updatedAt', { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -362,8 +367,12 @@ export async function saveProject(project: Project): Promise<void> {
   } catch (err) {
     console.warn('[DB] Supabase save failed, saving to IndexedDB:', err);
   }
-  // Always keep a local copy
-  await idbSave(project);
+  // Always keep a local copy (non-blocking — don't crash if IDB fails)
+  try {
+    await idbSave(project);
+  } catch (err) {
+    console.warn('[DB] IndexedDB save failed:', err);
+  }
 }
 
 export async function deleteProject(id: string): Promise<void> {

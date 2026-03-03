@@ -79,7 +79,7 @@ const BatchProgress: React.FC<BatchProgressProps> = ({
             )}
 
             {p.status === 'error' && p.error && (
-              <span className="batch-item-error">{p.error}</span>
+              <span className="batch-item-error-msg">{p.error}</span>
             )}
 
             <span className="batch-item-status">

@@ -51,11 +51,12 @@ export interface StudioScreenProps {
   credits?: number;
   onSignOut?: () => void;
   onGoPricing?: () => void;
+  onMassImport?: () => void;
 }
 
 const StudioScreen: React.FC<StudioScreenProps> = ({
   project, onBack, onOpenStudio, pointsBalance, onPointsChanged,
-  userName = 'User', userAvatar, credits, onSignOut, onGoPricing,
+  userName = 'User', userAvatar, credits, onSignOut, onGoPricing, onMassImport,
 }) => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
@@ -128,6 +129,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [editImages, setEditImages] = useState<{ image: string; prompt: string }[]>(project?.results.edits ?? []);
   const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [deleteConfirmKey, setDeleteConfirmKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
@@ -293,6 +295,32 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setIsRunning(false);
   }, []);
 
+  // --- Delete a generated lifestyle or edit image ---
+  const deleteVariant = useCallback((variantKey: string) => {
+    setDeleteConfirmKey(variantKey);
+  }, []);
+
+  const confirmDelete = useCallback(() => {
+    const variantKey = deleteConfirmKey;
+    if (!variantKey) return;
+
+    if (variantKey.startsWith('lifestyle-')) {
+      const idx = parseInt(variantKey.replace('lifestyle-', ''), 10);
+      const updated = lifestyleImages.filter((_, i) => i !== idx);
+      setLifestyleImages(updated);
+      lifestyleImagesRef.current = updated;
+    } else if (variantKey.startsWith('edit-')) {
+      const idx = parseInt(variantKey.replace('edit-', ''), 10);
+      const updated = editImages.filter((_, i) => i !== idx);
+      setEditImages(updated);
+      editImagesRef.current = updated;
+    }
+
+    setDeleteConfirmKey(null);
+    setActiveVariant('final');
+    setTimeout(() => autoSave(), 100);
+  }, [deleteConfirmKey, lifestyleImages, editImages, autoSave]);
+
   // --- Download any step image ---
   const downloadImage = useCallback((dataUrl: string, suffix: string) => {
     const base = project?.name ?? inputFile?.name ?? 'output';
@@ -388,7 +416,21 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // --- AI Edit Generation (via Edge Function) ---
   const handleEditImage = useCallback(async () => {
-    const sourceImage = getStepImage('autoCrop');
+    // Use the currently selected variant's image, not always the final
+    let sourceImage: string | null = null;
+    if (activeVariant.startsWith('edit-')) {
+      const idx = parseInt(activeVariant.replace('edit-', ''), 10);
+      sourceImage = editImages[idx]?.image ?? null;
+    } else if (activeVariant.startsWith('lifestyle-')) {
+      const idx = parseInt(activeVariant.replace('lifestyle-', ''), 10);
+      sourceImage = lifestyleImages[idx]?.image ?? null;
+    } else if (activeVariant === 'original') {
+      sourceImage = inputPreviews[0] ?? null;
+    } else if (activeVariant === 'cutout') {
+      sourceImage = getStepImage('cutout');
+    } else {
+      sourceImage = getStepImage('autoCrop');
+    }
     if (!sourceImage || !editPrompt.trim()) return;
     setIsGeneratingEdit(true);
     try {
@@ -418,7 +460,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       setIsGeneratingEdit(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editPrompt, editImages, autoSave, uploadForEdgeFunction]);
+  }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, autoSave, uploadForEdgeFunction]);
 
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;
@@ -497,6 +539,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
             </svg>
             Fast Generation
           </button>
+          {onMassImport && (
+            <button className="sidebar-btn-ghost" onClick={onMassImport}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 10l6-6 6 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8 4v9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                <path d="M3 14h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+              </svg>
+              Mass Import
+            </button>
+          )}
         </div>
 
         {/* Workspace */}
@@ -734,17 +786,32 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   {/* Thumbnail strip - bottom center */}
                   {resultVariants.length > 1 && (
                     <div className="result-thumbs">
-                      {resultVariants.map(v => (
-                        <button
-                          key={v.key}
-                          className={`result-thumb ${v.key === currentVariant.key ? 'active' : ''}`}
-                          onClick={() => setActiveVariant(v.key)}
-                          title={v.label}
-                        >
-                          <img src={v.image} alt={v.label} />
-                          <span className="thumb-label">{v.label}</span>
-                        </button>
-                      ))}
+                      {resultVariants.map(v => {
+                        const isDeletable = v.key.startsWith('lifestyle-') || v.key.startsWith('edit-');
+                        return (
+                          <div key={v.key} className="result-thumb-wrapper">
+                            <button
+                              className={`result-thumb ${v.key === currentVariant.key ? 'active' : ''}`}
+                              onClick={() => setActiveVariant(v.key)}
+                              title={v.label}
+                            >
+                              <img src={v.image} alt={v.label} />
+                              <span className="thumb-label">{v.label}</span>
+                            </button>
+                            {isDeletable && (
+                              <button
+                                className="result-thumb-delete"
+                                onClick={(e) => { e.stopPropagation(); deleteVariant(v.key); }}
+                                title="Supprimer"
+                              >
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                  <path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -904,6 +971,25 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
             </button>
           </div>
         </aside>
+      )}
+
+      {/* ===== Delete Confirmation Modal ===== */}
+      {deleteConfirmKey && (
+        <div className="confirm-overlay" onClick={() => setDeleteConfirmKey(null)}>
+          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="confirm-icon">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <path d="M7 9h14M11 9V7a2 2 0 012-2h2a2 2 0 012 2v2M18 9v11a2 2 0 01-2 2h-4a2 2 0 01-2-2V9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <h3 className="confirm-title">Supprimer cette image ?</h3>
+            <p className="confirm-text">Cette action est irréversible.</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn-cancel" onClick={() => setDeleteConfirmKey(null)}>Annuler</button>
+              <button className="confirm-btn-delete" onClick={confirmDelete}>Supprimer</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

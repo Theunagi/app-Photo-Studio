@@ -8,6 +8,7 @@ import StudioScreen from './screens/Studio/StudioScreen';
 import PricingScreen from './screens/Pricing/PricingScreen';
 import LoginScreen from './screens/Login/LoginScreen';
 import UploadScreen from './screens/Upload/UploadScreen';
+import LandingScreen from './screens/Landing/LandingScreen';
 
 type View =
   | { screen: 'home'; collectionFilter?: string }
@@ -26,6 +27,7 @@ interface AppUser {
 function App() {
   const [view, setView] = useState<View>({ screen: 'home' });
   const [user, setUser] = useState<AppUser | null | undefined>(undefined); // undefined = loading
+  const [showLogin, setShowLogin] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [diag, setDiag] = useState<SupabaseDiagnostic | null>(null);
   const [showDiag, setShowDiag] = useState(false);
@@ -128,7 +130,10 @@ function App() {
 
   // Not logged in
   if (!user) {
-    return <LoginScreen onDevLogin={handleDevLogin} />;
+    if (showLogin) {
+      return <LoginScreen onDevLogin={handleDevLogin} />;
+    }
+    return <LandingScreen onLogin={() => setShowLogin(true)} onDevLogin={handleDevLogin} />;
   }
 
   // Loading project
@@ -181,6 +186,7 @@ function App() {
             credits={profile?.points_balance}
             onSignOut={handleSignOut}
             onGoPricing={goPricing}
+            onMassImport={goUpload}
           />
         );
       case 'pricing':

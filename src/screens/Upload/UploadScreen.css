@@ -446,3 +446,168 @@
 .btn-danger-outline:hover {
   background: rgba(255, 59, 48, 0.06);
 }
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6E6E73;
+  background: none;
+  border: 1px solid #E8E8E4;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost:hover {
+  background: #F5F4F0;
+  color: #1D1D1F;
+}
+
+/* GroupingView header layout */
+.grouping-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.grouping-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Checkbox custom checkmark */
+.group-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.group-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ff4000;
+  cursor: pointer;
+}
+
+.group-checkbox .checkmark {
+  display: none;
+}
+
+/* Group image count label */
+.group-image-count {
+  font-size: 12px;
+  color: #AEAEB2;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Ungrouped card style */
+.group-card.ungrouped {
+  background: #F9F9F7;
+  border-style: dashed;
+}
+
+.group-name-static {
+  font-size: 14px;
+  font-weight: 600;
+  color: #9E9E9E;
+}
+
+/* BatchProgress: credits display */
+.batch-credits {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #6E6E73;
+}
+
+.batch-credits-remaining {
+  color: #34C759;
+  font-weight: 500;
+}
+
+/* BatchProgress: item layout elements */
+.batch-item-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.batch-item-name {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-item-status {
+  font-size: 12px;
+  color: #AEAEB2;
+  font-weight: 500;
+  flex-shrink: 0;
+  min-width: 48px;
+  text-align: right;
+}
+
+.batch-item-completed .batch-item-status {
+  color: #34C759;
+}
+
+.batch-item-error .batch-item-status {
+  color: #FF3B30;
+}
+
+.batch-item-running .batch-item-status {
+  color: #ff4000;
+}
+
+/* Per-item progress bar */
+.batch-item-progress {
+  width: 80px;
+  height: 4px;
+  background: #E8E8E4;
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.batch-item-progress-fill {
+  height: 100%;
+  background: #ff4000;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Error message text in batch item */
+.batch-item-error-msg {
+  font-size: 11px;
+  color: #FF3B30;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Queued dot indicator */
+.batch-queued-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #D5D5D0;
+}
+
+/* Batch item queued state */
+.batch-item-queued {
+  opacity: 0.6;
+}

@@ -6,6 +6,7 @@ import type { Collection } from '../../models/collection';
 import { createProject } from '../../models/project';
 import { saveProject } from '../../services/db/projectDB';
 import { saveCollection } from '../../services/db/collectionDB';
+import { deductPoints, GENERATION_COST } from '../../services/db/points';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import type { PipelineState, PipelineStep } from '../../models/pipeline';
 import DropZone from './components/DropZone';
@@ -41,7 +42,7 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
   const [isPaused] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const CREDITS_PER_PROJECT = 2; // 2K default
+  const CREDITS_PER_PROJECT = GENERATION_COST['2K'] ?? 2;
 
   // Step 1: Files selected from DropZone
   const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
@@ -118,6 +119,16 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
       setBatchStatuses([...statuses]);
 
       try {
+        // Deduct credits before running pipeline
+        try {
+          await deductPoints(CREDITS_PER_PROJECT);
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : 'Insufficient credits';
+          statuses[i] = { ...statuses[i], status: 'error', error: errMsg };
+          setBatchStatuses([...statuses]);
+          continue;
+        }
+
         // Create project
         const project = createProject(group.name);
         project.collectionId = col.id;

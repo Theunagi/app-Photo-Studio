@@ -1,0 +1,131 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ===== Photo Studio Landing - Tailwind v4 Theme ===== */
+@theme {
+  /* Brand Colors */
+  --color-humble-bg: #FDFCFB;
+  --color-humble-text: #111111;
+  --color-humble-gray: #666666;
+  --color-humble-light-gray: #F5F5F5;
+  --color-humble-border: #E5E5E5;
+  --color-humble-orange: #FF4F00;
+  --color-humble-blue: #007AFF;
+
+  /* Shadows */
+  --shadow-humble-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-humble-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-humble-lg: 0 20px 60px -15px rgba(0, 0, 0, 0.1);
+  --shadow-humble-glow: 0 0 40px rgba(255, 79, 0, 0.2);
+
+  /* Font family */
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ===== Base Styles for Landing ===== */
+.landing-page {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.landing-page h1,
+.landing-page h2,
+.landing-page h3,
+.landing-page h4,
+.landing-page h5,
+.landing-page h6 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ===== Custom Component Classes ===== */
+.humble-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 9999px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 300ms ease;
+  border: none;
+  white-space: nowrap;
+}
+
+.humble-btn:active {
+  transform: scale(0.95);
+}
+
+.humble-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 32px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 300ms ease;
+  border: none;
+  background: #0A0A0A;
+  color: #FFFFFF;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  white-space: nowrap;
+}
+
+.humble-btn-primary:hover {
+  background: #222222;
+  transform: translateY(-1px);
+  box-shadow: 0 24px 48px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+
+.humble-btn-primary:active {
+  transform: scale(0.95);
+}
+
+.humble-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 9999px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 300ms ease;
+  border: 1px solid #E5E5E5;
+  background: #FFFFFF;
+  color: #111111;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+}
+
+.humble-btn-secondary:hover {
+  background: #FAFAFA;
+}
+
+.humble-btn-secondary:active {
+  transform: scale(0.95);
+}
+
+.humble-card {
+  background: #FFFFFF;
+  border-radius: 2rem;
+  border: 1px solid #E5E5E5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 300ms ease, transform 300ms ease;
+}
+
+.humble-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== Scan Animation ===== */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  50% { transform: translateY(400%); }
+  100% { transform: translateY(-100%); }
+}
