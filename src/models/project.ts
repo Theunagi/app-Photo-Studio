@@ -28,6 +28,10 @@ export interface Project {
     aspectRatio: string;
   };
   results: ProjectResult;
+  /** Collection this project belongs to (mass upload) */
+  collectionId?: string;
+  /** Original source images before pipeline (multi-angle uploads) */
+  sourceImages?: string[];
 }
 
 export function createProject(name: string): Project {
