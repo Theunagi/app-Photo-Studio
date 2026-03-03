@@ -36,6 +36,7 @@ interface ProjectRow {
   created_at: string;
   updated_at: string;
   thumbnail: string | null;
+  collection_id: string | null;
   config: Record<string, string>;
   results: Record<string, unknown>;
 }
@@ -51,6 +52,7 @@ function rowToProject(row: ProjectRow): Project {
       imageSize: (row.config?.imageSize as string) ?? '2K',
       aspectRatio: (row.config?.aspectRatio as string) ?? '1:1',
     },
+    collectionId: row.collection_id ?? undefined,
     results: row.results as unknown as ProjectResult,
   };
 }
@@ -228,6 +230,7 @@ async function sbSave(project: Project): Promise<void> {
     created_at: new Date(project.createdAt).toISOString(),
     updated_at: new Date().toISOString(),
     thumbnail: thumbnailPath ?? null,
+    collection_id: project.collectionId ?? null,
     config: project.config,
     results,
   };
@@ -371,4 +374,24 @@ export async function deleteProject(id: string): Promise<void> {
     console.warn('[DB] Supabase delete failed:', err);
   }
   await idbDelete(id);
+}
+
+export async function getProjectsByCollection(collectionId: string): Promise<Project[]> {
+  return withFallback(
+    async () => {
+      const userId = await getAuthUserId();
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('collection_id', collectionId)
+        .order('updated_at', { ascending: false });
+      if (error) throw new Error(`Supabase getProjectsByCollection: ${error.message}`);
+      return (data as ProjectRow[]).map(rowToProject);
+    },
+    async () => {
+      const all = await idbGetAll();
+      return all.filter(p => p.collectionId === collectionId);
+    },
+  );
 }
