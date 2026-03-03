@@ -1,7 +1,10 @@
+// Production domain(s) — add your real domain here when deploying
 const ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
   'https://lbyayuonwesmxvzvvavx.supabase.co',
+  // TODO: Add production domain, e.g.:
+  // 'https://photostudio.yourdomain.com',
 ];
 
 export function corsHeaders(req: Request): Record<string, string> {

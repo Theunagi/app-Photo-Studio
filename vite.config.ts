@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true, // Expose on all network interfaces
+    host: 'localhost', // Only bind to localhost (not exposed on network)
     port: 3000,
     strictPort: true,
     open: false, // Don't try to open browser in headless env

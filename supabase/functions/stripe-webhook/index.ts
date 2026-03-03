@@ -71,6 +71,25 @@ function getAdminClient() {
   );
 }
 
+// --- Idempotency check (prevent duplicate event processing) ---
+
+async function isEventAlreadyProcessed(eventId: string): Promise<boolean> {
+  const supabase = getAdminClient();
+  const { data } = await supabase
+    .from('webhook_events')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .single();
+  return !!data;
+}
+
+async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
+  const supabase = getAdminClient();
+  await supabase
+    .from('webhook_events')
+    .upsert({ event_id: eventId, event_type: eventType, processed_at: new Date().toISOString() });
+}
+
 // --- Event handlers ---
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
@@ -347,6 +366,14 @@ serve(async (req: Request) => {
 
     console.log(`[Webhook] Received event: ${event.type} (${event.id})`);
 
+    // Idempotency: skip if we already processed this event
+    if (await isEventAlreadyProcessed(event.id)) {
+      console.log(`[Webhook] Event ${event.id} already processed — skipping`);
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     switch (event.type) {
       case 'invoice.paid':
         await handleInvoicePaid(event.data.object as Stripe.Invoice);
@@ -367,6 +394,9 @@ serve(async (req: Request) => {
       default:
         console.log(`[Webhook] Unhandled event type: ${event.type}`);
     }
+
+    // Mark event as processed for idempotency
+    await markEventProcessed(event.id, event.type);
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { 'Content-Type': 'application/json' },

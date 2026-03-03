@@ -135,13 +135,7 @@ async function verifyAuth(req: Request): Promise<string> {
 
   const token = authHeader.replace("Bearer ", "");
 
-  // Allow anon-key pass-through for dev mode (the anon key is already public)
-  const anonKey = req.headers.get("apikey");
-  if (anonKey && token === anonKey) {
-    console.log("[Edge] Dev mode: anon key used as bearer token");
-    return "dev-user-00000000";
-  }
-
+  // SECURITY: No anon-key bypass — all requests must have a valid JWT
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
