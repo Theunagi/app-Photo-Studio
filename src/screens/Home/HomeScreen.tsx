@@ -7,23 +7,30 @@ import type { Project } from '../../models/project';
 import { createProject } from '../../models/project';
 import { getAllProjects, deleteProject, saveProject } from '../../services/db/projectDB';
 import './HomeScreen.css';
+import { getAllCollections } from '../../services/db/collectionDB';
+import { getProjectsByCollection } from '../../services/db/projectDB';
+import type { Collection } from '../../models/collection';
 
 interface HomeScreenProps {
   onOpenStudio: (project: Project | null) => void;
+  onMassImport?: () => void;
   userName?: string;
   userAvatar?: string;
   credits?: number;
   onSignOut?: () => void;
   onGoPricing?: () => void;
+  collectionFilter?: string;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenStudio,
+  onMassImport,
   userName = 'User',
   userAvatar,
   credits,
   onSignOut,
   onGoPricing,
+  collectionFilter,
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,17 +38,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [newName, setNewName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState<'large' | 'medium' | 'small'>('medium');
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [activeCollection, setActiveCollection] = useState<string | null>(collectionFilter ?? null);
 
   const loadProjects = useCallback(async () => {
     try {
-      const list = await getAllProjects();
-      setProjects(list);
+      if (activeCollection) {
+        const list = await getProjectsByCollection(activeCollection);
+        setProjects(list);
+      } else {
+        const list = await getAllProjects();
+        setProjects(list);
+      }
+      const cols = await getAllCollections();
+      setCollections(cols);
     } catch (err) {
-      console.error('Failed to load projects:', err);
+      console.error('Failed to load:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeCollection]);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
 
@@ -110,12 +126,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </svg>
             Fast Generation
           </button>
+          {onMassImport && (
+            <button className="sidebar-btn-ghost" onClick={onMassImport}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 10v3a1 1 0 001 1h10a1 1 0 001-1v-3M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Mass Import
+            </button>
+          )}
         </div>
 
         {/* Workspace */}
         <div className="sidebar-section">
           <span className="sidebar-label">/ WORKSPACE</span>
-          <button className="sidebar-nav-item active">
+          <button className={`sidebar-nav-item ${!activeCollection ? 'active' : ''}`} onClick={() => setActiveCollection(null)}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
               <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
@@ -125,6 +149,38 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             All Projects
           </button>
         </div>
+
+        {/* Collections */}
+        {collections.length > 0 && (
+          <div className="sidebar-section">
+            <span className="sidebar-label">/ COLLECTIONS</span>
+            {activeCollection && (
+              <button
+                className="sidebar-nav-item"
+                onClick={() => setActiveCollection(null)}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                All Projects
+              </button>
+            )}
+            {collections.map(c => (
+              <button
+                key={c.id}
+                className={`sidebar-nav-item ${activeCollection === c.id ? 'active' : ''}`}
+                onClick={() => setActiveCollection(c.id)}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="4" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <path d="M2 6.5h12M5 4V2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+                <span className="sidebar-project-name">{c.name}</span>
+                <span className="sidebar-collection-count">{c.projectCount}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Recent */}
         {recentProjects.length > 0 && (
@@ -181,7 +237,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       <main className="home-main">
         {/* Projects Header */}
         <div className="projects-header">
-          <h1>My Projects</h1>
+          <h1>{activeCollection ? collections.find(c => c.id === activeCollection)?.name ?? 'Collection' : 'My Projects'}</h1>
           <div className="projects-header-right">
             {/* Grid size toggle */}
             <div className="grid-toggle">
@@ -238,6 +294,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 </svg>
               </button>
             </div>
+            {onMassImport && (
+              <button className="btn-mass-import" onClick={onMassImport}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M1 8.5v3a1 1 0 001 1h10a1 1 0 001-1v-3M7 1.5v7M4.5 4L7 1.5 9.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Mass Import
+              </button>
+            )}
             <button className="btn-new" onClick={() => setShowNewModal(true)}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
