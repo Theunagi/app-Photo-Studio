@@ -97,9 +97,27 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Fetch current profile to determine upgrade vs renewal
+    const { data: currentProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('points_balance, plan')
+      .eq('id', userId)
+      .single();
+
+    const currentPlan = currentProfile?.plan ?? 'free';
+    const currentBalance = currentProfile?.points_balance ?? 0;
+
+    // Determine if this is an UPGRADE (different plan) or RENEWAL (same plan)
+    // Upgrade: cumulate existing balance + new plan credits
+    // Renewal (same plan, monthly reset): reset to plan credits
+    const isUpgrade = currentPlan !== activePlan && currentPlan !== 'free';
+    const newBalance = isUpgrade
+      ? currentBalance + activeCredits  // Cumulate on upgrade
+      : activeCredits;                  // Reset on renewal or first subscription
+
     const { data, error } = await supabaseAdmin
       .from('user_profiles')
-      .update({ points_balance: activeCredits, plan: activePlan })
+      .update({ points_balance: newBalance, plan: activePlan })
       .eq('id', userId)
       .select('points_balance, plan')
       .single();
@@ -112,7 +130,11 @@ Deno.serve(async (req) => {
       event_type: 'credits_provisioned',
       metadata: {
         plan: activePlan,
+        previousPlan: currentPlan,
         credits: activeCredits,
+        previousBalance: currentBalance,
+        newBalance,
+        isUpgrade,
         source: 'revenuecat_verified',
       },
     });
@@ -123,6 +145,7 @@ Deno.serve(async (req) => {
         plan: activePlan,
         credits: activeCredits,
         balance: data.points_balance,
+        isUpgrade,
       }),
       { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
     );

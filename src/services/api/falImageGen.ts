@@ -37,7 +37,7 @@ export async function generateStudioImage(
 export async function editImage(
   imageUrl: string,
   editPrompt: string,
-  sessionId?: string,
+  _sessionId?: string,
 ): Promise<{ resultImageUrl: string }> {
   const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
     action: 'edit',

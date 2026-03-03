@@ -126,11 +126,23 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
       return;
     }
 
+    // Fetch current profile to detect upgrade vs renewal
+    const { data: existingProfile } = await supabase
+      .from('user_profiles')
+      .select('points_balance, plan')
+      .eq('id', appUserId)
+      .single();
+
+    const prevPlan = existingProfile?.plan ?? 'free';
+    const prevBalance = existingProfile?.points_balance ?? 0;
+    const isUpgrade = prevPlan !== planId && prevPlan !== 'free';
+    const newBalance = isUpgrade ? prevBalance + credits : credits;
+
     // Update by Supabase user ID
     const { error: updateError } = await supabase
       .from('user_profiles')
       .update({
-        points_balance: credits, // Reset to plan credits (monthly renewal)
+        points_balance: newBalance,
         plan: planId,
         stripe_customer_id: customerId,
         current_period_end: invoice.lines?.data?.[0]?.period?.end
@@ -142,21 +154,27 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
     if (updateError) {
       console.error('[Webhook] Failed to update profile by app_user_id:', updateError);
     } else {
-      console.log(`[Webhook] Credits provisioned: ${credits} for user ${appUserId}`);
+      console.log(`[Webhook] Credits provisioned: ${newBalance} (upgrade=${isUpgrade}) for user ${appUserId}`);
     }
 
     // Log the payment event
     await logPaymentEvent(supabase, appUserId, 'invoice.paid', {
-      customerId, planId, credits, invoiceId: invoice.id,
+      customerId, planId, credits, previousPlan: prevPlan, previousBalance: prevBalance, newBalance, isUpgrade, invoiceId: invoice.id,
     });
     return;
   }
+
+  // Detect upgrade vs renewal
+  const prevPlan2 = profile.plan ?? 'free';
+  const prevBalance2 = profile.points_balance ?? 0;
+  const isUpgrade2 = prevPlan2 !== planId && prevPlan2 !== 'free';
+  const newBalance2 = isUpgrade2 ? prevBalance2 + credits : credits;
 
   // Update existing profile
   const { error: updateError } = await supabase
     .from('user_profiles')
     .update({
-      points_balance: credits, // Reset to plan credits
+      points_balance: newBalance2,
       plan: planId,
       current_period_end: invoice.lines?.data?.[0]?.period?.end
         ? new Date(invoice.lines.data[0].period.end * 1000).toISOString()
@@ -167,11 +185,11 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   if (updateError) {
     console.error('[Webhook] Failed to update profile:', updateError);
   } else {
-    console.log(`[Webhook] Credits provisioned: ${credits} for user ${profile.id}`);
+    console.log(`[Webhook] Credits provisioned: ${newBalance2} (upgrade=${isUpgrade2}) for user ${profile.id}`);
   }
 
   await logPaymentEvent(supabase, profile.id, 'invoice.paid', {
-    customerId, planId, credits, invoiceId: invoice.id,
+    customerId, planId, credits, previousPlan: prevPlan2, previousBalance: prevBalance2, newBalance: newBalance2, isUpgrade: isUpgrade2, invoiceId: invoice.id,
   });
 }
 

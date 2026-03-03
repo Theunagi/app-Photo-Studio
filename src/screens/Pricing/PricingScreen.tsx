@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PLANS, refreshProfile, provisionCredits, getCreditsForPlan } from '../../services/db/points';
+import { PLANS, refreshProfile, provisionCredits } from '../../services/db/points';
 import {
   isRevenueCatConfigured,
   initRevenueCat,
@@ -166,7 +166,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
         Object.entries(activeBefore).map(([k, v]) => ({
           key: k,
           product: (v as { productIdentifier?: string }).productIdentifier ?? '',
-          expires: (v as { expirationDate?: string }).expirationDate ?? '',
+          expires: (v as unknown as { expirationDate?: string }).expirationDate ?? '',
         }))
       );
       console.log('[RC] Entitlement snapshot before checkout:', snapshotBefore);
@@ -184,7 +184,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
           Object.entries(activeNow).map(([k, v]) => ({
             key: k,
             product: (v as { productIdentifier?: string }).productIdentifier ?? '',
-            expires: (v as { expirationDate?: string }).expirationDate ?? '',
+            expires: (v as unknown as { expirationDate?: string }).expirationDate ?? '',
           }))
         );
         // Detect ANY change in entitlements (new, different product, different expiry)

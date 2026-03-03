@@ -13,8 +13,8 @@ import { invokeEdgeFunction } from './edgeFunctions';
  */
 export async function removeBackground(
   imageUrl: string,
-  sessionId: string,
-  keepShadows = false,
+  _sessionId: string,
+  _keepShadows = false,
 ): Promise<{ resultImageUrl: string }> {
   const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
     action: 'bg-remove',

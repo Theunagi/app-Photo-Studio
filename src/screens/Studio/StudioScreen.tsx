@@ -180,7 +180,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
       edits: editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
     };
-    p.thumbnail = getImg('autoCrop') ?? getImg('studioGeneration') ?? previews[0] ?? undefined;
+    p.thumbnail = getImg('autoCrop') ?? getImg('retouch') ?? getImg('shadowComposite') ?? getImg('studioGeneration') ?? previews[0] ?? undefined;
     p.config = { imageSize: config.imageSize, aspectRatio: config.aspectRatio };
     p.updatedAt = Date.now();
 

@@ -3,7 +3,7 @@
  *
  * Brand Palette:
  *   Charcoal  #2D2D2D  (primary CTA / buttons)
- *   Orange    #E07A4B  (accent / highlights)
+ *   Orange    #ff4000  (accent / highlights)
  *   Dark      #1D1D1F  (headings)
  *   Gray      #6B6B6B  (secondary text)
  *   Muted     #9E9E9E  (tertiary / dates)
@@ -54,7 +54,7 @@
 .sidebar-logo-icon {
   width: 28px;
   height: 28px;
-  color: #1D1D1F;
+  color: #ff4000;
   flex-shrink: 0;
 }
 
@@ -129,7 +129,7 @@
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: #9E9E9E;
+  color: #ff4000;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0 8px;
@@ -176,8 +176,8 @@
 .sidebar-dot {
   width: 8px;
   height: 8px;
-  border-radius: 3px;
-  background: #D5D5D0;
+  border-radius: 50%;
+  background: #ff4000;
   flex-shrink: 0;
 }
 
@@ -261,10 +261,10 @@
 .sidebar-credits {
   font-size: 11px;
   font-weight: 600;
-  color: #E07A4B;
+  color: #ff4000;
   padding: 2px 8px;
   border-radius: 10px;
-  border: 1px solid #E07A4B;
+  border: 1px solid #ff4000;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -326,6 +326,46 @@
   letter-spacing: -0.02em;
 }
 
+.projects-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Grid size toggle */
+.grid-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #F5F4F0;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.grid-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9E9E9E;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.grid-toggle-btn:hover {
+  color: #6B6B6B;
+}
+
+.grid-toggle-btn.active {
+  background: #FFFFFF;
+  color: #1D1D1F;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 .btn-new {
   display: inline-flex;
   align-items: center;
@@ -334,17 +374,20 @@
   height: 36px;
   border-radius: 8px;
   font-size: 13px;
-  font-weight: 500;
-  background: #FFFFFF;
-  color: #1D1D1F;
-  border: 1px solid #E8E8E4;
+  font-weight: 600;
+  background: #ff4000;
+  color: #FFFFFF;
+  border: none;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-new:hover {
-  background: #F5F4F0;
-  border-color: #D5D5D0;
+  background: #e63900;
+}
+
+.btn-new:active {
+  background: #cc3300;
 }
 
 /* ===== Empty State ===== */
@@ -372,41 +415,123 @@
   color: #9E9E9E;
 }
 
-/* ===== Projects Grid — 4 columns ===== */
+/* ===== Projects Grid ===== */
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Large — 2 columns */
+.projects-grid.grid-large {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+
+/* Medium — 3 columns (default) */
+.projects-grid.grid-medium {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* Small — 6 columns */
+.projects-grid.grid-small {
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+
+/* Adjust card sizing for small grid */
+.grid-small .project-card {
+  padding: 5px;
+  border-radius: 10px;
+}
+
+.grid-small .project-thumb {
+  border-radius: 7px;
+}
+
+.grid-small .project-label {
+  padding: 6px 2px 2px 2px;
+  gap: 6px;
+}
+
+.grid-small .project-label-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.grid-small .project-label-sub {
+  font-size: 8px;
+}
+
+.grid-small .project-label-name {
+  font-size: 11px;
+}
+
+.grid-small .project-delete {
+  width: 22px;
+  height: 22px;
+  top: 5px;
+  right: 5px;
+}
+
+.grid-small .project-delete svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Adjust card sizing for large grid */
+.grid-large .project-card {
+  padding: 10px;
+}
+
+.grid-large .project-label-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+}
+
+.grid-large .project-label-name {
+  font-size: 16px;
 }
 
 /* ===== Project Card ===== */
 .project-card {
   position: relative;
+  border-radius: 16px;
+  border: 1px solid #E0DFDB;
   background: #FFFFFF;
-  border: 1px solid #E8E8E4;
-  border-radius: 14px;
-  overflow: hidden;
+  padding: 8px;
   cursor: pointer;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .project-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  transform: scale(1.01);
+  transform: scale(1.02);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
 }
 
-/* Thumbnail */
+/* Thumbnail — top area */
 .project-thumb {
+  position: relative;
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  background: #F5F4F0;
+  background: #EDEDEB;
+  border-radius: 10px;
 }
 
 .project-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
+  filter: grayscale(60%) brightness(0.95);
+  transition: filter 0.3s ease;
+}
+
+.project-card:hover .project-thumb img {
+  filter: grayscale(20%) brightness(1);
 }
 
 .thumb-placeholder {
@@ -415,38 +540,54 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #C7C7CC;
+  color: #9E9E9E;
 }
 
-/* Info */
-.project-info {
-  padding: 12px 14px;
+/* Label — below image */
+.project-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px 4px 4px;
 }
 
-.project-name {
-  display: block;
+.project-label-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #ff4000;
+  flex-shrink: 0;
+}
+
+.project-label-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.project-label-sub {
+  font-size: 10px;
+  font-weight: 500;
+  color: #9E9E9E;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.project-label-name {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: #1D1D1F;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.35;
-}
-
-.project-date {
-  display: block;
-  font-size: 12px;
-  color: #9E9E9E;
-  margin-top: 2px;
   line-height: 1.4;
 }
 
-/* Delete Button */
+/* Delete Button — top right of image */
 .project-delete {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 8px;
+  right: 8px;
   width: 28px;
   height: 28px;
   border-radius: 8px;
@@ -461,6 +602,7 @@
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s ease, color 0.15s ease, background 0.15s ease;
+  z-index: 2;
 }
 
 .project-card:hover .project-delete {
@@ -471,23 +613,6 @@
   color: #D94040;
   background: rgba(217, 64, 64, 0.1);
   border-color: rgba(217, 64, 64, 0.15);
-}
-
-/* Badge */
-.project-badge {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 3px 10px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #FFFFFF;
 }
 
 /* ===== Modals ===== */
@@ -561,8 +686,8 @@
 }
 
 .modal input:focus {
-  border-color: #E07A4B;
-  box-shadow: 0 0 0 3px rgba(224, 122, 75, 0.12);
+  border-color: #ff4000;
+  box-shadow: 0 0 0 3px rgba(255, 64, 0, 0.12);
 }
 
 .modal-actions {
@@ -645,8 +770,8 @@
 
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
-  .projects-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .projects-grid.grid-small {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -665,25 +790,47 @@
     font-size: 22px;
   }
 
-  .projects-grid {
+  .projects-grid,
+  .projects-grid.grid-large,
+  .projects-grid.grid-medium {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
 
-  .project-info {
-    padding: 10px 12px;
-  }
-
-  .project-name {
-    font-size: 13px;
+  .projects-grid.grid-small {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
 
   .project-card {
     border-radius: 12px;
+    padding: 6px;
+  }
+
+  .project-thumb {
+    border-radius: 8px;
+  }
+
+  .project-label {
+    padding: 8px 2px 2px 2px;
+    gap: 8px;
+  }
+
+  .project-label-dot {
+    width: 22px;
+    height: 22px;
+  }
+
+  .project-label-name {
+    font-size: 12px;
   }
 
   .project-delete {
     opacity: 1;
+  }
+
+  .grid-toggle {
+    display: none;
   }
 
   .modal {

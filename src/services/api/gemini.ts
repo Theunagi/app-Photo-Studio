@@ -38,7 +38,7 @@ export async function generateLifestyleImage(
  */
 export async function callGeminiVision(
   imageUrl: string,
-  visionPrompt: string,
+  _visionPrompt: string,
 ): Promise<{ text: string }> {
   return invokeEdgeFunction<{ text: string }>('studio-api', {
     action: 'analyze',

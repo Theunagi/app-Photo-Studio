@@ -30,6 +30,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [showNewModal, setShowNewModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [gridSize, setGridSize] = useState<'large' | 'medium' | 'small'>('medium');
 
   const loadProjects = useCallback(async () => {
     try {
@@ -65,9 +66,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     if (e.key === 'Escape') { setShowNewModal(false); setNewName(''); }
   }, [handleCreateProject]);
 
-  const formatDate = (ts: number) => {
-    const d = new Date(ts);
-    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  // Pick the best available data-URL image for a project card (final > original)
+  // Only use data: URLs — storage URLs can expire
+  const getBestThumbnail = (p: Project): string | undefined => {
+    const isData = (s?: string) => s && s.startsWith('data:');
+    const r = p.results;
+    return isData(r.autoCrop) ? r.autoCrop
+      : isData(r.retouch) ? r.retouch
+      : isData(r.shadowComposite) ? r.shadowComposite
+      : isData(r.studioGeneration) ? r.studioGeneration
+      : p.thumbnail;
   };
 
   // Get recent projects (last 3 with names)
@@ -174,12 +182,69 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Projects Header */}
         <div className="projects-header">
           <h1>My Projects</h1>
-          <button className="btn-new" onClick={() => setShowNewModal(true)}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            New Project
-          </button>
+          <div className="projects-header-right">
+            {/* Grid size toggle */}
+            <div className="grid-toggle">
+              <button
+                className={`grid-toggle-btn ${gridSize === 'large' ? 'active' : ''}`}
+                onClick={() => setGridSize('large')}
+                title="Large"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="1" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <rect x="9" y="1" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <rect x="1" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <rect x="9" y="9" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                </svg>
+              </button>
+              <button
+                className={`grid-toggle-btn ${gridSize === 'medium' ? 'active' : ''}`}
+                onClick={() => setGridSize('medium')}
+                title="Medium"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="0.5" y="0.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="6" y="0.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="11.5" y="0.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="0.5" y="6" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="6" y="6" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="11.5" y="6" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="0.5" y="11.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="6" y="11.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="11.5" y="11.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2"/>
+                </svg>
+              </button>
+              <button
+                className={`grid-toggle-btn ${gridSize === 'small' ? 'active' : ''}`}
+                onClick={() => setGridSize('small')}
+                title="Small"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="0.5" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="7.5" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="11" y="0.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="14" y="0.5" width="1.5" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="0.5" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="7.5" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="11" y="4.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="14" y="4.5" width="1.5" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="0.5" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="4" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="7.5" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="11" y="8.5" width="2" height="2" rx="0.5" fill="currentColor"/>
+                  <rect x="14" y="8.5" width="1.5" height="2" rx="0.5" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+            <button className="btn-new" onClick={() => setShowNewModal(true)}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+              New Project
+            </button>
+          </div>
         </div>
 
         {/* Projects Grid */}
@@ -199,7 +264,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <span>Create a project to organize and save your renders</span>
           </div>
         ) : (
-          <div className="projects-grid">
+          <div className={`projects-grid grid-${gridSize}`}>
             {projects.map(project => (
               <div
                 key={project.id}
@@ -208,8 +273,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               >
                 {/* Thumbnail */}
                 <div className="project-thumb">
-                  {project.thumbnail ? (
-                    <img src={project.thumbnail} alt={project.name} />
+                  {getBestThumbnail(project) ? (
+                    <img
+                      src={getBestThumbnail(project)}
+                      alt={project.name}
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
                   ) : (
                     <div className="thumb-placeholder">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -219,29 +288,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                       </svg>
                     </div>
                   )}
+                  {/* Delete — top right */}
+                  <button
+                    className="project-delete"
+                    title="Delete project"
+                    onClick={e => { e.stopPropagation(); setDeleteConfirm(project.id); }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 4h10M5 4V2.5A.5.5 0 015.5 2h3a.5.5 0 01.5.5V4M11 4v7.5a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 013 11.5V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                    </svg>
+                  </button>
                 </div>
 
-                {/* Info */}
-                <div className="project-info">
-                  <span className="project-name">{project.name}</span>
-                  <span className="project-date">{formatDate(project.updatedAt)}</span>
+                {/* Label — below image */}
+                <div className="project-label">
+                  <span className="project-label-dot" />
+                  <div className="project-label-text">
+                    <span className="project-label-sub">Project</span>
+                    <span className="project-label-name">{project.name}</span>
+                  </div>
                 </div>
-
-                {/* Delete */}
-                <button
-                  className="project-delete"
-                  title="Delete project"
-                  onClick={e => { e.stopPropagation(); setDeleteConfirm(project.id); }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M2 4h10M5 4V2.5A.5.5 0 015.5 2h3a.5.5 0 01.5.5V4M11 4v7.5a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 013 11.5V4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  </svg>
-                </button>
-
-                {/* Badge */}
-                {project.results.autoCrop && (
-                  <span className="project-badge">Done</span>
-                )}
               </div>
             ))}
           </div>
