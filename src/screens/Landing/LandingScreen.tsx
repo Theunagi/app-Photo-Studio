@@ -4,20 +4,21 @@
  * Uses Tailwind CSS + Motion + Lucide icons.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Camera, Wand2, ArrowRight, Sparkles, Menu, X, Crop, Sun,
-  MessageSquarePlus, Play,
+  Camera, ArrowRight, Sparkles, Menu, X, Crop, Sun,
+  MessageSquarePlus, Image, Pencil, RotateCcw, Download,
 } from 'lucide-react';
 import './landing.css';
 
 export interface LandingScreenProps {
   onLogin: () => void;
   onDevLogin?: () => void;
+  onLegalPage?: (page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu') => void;
 }
 
-const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin }) => {
+const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -104,234 +105,40 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin }) => {
 
       <main>
         {/* ===== Hero Section ===== */}
-        <section className="relative pt-32 pb-20 md:pt-40 md:pb-32 overflow-hidden bg-[#FAFAFA]">
-          {/* Soft gradients */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-[#F2F0ED] to-transparent -z-10" />
-          <div className="absolute top-1/4 left-0 w-[400px] h-[400px] bg-blue-50/50 rounded-full blur-3xl -z-10" />
-          <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-orange-50/50 rounded-full blur-3xl -z-10" />
-
+        <section className="relative pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden bg-[#FAFAFA]">
           <div className="max-w-7xl mx-auto px-6">
-            {/* Hero copy + floating cards */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-12 mb-20">
-              <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={appleTransition}
-                className="max-w-2xl text-left z-10"
-              >
-                <h1 className="text-6xl md:text-[80px] font-bold tracking-tighter text-[#111111] mb-6 leading-[1.05]">
-                  Your Product's Next 10 Years of Visuals
-                  <span className="text-[#FF5A36]">.</span>
-                </h1>
-                <p className="text-xl md:text-2xl text-[#666666] mb-10 font-light tracking-tight max-w-xl">
-                  Upload a simple product photo. Our AI automatically removes the background, adds
-                  realistic shadows, and generates stunning lifestyle scenes in seconds.
-                </p>
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <button onClick={onLogin} className="humble-btn-primary w-full sm:w-auto">
-                    Start my 24h Build
-                  </button>
-                </div>
-              </motion.div>
-
-              {/* Floating before/after cards */}
-              <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...appleTransition, delay: 0.1 }}
-                className="relative w-full max-w-md hidden md:block"
-              >
-                {/* "Bad" photo card */}
-                <motion.div
-                  animate={{ y: [0, -10, 0], rotate: [-2, -4, -2] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-                  className="absolute -top-10 -left-10 w-64 h-64 bg-white p-3 rounded-xl shadow-lg border border-gray-200 rotate-[-3deg] opacity-60 grayscale-[50%]"
-                >
-                  <div className="w-full h-full bg-gray-100 rounded-lg overflow-hidden relative">
-                    <img
-                      src="https://picsum.photos/seed/badphoto/400/400"
-                      alt=""
-                      className="w-full h-full object-cover blur-[1px]"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded uppercase tracking-wider shadow-sm">
-                        Bad Lighting
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* "Good" photo card */}
-                <motion.div
-                  animate={{ y: [0, 10, 0] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-                  className="relative z-10 w-80 h-96 bg-white p-4 rounded-2xl shadow-2xl border border-gray-100 ml-auto"
-                >
-                  <div className="w-full h-full rounded-xl overflow-hidden relative group">
-                    <img
-                      src="https://picsum.photos/seed/goodphoto/600/800"
-                      alt=""
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-400/20 to-transparent h-20 -translate-y-20 animate-[scan_3s_ease-in-out_infinite]" />
-                    <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center">
-                      <span className="bg-white/90 backdrop-blur text-[#007AFF] text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
-                        <Sparkles size={12} /> AI Enhanced
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Magic wand icon */}
-                <div className="absolute top-1/2 left-1/4 -translate-y-1/2 -translate-x-1/2 z-20 text-[#007AFF]">
-                  <Wand2 size={32} className="animate-pulse" />
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Hero — App Mockup */}
+            {/* Hero copy — centered */}
             <motion.div
-              initial={{ opacity: 0, y: 80 }}
+              initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-              className="relative mx-auto max-w-6xl mt-20"
+              transition={appleTransition}
+              className="text-center max-w-3xl mx-auto mb-10"
             >
-              <div className="p-3 md:p-5 bg-black rounded-[2.5rem] shadow-2xl mx-auto border-[6px] border-gray-800 relative">
-                <div className="bg-white rounded-[2rem] overflow-hidden border-4 border-white w-full h-[600px] md:h-[800px] flex flex-col relative">
-                  {/* Mockup Toolbar */}
-                  <div className="h-14 border-b border-[#E5E5E5] bg-[#F3F3F3] flex items-center px-4 gap-4 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full bg-humble-orange flex items-center justify-center text-white">
-                        <Camera size={10} />
-                      </div>
-                      <span className="font-bold text-sm text-gray-800">Photo Studio</span>
-                    </div>
-                    <div className="text-xs font-medium text-gray-400">/ Projects</div>
-                    <div className="ml-auto flex gap-2">
-                      <div className="w-32 h-8 bg-gray-200 rounded-lg" />
-                      <div className="w-8 h-8 bg-gray-200 rounded-lg" />
-                    </div>
-                  </div>
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-white mb-5">
+                <span className="w-2 h-2 rounded-full bg-humble-orange" />
+                <span className="text-sm font-medium text-humble-text">Photo Studio 2.0 is live</span>
+              </div>
 
-                  {/* Mockup Body */}
-                  <div className="flex-1 flex overflow-hidden bg-[#F3F3F3]">
-                    {/* Left sidebar */}
-                    <div className="w-64 border-r border-[#E5E5E5] flex-col p-4 shrink-0 hidden md:flex">
-                      <div className="bg-[#111111] text-white rounded-xl px-4 py-2.5 flex items-center gap-3 text-sm font-medium mb-8 shadow-sm">
-                        <MessageSquarePlus size={16} /> New Project
-                      </div>
-                      <div className="space-y-8">
-                        <div>
-                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4 px-2">
-                            / Workspace
-                          </div>
-                          <div className="space-y-2">
-                            <div className="h-8 w-full bg-gray-200/50 rounded-lg" />
-                            <div className="h-8 w-3/4 bg-gray-200/50 rounded-lg" />
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4 px-2">
-                            / Recent
-                          </div>
-                          <div className="space-y-2">
-                            <div className="h-8 w-full bg-gray-200/50 rounded-lg" />
-                            <div className="h-8 w-5/6 bg-gray-200/50 rounded-lg" />
-                            <div className="h-8 w-4/5 bg-gray-200/50 rounded-lg" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Center panel */}
-                    <div className="w-full md:w-80 lg:w-[400px] border-r border-[#E5E5E5] flex flex-col bg-[#F3F3F3] shrink-0 relative z-10 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]">
-                      <div className="p-4 border-b border-[#E5E5E5] shrink-0">
-                        <div className="h-10 bg-[#E8E8E8] rounded-xl w-full flex items-center px-3 gap-2">
-                          <div className="w-4 h-4 rounded-full bg-gray-300" />
-                          <div className="h-3 w-16 bg-gray-300 rounded" />
-                        </div>
-                      </div>
-                      <div className="flex-1 p-4 space-y-6 overflow-hidden">
-                        <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                          <div className="flex items-center gap-2 mb-4">
-                            <div className="w-7 h-7 rounded-full bg-humble-orange flex items-center justify-center text-white">
-                              <Sparkles size={12} />
-                            </div>
-                            <div className="h-4 w-24 bg-gray-200 rounded" />
-                          </div>
-                          <div className="space-y-3 mb-5">
-                            <div className="h-3 w-full bg-gray-200 rounded" />
-                            <div className="h-3 w-5/6 bg-gray-200 rounded" />
-                            <div className="h-3 w-4/6 bg-gray-200 rounded" />
-                          </div>
-                          <div className="h-12 bg-[#F5F5F5] rounded-xl border border-gray-100 flex items-center px-3 justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-white rounded-lg shadow-sm" />
-                              <div className="h-3 w-20 bg-gray-200 rounded" />
-                            </div>
-                            <div className="w-4 h-4 rounded-full bg-humble-orange" />
-                          </div>
-                        </div>
-                        <div className="bg-[#E8E8E8] rounded-2xl p-4 ml-8 rounded-tr-sm">
-                          <div className="h-3 w-full bg-gray-300 rounded mb-3" />
-                          <div className="h-3 w-2/3 bg-gray-300 rounded" />
-                        </div>
-                      </div>
-                      <div className="p-4 border-t border-[#E5E5E5]/50 shrink-0">
-                        <div className="h-12 bg-white rounded-2xl border border-gray-200 flex items-center px-2 justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-humble-orange/10" />
-                            <div className="h-3 w-24 bg-gray-200 rounded" />
-                          </div>
-                          <div className="w-8 h-8 bg-humble-orange rounded-xl" />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right gallery */}
-                    <div className="flex-1 bg-[#E5E5E5] p-6 lg:p-10 hidden sm:block overflow-hidden">
-                      <div className="flex justify-between mb-8">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-gray-300" />
-                          <div className="h-4 w-32 bg-gray-300 rounded" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                        {[1, 2, 3, 4, 5].map((i, index) => (
-                          <div
-                            key={i}
-                            className="aspect-[4/3] bg-gray-200 rounded-2xl relative overflow-hidden shadow-sm border border-black/5"
-                          >
-                            <img
-                              src={`https://picsum.photos/seed/mock${i}/400/300`}
-                              className="w-full h-full object-cover grayscale opacity-60"
-                              alt=""
-                              referrerPolicy="no-referrer"
-                            />
-                            {index === 2 && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                                <div className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center shadow-xl">
-                                  <Play size={20} className="ml-1" fill="currentColor" />
-                                </div>
-                              </div>
-                            )}
-                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/95 px-3 py-2 rounded-xl shadow-sm flex items-center gap-2 border border-gray-100">
-                              <div className="w-3 h-3 bg-humble-orange rounded-[4px]" />
-                              <div className="flex flex-col gap-1">
-                                <div className="h-2 w-12 bg-gray-200 rounded" />
-                                <div className="h-2 w-16 bg-gray-300 rounded" />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <h1 className="text-3xl md:text-[44px] font-bold tracking-tighter text-[#111111] mb-5 leading-[1.12]">
+                Your Product's Next<br />10 Years of Visuals.
+              </h1>
+              <p className="text-base md:text-lg text-[#666666] mb-8 font-light tracking-tight max-w-xl mx-auto">
+                Upload a simple product photo. Our AI automatically removes the background, adds
+                realistic shadows, and generates stunning lifestyle scenes in seconds.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button onClick={onLogin} className="humble-btn-secondary py-3 px-7 text-sm font-semibold">
+                  Talk to Sales
+                </button>
+                <button onClick={onLogin} className="humble-btn-primary py-3 px-7 text-sm">
+                  Start Free Trial
+                </button>
               </div>
             </motion.div>
+
+            {/* Hero — Studio Mockup with cycling images */}
+            <HeroMockup appleTransition={appleTransition} />
           </div>
         </section>
 
@@ -609,21 +416,52 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin }) => {
 
       {/* ===== Footer ===== */}
       <footer className="bg-white py-16 border-t border-humble-border">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-humble-text flex items-center justify-center text-white">
-              <Camera size={20} />
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-12 mb-12">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-humble-text flex items-center justify-center text-white">
+                <Camera size={20} />
+              </div>
+              <span className="font-display font-bold text-2xl text-humble-text">Photo Studio</span>
             </div>
-            <span className="font-display font-bold text-2xl text-humble-text">Photo Studio</span>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-8">
+              <div>
+                <h4 className="text-sm font-bold text-humble-text uppercase tracking-wider mb-4">Product</h4>
+                <div className="flex flex-col gap-3">
+                  <a href="#features" className="text-sm text-humble-gray hover:text-humble-text transition-colors">Features</a>
+                  <a href="#pricing" className="text-sm text-humble-gray hover:text-humble-text transition-colors">Pricing</a>
+                  <a href="#how-it-works" className="text-sm text-humble-gray hover:text-humble-text transition-colors">How it Works</a>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-humble-text uppercase tracking-wider mb-4">Legal</h4>
+                <div className="flex flex-col gap-3">
+                  <button onClick={() => onLegalPage?.('mentions-legales')} className="text-sm text-humble-gray hover:text-humble-text transition-colors text-left">Mentions légales</button>
+                  <button onClick={() => onLegalPage?.('cgv')} className="text-sm text-humble-gray hover:text-humble-text transition-colors text-left">CGV</button>
+                  <button onClick={() => onLegalPage?.('cgu')} className="text-sm text-humble-gray hover:text-humble-text transition-colors text-left">CGU</button>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-humble-text uppercase tracking-wider mb-4">Privacy</h4>
+                <div className="flex flex-col gap-3">
+                  <button onClick={() => onLegalPage?.('confidentialite')} className="text-sm text-humble-gray hover:text-humble-text transition-colors text-left">Politique de confidentialité</button>
+                  <button onClick={() => onLegalPage?.('cookies')} className="text-sm text-humble-gray hover:text-humble-text transition-colors text-left">Politique de cookies</button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-8 text-base text-humble-gray font-medium">
-            <a href="#" className="hover:text-humble-text transition-colors">Privacy</a>
-            <a href="#" className="hover:text-humble-text transition-colors">Terms</a>
-            <a href="#" className="hover:text-humble-text transition-colors">Contact</a>
+
+          <div className="pt-8 border-t border-humble-border flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-sm text-humble-gray font-light">
+              &copy; {new Date().getFullYear()} Photo Studio. All rights reserved.
+            </p>
+            <div className="flex gap-6 text-sm text-humble-gray">
+              <button onClick={() => onLegalPage?.('mentions-legales')} className="hover:text-humble-text transition-colors">Mentions légales</button>
+              <button onClick={() => onLegalPage?.('confidentialite')} className="hover:text-humble-text transition-colors">Confidentialité</button>
+              <button onClick={() => onLegalPage?.('cookies')} className="hover:text-humble-text transition-colors">Cookies</button>
+            </div>
           </div>
-          <p className="text-base text-humble-gray font-light">
-            &copy; {new Date().getFullYear()} Photo Studio. All rights reserved.
-          </p>
         </div>
       </footer>
     </div>
@@ -709,6 +547,161 @@ function PricingCard({
           <PricingFeature key={f} text={f} />
         ))}
       </ul>
+    </motion.div>
+  );
+}
+
+/* ─── Hero Mockup with Cycling Images ─── */
+
+const SUPABASE_IMG = 'https://lbyayuonwesmxvzvvavx.supabase.co/storage/v1/object/public/project-images/be988052-ca36-4649-8ab9-6dac394723dc';
+
+const DEMO_SLIDES = [
+  { label: 'ORIGINAL',  url: `${SUPABASE_IMG}/inputImage.png`, scene: false },
+  { label: 'FINAL',     url: `${SUPABASE_IMG}/autoCrop.png`,   scene: false },
+  { label: 'LIFESTYLE', url: `${SUPABASE_IMG}/lifestyle-0.png`, scene: true },
+  { label: 'EDIT',      url: `${SUPABASE_IMG}/edit-0.png`,      scene: true },
+  { label: 'EDIT 2',    url: `${SUPABASE_IMG}/edit-1.png`,      scene: true },
+];
+
+function HeroMockup(_props: { appleTransition: { duration: number; ease: readonly [number, number, number, number] } }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setActiveIdx(prev => (prev + 1) % DEMO_SLIDES.length);
+    }, 4000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 80 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+      className="relative mx-auto max-w-6xl"
+    >
+      <div className="p-3 md:p-5 bg-black rounded-[2.5rem] shadow-2xl mx-auto border-[6px] border-gray-800 relative">
+        <div className="bg-[#FAFAF8] rounded-[2rem] overflow-hidden border-4 border-white w-full flex relative" style={{ height: 'clamp(420px, 56vw, 720px)' }}>
+
+          {/* ── Left Sidebar ── */}
+          <div className="w-56 border-r border-[#E8E8E4] flex-col bg-white shrink-0 hidden md:flex" style={{ padding: '20px 16px' }}>
+            {/* Logo */}
+            <div className="flex items-center gap-2.5 px-1 mb-6">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: '#ff4000' }}>
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="currentColor" opacity="0.12"/><path d="M14 8a3 3 0 100 6 3 3 0 000-6zm-5 3a5 5 0 1110 0 5 5 0 01-10 0z" fill="currentColor"/><circle cx="19" cy="9" r="1.5" fill="currentColor"/><rect x="4" y="6" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
+              </div>
+              <span className="font-semibold text-[15px] tracking-tight" style={{ color: '#1D1D1F' }}>Photo Studio</span>
+            </div>
+            {/* Buttons */}
+            <div className="flex flex-col gap-1 mb-7">
+              <div className="flex items-center gap-2.5 w-full rounded-[10px] text-[14px] font-medium text-white" style={{ background: '#2D2D2D', padding: '10px 14px' }}>
+                <MessageSquarePlus size={15} /> New Project
+              </div>
+              <div className="flex items-center gap-2.5 w-full rounded-[10px] text-[14px] font-medium border" style={{ color: '#1D1D1F', borderColor: '#E8E8E4', padding: '10px 14px' }}>
+                <Sparkles size={15} style={{ color: '#6B6B6B' }} /> Fast Generation
+              </div>
+            </div>
+            {/* Workspace */}
+            <div className="mb-5">
+              <div className="uppercase italic text-[11px] font-medium tracking-wider mb-1.5 px-2" style={{ color: '#86868B' }}>/ Workspace</div>
+              <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[14px] font-medium" style={{ background: '#F5F4F0', color: '#1D1D1F' }}>
+                <svg width="15" height="15" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2"/><rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2"/><rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2"/><rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2"/></svg>
+                All Projects
+              </div>
+            </div>
+            {/* Recent */}
+            <div>
+              <div className="uppercase italic text-[11px] font-medium tracking-wider mb-1.5 px-2" style={{ color: '#86868B' }}>/ Recent</div>
+              <div className="space-y-0.5">
+                {['CAT TREE', 'COUSSIN', 'TEST 2'].map((name, i) => (
+                  <div key={name} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[14px] font-medium ${i === 1 ? 'bg-[#F5F4F0]' : ''}`} style={{ color: i === 1 ? '#1D1D1F' : '#6B6B6B' }}>
+                    <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: '#D5D5D0' }} />
+                    {name}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Spacer + user */}
+            <div className="mt-auto pt-4 border-t border-[#E8E8E4]">
+              <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[12px] font-semibold shrink-0" style={{ background: '#6B6B6B' }}>E</div>
+                <span className="text-[14px] font-medium truncate" style={{ color: '#1D1D1F' }}>Evan Ou...</span>
+                <span className="text-[11px] font-medium border rounded-[10px] px-2 py-0.5 ml-auto shrink-0" style={{ color: '#6B6B6B', borderColor: '#D5D5D0' }}>102 credits</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Main Canvas Area ── */}
+          <div className="flex-1 min-w-0 relative">
+            {/* Canvas with image in rounded rectangle */}
+            <div className="w-full h-full relative overflow-hidden flex items-center justify-center" style={{ background: '#F5F4F0' }}>
+              <div className="hero-canvas-frame">
+                {DEMO_SLIDES.map((slide, i) => (
+                  <img
+                    key={i}
+                    src={slide.url}
+                    alt=""
+                    className={`hero-cycling-img${slide.scene ? ' scene' : ''}`}
+                    style={{ opacity: i === activeIdx ? 1 : 0 }}
+                  />
+                ))}
+
+                {/* Frosted glass thumbnail strip — inside frame like real dashboard */}
+                <div className="hero-thumb-strip">
+                  {DEMO_SLIDES.map((slide, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setActiveIdx(i);
+                        if (timerRef.current) clearInterval(timerRef.current);
+                        timerRef.current = setInterval(() => {
+                          setActiveIdx(prev => (prev + 1) % DEMO_SLIDES.length);
+                        }, 4000);
+                      }}
+                      className={`hero-thumb-item ${i === activeIdx ? 'active' : ''}`}
+                    >
+                      <img src={slide.url} alt="" />
+                      <span className={`hero-thumb-label ${i === activeIdx ? 'active' : ''}`}>
+                        {slide.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right Sidebar (compact) ── */}
+          <div className="border-l border-[#E8E8E4] bg-white hidden lg:flex flex-col shrink-0" style={{ width: '160px', minWidth: '160px' }}>
+            {/* Project name */}
+            <div style={{ padding: '14px 14px', borderBottom: '1px solid #F0F0EC' }}>
+              <div className="text-[13px] font-semibold tracking-tight" style={{ color: '#1D1D1F' }}>COUSSIN</div>
+              <span className="text-[11px]" style={{ color: '#9E9E9E' }}>03/03/2026</span>
+            </div>
+            {/* Tool buttons */}
+            <div className="flex flex-col gap-0.5" style={{ padding: '8px 8px' }}>
+              <div className="flex items-center gap-2 w-full rounded-lg text-[12px] font-medium cursor-pointer" style={{ padding: '7px 10px', color: '#6B6B6B' }}>
+                <Image size={14} style={{ color: '#9E9E9E' }} /> Lifestyle
+              </div>
+              <div className="flex items-center gap-2 w-full rounded-lg text-[12px] font-medium cursor-pointer" style={{ padding: '7px 10px', color: '#6B6B6B' }}>
+                <Pencil size={14} style={{ color: '#9E9E9E' }} /> Edit
+              </div>
+              <div className="flex items-center gap-2 w-full rounded-lg text-[12px] font-medium cursor-pointer" style={{ padding: '7px 10px', color: '#6B6B6B' }}>
+                <RotateCcw size={14} style={{ color: '#9E9E9E' }} /> Redo
+              </div>
+            </div>
+            {/* Spacer */}
+            <div className="flex-1" />
+            {/* Download */}
+            <div style={{ borderTop: '1px solid #E8E8E4', padding: '10px 8px' }}>
+              <div className="flex items-center justify-center gap-2 w-full rounded-lg border text-[12px] font-medium cursor-pointer" style={{ padding: '8px 0', borderColor: '#E8E8E4', color: '#1D1D1F' }}>
+                <Download size={14} /> Download
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </motion.div>
   );
 }

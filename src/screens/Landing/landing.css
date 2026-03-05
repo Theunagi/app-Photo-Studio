@@ -39,6 +39,14 @@
   font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* Reset link color inside landing page — prevent global blue from index.css */
+.landing-page a {
+  color: inherit;
+}
+.landing-page a:hover {
+  color: inherit;
+}
+
 /* ===== Custom Component Classes ===== */
 .humble-btn {
   display: inline-flex;
@@ -121,6 +129,137 @@
 
 .humble-card:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ===== Hero Canvas Frame (rounded rectangle) ===== */
+.hero-canvas-frame {
+  position: relative;
+  width: 98%;
+  height: 98%;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #FFFFFF;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+@media (max-width: 768px) {
+  .hero-canvas-frame {
+    width: 95%;
+    height: 90%;
+    border-radius: 16px;
+  }
+}
+
+/* ===== Hero Cycling Images ===== */
+.hero-cycling-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hero-cycling-img.scene {
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Frosted glass thumbnail strip — matches real StudioScreen .result-thumbs */
+.hero-thumb-strip {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  padding: 6px 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(232, 232, 228, 0.6);
+}
+
+.hero-thumb-item {
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 200ms ease;
+  overflow: hidden;
+}
+
+.hero-thumb-item img {
+  width: 100%;
+  height: 34px;
+  object-fit: contain;
+  display: block;
+  border-radius: 5px;
+  background: repeating-conic-gradient(
+    #F5F4F0 0% 25%,
+    #FFFFFF 0% 50%
+  ) 50% / 8px 8px;
+}
+
+.hero-thumb-item:hover {
+  border-color: #E8E8E4;
+  background: rgba(245, 244, 240, 0.5);
+}
+
+.hero-thumb-item.active {
+  border-color: #ff4000;
+  background: #FFFFFF;
+}
+
+.hero-thumb-label {
+  font-size: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #9E9E9E;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hero-thumb-label.active {
+  color: #ff4000;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .hero-thumb-strip {
+    bottom: 20px;
+    left: 20px;
+  }
+  .hero-thumb-item {
+    width: 60px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+  .hero-thumb-item img {
+    height: 40px;
+    border-radius: 6px;
+  }
+  .hero-thumb-label {
+    font-size: 9px;
+  }
+}
+
+/* Hide thumbnail strip on very small screens */
+@media (max-width: 480px) {
+  .hero-thumb-strip {
+    display: none;
+  }
 }
 
 /* ===== Scan Animation ===== */
