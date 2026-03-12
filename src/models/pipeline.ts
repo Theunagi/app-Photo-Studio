@@ -17,6 +17,8 @@ export interface PipelineConfig {
   outputFormat: OutputFormat;
   /** Session ID for Storage paths (auto-generated per pipeline run) */
   sessionId?: string;
+  /** User-provided notes about the product, appended to the generation prompt */
+  productNotes?: string;
 }
 
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
@@ -158,8 +160,8 @@ export const PIPELINE_STEPS: { key: PipelineStep; label: string; nodeId: string 
   { key: 'analysis', label: 'Product Analysis (Vision)', nodeId: 'processor-1766480495179' },
   { key: 'studioGeneration', label: 'Studio Generation (Render)', nodeId: 'proc-1' },
   { key: 'luminanceCheck', label: 'Luminance Classification', nodeId: 'processor-1766505601417' },
-  { key: 'retouch', label: 'Parametric Retouch', nodeId: 'retouch-light-dark' },
   { key: 'cutout', label: 'Background Removal', nodeId: 'processor-1767873606572' },
+  { key: 'retouch', label: 'Parametric Retouch', nodeId: 'retouch-light-dark' },
   { key: 'shadowComposite', label: 'Smart Shadow Composer', nodeId: 'processor-1767033110607' },
   { key: 'autoCrop', label: 'Auto Crop & Center', nodeId: 'processor-1767033126139' },
 ];

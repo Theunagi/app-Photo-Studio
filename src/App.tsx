@@ -9,13 +9,20 @@ import PricingScreen from './screens/Pricing/PricingScreen';
 import LoginScreen from './screens/Login/LoginScreen';
 import UploadScreen from './screens/Upload/UploadScreen';
 import LandingScreen from './screens/Landing/LandingScreen';
+import MentionsLegales from './screens/Legal/MentionsLegales';
+import CGV from './screens/Legal/CGV';
+import Confidentialite from './screens/Legal/Confidentialite';
+import CookiesPage from './screens/Legal/Cookies';
+import CGU from './screens/Legal/CGU';
+import CookieBanner from './components/CookieBanner';
 
 type View =
   | { screen: 'home'; collectionFilter?: string }
   | { screen: 'studio'; project: Project | null }
   | { screen: 'pricing' }
   | { screen: 'upload' }
-  | { screen: 'loading' };
+  | { screen: 'loading' }
+  | { screen: 'legal'; page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu' };
 
 interface AppUser {
   id: string;
@@ -100,6 +107,11 @@ function App() {
   const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); }, [refreshProfile]);
   const goPricing = useCallback(() => { setView({ screen: 'pricing' }); }, []);
   const goUpload = useCallback(() => { setView({ screen: 'upload' }); }, []);
+  const goLegal = useCallback((page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu') => {
+    setView({ screen: 'legal', page });
+  }, []);
+  const goLanding = useCallback(() => { setView({ screen: 'home' }); setShowLogin(false); }, []);
+
   const goHomeWithCollection = useCallback((collectionId: string) => {
     refreshProfile();
     setView({ screen: 'home', collectionFilter: collectionId });
@@ -128,12 +140,24 @@ function App() {
     );
   }
 
+  // Legal pages — accessible without auth
+  if (view.screen === 'legal') {
+    const backFn = user ? goHome : goLanding;
+    switch (view.page) {
+      case 'mentions-legales': return <><MentionsLegales onBack={backFn} /><CookieBanner /></>;
+      case 'cgv': return <><CGV onBack={backFn} /><CookieBanner /></>;
+      case 'confidentialite': return <><Confidentialite onBack={backFn} /><CookieBanner /></>;
+      case 'cookies': return <><CookiesPage onBack={backFn} /><CookieBanner /></>;
+      case 'cgu': return <><CGU onBack={backFn} /><CookieBanner /></>;
+    }
+  }
+
   // Not logged in
   if (!user) {
     if (showLogin) {
       return <LoginScreen onDevLogin={handleDevLogin} />;
     }
-    return <LandingScreen onLogin={() => setShowLogin(true)} onDevLogin={handleDevLogin} />;
+    return <><LandingScreen onLogin={() => setShowLogin(true)} onDevLogin={handleDevLogin} onLegalPage={goLegal} /><CookieBanner /></>;
   }
 
   // Loading project
@@ -220,6 +244,7 @@ function App() {
     <>
       {renderScreen()}
       {diagBanner}
+      <CookieBanner />
     </>
   );
 }

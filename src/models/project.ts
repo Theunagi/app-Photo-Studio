@@ -13,8 +13,12 @@ export interface ProjectResult {
   cutout?: string;
   shadowComposite?: string;
   autoCrop?: string;
-  lifestyles?: { image: string; prompt: string }[];
-  edits?: { image: string; prompt: string }[];
+  lifestyles?: { id?: string; image: string; prompt: string }[];
+  edits?: { id?: string; image: string; prompt: string }[];
+  /** Reference images uploaded for visual style inspiration (data URLs) */
+  styleReferenceImages?: string[];
+  /** Extracted visual style description from GPT-4o analysis */
+  styleDescription?: string;
 }
 
 export interface Project {

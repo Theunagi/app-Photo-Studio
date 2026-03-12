@@ -9,13 +9,23 @@ import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } f
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import { editImage } from '../../services/api/falImageGen';
-import { generateLifestyleImage } from '../../services/api/gemini';
+import { generateLifestyleImage, analyzeStyleReferences } from '../../services/api/gemini';
+import { fetchImageAsDataUrl } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
-import { saveProject, getAllProjects } from '../../services/db/projectDB';
+import { getPublicUrl } from '../../services/db/storage';
+import { saveProject, getAllProjects, patchProjectVariants } from '../../services/db/projectDB';
 import { deductPoints, GENERATION_COST } from '../../services/db/points';
 import './StudioScreen.css';
 
 const MAX_IMAGES = 5;
+
+/** Unique ID generator for lifestyle/edit image entries */
+const genEntryId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+/** Ensure every entry in a lifestyle/edit array has a unique id (migration for old saved data) */
+function ensureIds(entries: { id?: string; image: string; prompt: string }[]): { id: string; image: string; prompt: string }[] {
+  return entries.map(e => ({ ...e, id: e.id ?? genEntryId() }));
+}
 
 /** Convert a data URL string to a File object so the pipeline can consume it */
 function dataUrlToFile(dataUrl: string, fileName = 'restored-image.png'): File {
@@ -26,6 +36,17 @@ function dataUrlToFile(dataUrl: string, fileName = 'restored-image.png'): File {
   const u8arr = new Uint8Array(n);
   for (let i = 0; i < n; i++) u8arr[i] = bstr.charCodeAt(i);
   return new File([u8arr], fileName, { type: mime });
+}
+
+/**
+ * Convert any image source (data URL, public URL, or Storage path) to a URL
+ * usable by edge functions. Storage paths (from saved projects) are converted
+ * to public URLs. Data URLs and http(s) URLs pass through unchanged.
+ */
+function toUsableImageUrl(source: string): string {
+  if (source.startsWith('data:') || source.startsWith('http')) return source;
+  // Storage path (e.g. "uuid/autoCrop.png") — convert to public URL
+  return getPublicUrl(source);
 }
 
 // --- Progress status messages (generic, no pipeline details exposed) ---
@@ -71,18 +92,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     const r = project.results;
     const state = createInitialPipelineState();
 
-    const restoreImageStep = (step: PipelineStep, dataUrl: string | undefined) => {
-      if (!dataUrl) return;
+    const restoreImageStep = (step: PipelineStep, imgSrc: string | undefined) => {
+      if (!imgSrc) return;
       (state[step] as { status: string; data?: unknown }) = {
         status: 'completed',
-        data: { imageDataUrl: dataUrl, imageBlob: new Blob() },
+        data: { imageDataUrl: toUsableImageUrl(imgSrc), imageBlob: new Blob() },
       };
     };
 
     if (r.inputImage) {
       (state.input as { status: string; data?: unknown }) = {
         status: 'completed',
-        data: { imageDataUrl: r.inputImage, imageBlob: new Blob(), fileName: 'saved' },
+        data: { imageDataUrl: toUsableImageUrl(r.inputImage), imageBlob: new Blob(), fileName: 'saved' },
       };
     }
     if (r.analysis) {
@@ -98,7 +119,12 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       };
     }
     restoreImageStep('studioGeneration', r.studioGeneration);
-    restoreImageStep('retouch', r.retouch);
+    if (r.retouch) {
+      restoreImageStep('retouch', r.retouch);
+    } else {
+      // Retouch is currently disabled — mark as skipped so progress shows 100%
+      (state.retouch as { status: string; durationMs: number }) = { status: 'skipped', durationMs: 0 };
+    }
     restoreImageStep('cutout', r.cutout);
     restoreImageStep('shadowComposite', r.shadowComposite);
     restoreImageStep('autoCrop', r.autoCrop);
@@ -108,8 +134,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   const buildInitialPreviews = (): string[] => {
     const previews: string[] = [];
-    if (project?.results.inputImage) previews.push(project.results.inputImage);
-    if (project?.results.inputImages) previews.push(...project.results.inputImages);
+    if (project?.results.inputImage) previews.push(toUsableImageUrl(project.results.inputImage));
+    if (project?.results.inputImages) previews.push(...project.results.inputImages.map(toUsableImageUrl));
     return previews;
   };
 
@@ -122,26 +148,59 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [activeVariant, setActiveVariant] = useState<string>('final');
   const [showLifestyle, setShowLifestyle] = useState(false);
   const [lifestylePrompt, setLifestylePrompt] = useState('');
-  const [lifestyleImages, setLifestyleImages] = useState<{ image: string; prompt: string }[]>(project?.results.lifestyles ?? []);
+  const [lifestyleImages, setLifestyleImages] = useState<{ id: string; image: string; prompt: string }[]>(ensureIds(project?.results.lifestyles ?? []));
   const [isGeneratingLifestyle, setIsGeneratingLifestyle] = useState(false);
+  const [lifestyleError, setLifestyleError] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
-  const [editImages, setEditImages] = useState<{ image: string; prompt: string }[]>(project?.results.edits ?? []);
+  const [editImages, setEditImages] = useState<{ id: string; image: string; prompt: string }[]>(ensureIds(project?.results.edits ?? []));
   const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [deleteConfirmKey, setDeleteConfirmKey] = useState<string | null>(null);
+  // Style reference images state
+  const [styleRefImages, setStyleRefImages] = useState<string[]>(project?.results.styleReferenceImages ?? []);
+  const [styleDescription, setStyleDescription] = useState<string | null>(project?.results.styleDescription ?? null);
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
+  const [styleError, setStyleError] = useState<string | null>(null);
+  const [showStyleDescription, setShowStyleDescription] = useState(false);
+  const styleRefInputRef = useRef<HTMLInputElement>(null);
+  const styleRefImagesRef = useRef<string[]>(styleRefImages);
+  const styleDescriptionRef = useRef<string | null>(styleDescription);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const projectRef = useRef<Project | null>(project);
   const pipelineStateRef = useRef<PipelineState>(pipelineState);
   const inputPreviewsRef = useRef<string[]>(inputPreviews);
-  const lifestyleImagesRef = useRef<{ image: string; prompt: string }[]>(lifestyleImages);
-  const editImagesRef = useRef<{ image: string; prompt: string }[]>(editImages);
+  const lifestyleImagesRef = useRef<{ id: string; image: string; prompt: string }[]>(lifestyleImages);
+  const editImagesRef = useRef<{ id: string; image: string; prompt: string }[]>(editImages);
+  const saveVersionRef = useRef(0);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   // Keep refs in sync
   useEffect(() => { projectRef.current = project; }, [project]);
   useEffect(() => { inputPreviewsRef.current = inputPreviews; }, [inputPreviews]);
   useEffect(() => { lifestyleImagesRef.current = lifestyleImages; }, [lifestyleImages]);
   useEffect(() => { editImagesRef.current = editImages; }, [editImages]);
+  useEffect(() => { styleRefImagesRef.current = styleRefImages; }, [styleRefImages]);
+  useEffect(() => { styleDescriptionRef.current = styleDescription; }, [styleDescription]);
+
+  // Reinitialize lifestyle/edit state when project changes (e.g. navigating between projects)
+  useEffect(() => {
+    const lf = ensureIds(project?.results.lifestyles ?? []);
+    setLifestyleImages(lf);
+    lifestyleImagesRef.current = lf;
+    const ed = ensureIds(project?.results.edits ?? []);
+    setEditImages(ed);
+    editImagesRef.current = ed;
+    setActiveVariant('final');
+    // Restore style reference state
+    setStyleRefImages(project?.results.styleReferenceImages ?? []);
+    styleRefImagesRef.current = project?.results.styleReferenceImages ?? [];
+    setStyleDescription(project?.results.styleDescription ?? null);
+    styleDescriptionRef.current = project?.results.styleDescription ?? null;
+    setShowStyleDescription(false);
+    setStyleError(null);
+  }, [project?.id]);
 
   // Load recent projects for sidebar
   useEffect(() => {
@@ -154,45 +213,75 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // --- Auto-save project results after pipeline completes ---
   const autoSave = useCallback(async () => {
-    const p = projectRef.current;
-    if (!p) return;
+    // Bump version so stale queued saves can bail out
+    const thisVersion = ++saveVersionRef.current;
 
-    const state = pipelineStateRef.current;
-    const previews = inputPreviewsRef.current;
+    // Enqueue: wait for any running save to finish, then run this one
+    const doSave = async () => {
+      // If a newer save was requested while we waited in queue, skip this one
+      if (saveVersionRef.current !== thisVersion) return;
 
-    const getImg = (step: PipelineStep): string | undefined => {
-      const r = state[step];
-      if (r.status !== 'completed' || !r.data) return undefined;
-      const d = r.data as unknown as Record<string, unknown>;
-      return d.imageDataUrl as string | undefined;
+      const p = projectRef.current;
+      if (!p) return;
+
+      const state = pipelineStateRef.current;
+      const previews = inputPreviewsRef.current;
+      const prev = p.results;
+
+      const getImg = (step: PipelineStep): string | undefined => {
+        const r = state[step];
+        if (r.status !== 'completed' || !r.data) return undefined;
+        const d = r.data as unknown as Record<string, unknown>;
+        return d.imageDataUrl as string | undefined;
+      };
+
+      // Check if the pipeline has actually run in this session
+      const pipelineRan = state.autoCrop.status === 'completed'
+        || state.cutout.status === 'completed'
+        || state.studioGeneration.status === 'completed';
+
+      p.results = {
+        // For pipeline step images: use pipeline state if it ran, otherwise preserve existing DB values
+        inputImage: previews[0] ?? prev.inputImage ?? undefined,
+        inputImages: previews.length > 1 ? previews.slice(1) : prev.inputImages ?? undefined,
+        analysis: pipelineRan
+          ? (state.analysis.status === 'completed' && state.analysis.data
+            ? (state.analysis.data as { rawResponse: string }).rawResponse : undefined)
+          : prev.analysis ?? undefined,
+        luminanceClass: pipelineRan
+          ? (state.luminanceCheck.status === 'completed' && state.luminanceCheck.data
+            ? (state.luminanceCheck.data as string) : undefined)
+          : prev.luminanceClass ?? undefined,
+        studioGeneration: pipelineRan ? getImg('studioGeneration') : prev.studioGeneration ?? undefined,
+        retouch: pipelineRan ? getImg('retouch') : prev.retouch ?? undefined,
+        cutout: pipelineRan ? getImg('cutout') : prev.cutout ?? undefined,
+        shadowComposite: pipelineRan ? getImg('shadowComposite') : prev.shadowComposite ?? undefined,
+        autoCrop: pipelineRan ? getImg('autoCrop') : prev.autoCrop ?? undefined,
+        // Lifestyle/edit always use current in-memory state (these are managed independently)
+        lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
+        edits: editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
+        // Style reference images and description
+        styleReferenceImages: styleRefImagesRef.current.length > 0 ? styleRefImagesRef.current : undefined,
+        styleDescription: styleDescriptionRef.current ?? undefined,
+      };
+      const newThumb = getImg('autoCrop') ?? getImg('retouch') ?? getImg('shadowComposite') ?? getImg('studioGeneration') ?? previews[0];
+      p.thumbnail = newThumb ?? p.thumbnail ?? undefined;
+      p.config = { imageSize: config.imageSize, aspectRatio: config.aspectRatio };
+      p.updatedAt = Date.now();
+
+      try {
+        await saveProject(p);
+        if (saveVersionRef.current === thisVersion) {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000);
+        }
+      } catch (err) {
+        console.error('[autoSave] Failed to save project:', err);
+      }
     };
 
-    p.results = {
-      inputImage: previews[0] ?? undefined,
-      inputImages: previews.length > 1 ? previews.slice(1) : undefined,
-      analysis: state.analysis.status === 'completed' && state.analysis.data
-        ? (state.analysis.data as { rawResponse: string }).rawResponse : undefined,
-      luminanceClass: state.luminanceCheck.status === 'completed' && state.luminanceCheck.data
-        ? (state.luminanceCheck.data as string) : undefined,
-      studioGeneration: getImg('studioGeneration'),
-      retouch: getImg('retouch'),
-      cutout: getImg('cutout'),
-      shadowComposite: getImg('shadowComposite'),
-      autoCrop: getImg('autoCrop'),
-      lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
-      edits: editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
-    };
-    p.thumbnail = getImg('autoCrop') ?? getImg('retouch') ?? getImg('shadowComposite') ?? getImg('studioGeneration') ?? previews[0] ?? undefined;
-    p.config = { imageSize: config.imageSize, aspectRatio: config.aspectRatio };
-    p.updatedAt = Date.now();
-
-    try {
-      await saveProject(p);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      console.error('Failed to save project:', err);
-    }
+    saveQueueRef.current = saveQueueRef.current.then(doSave).catch(() => {});
+    await saveQueueRef.current;
   }, [config.imageSize, config.aspectRatio]);
 
   // --- File Upload (multi-image) ---
@@ -300,26 +389,54 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setDeleteConfirmKey(variantKey);
   }, []);
 
-  const confirmDelete = useCallback(() => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDelete = useCallback(async () => {
     const variantKey = deleteConfirmKey;
     if (!variantKey) return;
 
+    // Update in-memory state immediately
     if (variantKey.startsWith('lifestyle-')) {
-      const idx = parseInt(variantKey.replace('lifestyle-', ''), 10);
-      const updated = lifestyleImages.filter((_, i) => i !== idx);
+      const id = variantKey.replace('lifestyle-', '');
+      const updated = lifestyleImagesRef.current.filter(li => li.id !== id);
       setLifestyleImages(updated);
       lifestyleImagesRef.current = updated;
     } else if (variantKey.startsWith('edit-')) {
-      const idx = parseInt(variantKey.replace('edit-', ''), 10);
-      const updated = editImages.filter((_, i) => i !== idx);
+      const id = variantKey.replace('edit-', '');
+      const updated = editImagesRef.current.filter(ei => ei.id !== id);
       setEditImages(updated);
       editImagesRef.current = updated;
     }
-
     setDeleteConfirmKey(null);
     setActiveVariant('final');
-    setTimeout(() => autoSave(), 100);
-  }, [deleteConfirmKey, lifestyleImages, editImages, autoSave]);
+
+    // Lightweight DB patch — only updates lifestyles/edits, no image re-upload, no thumbnail change
+    const p = projectRef.current;
+    if (p) {
+      setIsDeleting(true);
+      try {
+        await patchProjectVariants(
+          p.id,
+          lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
+          editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
+        );
+        // Also update in-memory project results
+        p.results = {
+          ...p.results,
+          lifestyles: lifestyleImagesRef.current.length > 0 ? lifestyleImagesRef.current : undefined,
+          edits: editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
+        };
+        p.updatedAt = Date.now();
+        console.log('[confirmDelete] ✅ Deletion saved');
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch (err) {
+        console.error('[confirmDelete] ❌ Save failed:', err);
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  }, [deleteConfirmKey]);
 
   // --- Download any step image ---
   const downloadImage = useCallback((dataUrl: string, suffix: string) => {
@@ -376,38 +493,107 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     return data.publicUrl;
   }, []);
 
+  // --- Style Reference Upload & Analysis ---
+  const handleStyleRefUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    // Copy the file list BEFORE resetting the input (value='' clears the live FileList)
+    const fileArray = Array.from(files);
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+
+    // Read files as data URLs
+    const newDataUrls: string[] = [];
+    for (const file of fileArray) {
+      if (!file.type.startsWith('image/')) continue;
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      newDataUrls.push(dataUrl);
+    }
+    if (newDataUrls.length === 0) return;
+
+    // Combine with existing, max 4
+    const combined = [...styleRefImages, ...newDataUrls].slice(0, 4);
+    setStyleRefImages(combined);
+    styleRefImagesRef.current = combined;
+    setStyleError(null);
+    setIsAnalyzingStyle(true);
+
+    try {
+      // Upload all images to Storage for the edge function
+      const uploadedUrls = await Promise.all(
+        combined.map((du, i) => uploadForEdgeFunction(du, `style-ref-${i}`))
+      );
+
+      // Analyze style via GPT-4o Vision
+      const result = await analyzeStyleReferences(uploadedUrls);
+      setStyleDescription(result.styleDescription);
+      styleDescriptionRef.current = result.styleDescription;
+      setShowStyleDescription(true);
+      await autoSave();
+    } catch (err) {
+      console.error('Style analysis failed:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setStyleError(`Style analysis failed: ${msg}`);
+      setStyleDescription(null);
+      styleDescriptionRef.current = null;
+    } finally {
+      setIsAnalyzingStyle(false);
+    }
+  }, [styleRefImages, uploadForEdgeFunction, autoSave]);
+
+  const removeStyleRef = useCallback((index: number) => {
+    const updated = styleRefImages.filter((_, i) => i !== index);
+    setStyleRefImages(updated);
+    styleRefImagesRef.current = updated;
+    // Invalidate style description when images change
+    setStyleDescription(null);
+    styleDescriptionRef.current = null;
+    setShowStyleDescription(false);
+    autoSave();
+  }, [styleRefImages, autoSave]);
+
   // --- Lifestyle Generation ---
   const handleGenerateLifestyle = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
     if (!sourceImage || !lifestylePrompt.trim()) return;
 
     setIsGeneratingLifestyle(true);
+    setLifestyleError(null);
     try {
-      const imageUrl = await uploadForEdgeFunction(sourceImage, 'lifestyle-input');
+      // Handle data URLs (fresh pipeline) and Storage paths/public URLs (saved projects)
+      let imageUrl: string;
+      if (sourceImage.startsWith('data:')) {
+        imageUrl = await uploadForEdgeFunction(sourceImage, 'lifestyle-input');
+      } else {
+        imageUrl = toUsableImageUrl(sourceImage);
+      }
 
       const response = await generateLifestyleImage(imageUrl, lifestylePrompt.trim(), {
         imageSize: config.imageSize ?? '2K',
         aspectRatio: config.aspectRatio ?? '1:1',
+        styleDescription: styleDescriptionRef.current ?? undefined,
       });
 
-      const imgResponse = await fetch(response.resultImageUrl);
-      const blob = await imgResponse.blob();
-      const imageDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
 
-      const newEntry = { image: imageDataUrl, prompt: lifestylePrompt.trim() };
+      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+
+      const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: lifestylePrompt.trim() };
       const updated = [...lifestyleImages, newEntry];
       setLifestyleImages(updated);
       lifestyleImagesRef.current = updated;
-      setActiveVariant(`lifestyle-${lifestyleImages.length}`);
+      setActiveVariant(`lifestyle-${newEntry.id}`);
       setLifestylePrompt('');
       await autoSave();
     } catch (err) {
       console.error('Lifestyle generation failed:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setLifestyleError(`Generation failed: ${msg}`);
     } finally {
       setIsGeneratingLifestyle(false);
     }
@@ -419,11 +605,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     // Use the currently selected variant's image, not always the final
     let sourceImage: string | null = null;
     if (activeVariant.startsWith('edit-')) {
-      const idx = parseInt(activeVariant.replace('edit-', ''), 10);
-      sourceImage = editImages[idx]?.image ?? null;
+      const id = activeVariant.replace('edit-', '');
+      sourceImage = editImages.find(e => e.id === id)?.image ?? null;
     } else if (activeVariant.startsWith('lifestyle-')) {
-      const idx = parseInt(activeVariant.replace('lifestyle-', ''), 10);
-      sourceImage = lifestyleImages[idx]?.image ?? null;
+      const id = activeVariant.replace('lifestyle-', '');
+      sourceImage = lifestyleImages.find(l => l.id === id)?.image ?? null;
     } else if (activeVariant === 'original') {
       sourceImage = inputPreviews[0] ?? null;
     } else if (activeVariant === 'cutout') {
@@ -433,34 +619,41 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     }
     if (!sourceImage || !editPrompt.trim()) return;
     setIsGeneratingEdit(true);
+    setEditError(null);
     try {
-      const imageUrl = await uploadForEdgeFunction(sourceImage, 'edit-input');
+      // Handle data URLs (fresh pipeline) and Storage paths/public URLs (saved projects)
+      let imageUrl: string;
+      if (sourceImage.startsWith('data:')) {
+        imageUrl = await uploadForEdgeFunction(sourceImage, 'edit-input');
+      } else {
+        imageUrl = toUsableImageUrl(sourceImage);
+      }
 
-      const response = await editImage(imageUrl, editPrompt.trim());
-
-      const imgResponse = await fetch(response.resultImageUrl);
-      const blob = await imgResponse.blob();
-      const imageDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+      const response = await editImage(imageUrl, editPrompt.trim(), {
+        resolution: config.imageSize ?? '2K',
+        aspectRatio: config.aspectRatio ?? '1:1',
       });
 
-      const newEntry = { image: imageDataUrl, prompt: editPrompt.trim() };
+      if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
+
+      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+
+      const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
       setEditImages(updated);
       editImagesRef.current = updated;
-      setActiveVariant(`edit-${editImages.length}`);
+      setActiveVariant(`edit-${newEntry.id}`);
       setEditPrompt('');
       await autoSave();
     } catch (err) {
       console.error('Edit generation failed:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setEditError(`Edit failed: ${msg}`);
     } finally {
       setIsGeneratingEdit(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, autoSave, uploadForEdgeFunction]);
+  }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction]);
 
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;
@@ -474,8 +667,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     return (data.imageDataUrl as string) ?? null;
   };
 
-  // --- Progress calculation ---
-  const completedSteps = PIPELINE_STEPS.filter(s => pipelineState[s.key].status === 'completed').length;
+  // --- Progress calculation (count both completed and skipped steps) ---
+  const completedSteps = PIPELINE_STEPS.filter(s => {
+    const st = pipelineState[s.key].status;
+    return st === 'completed' || st === 'skipped';
+  }).length;
   const totalSteps = PIPELINE_STEPS.length;
   const progressPercent = (completedSteps / totalSteps) * 100;
   const hasError = PIPELINE_STEPS.some(s => pipelineState[s.key].status === 'error');
@@ -497,10 +693,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     const base: Variant[] = [
       ...(inputPreview ? [{ key: 'original', label: 'Original', image: inputPreview }] : []),
       { key: 'final', label: 'Final', image: getStepImage('autoCrop')! },
-      { key: 'cutout', label: 'Cutout', image: getStepImage('cutout')! },
+      // Debug: per-step images
+      ...(getStepImage('studioGeneration') ? [{ key: 'debug-studio', label: 'Step 2: Studio', image: getStepImage('studioGeneration')! }] : []),
+      ...(getStepImage('cutout') ? [{ key: 'cutout', label: 'Step 4: Cutout', image: getStepImage('cutout')! }] : []),
+      ...(getStepImage('retouch') ? [{ key: 'debug-retouch', label: 'Step 5: Retouch', image: getStepImage('retouch')! }] : []),
+      ...(getStepImage('shadowComposite') ? [{ key: 'debug-shadow', label: 'Step 6: Shadow', image: getStepImage('shadowComposite')! }] : []),
     ].filter(v => v.image != null);
-    const lifeV: Variant[] = lifestyleImages.map((li, i) => ({ key: `lifestyle-${i}`, label: `Lifestyle ${i + 1}`, image: li.image }));
-    const editV: Variant[] = editImages.map((ei, i) => ({ key: `edit-${i}`, label: `Edit ${i + 1}`, image: ei.image }));
+    const lifeV: Variant[] = lifestyleImages.map((li, i) => ({ key: `lifestyle-${li.id}`, label: `Lifestyle ${i + 1}`, image: li.image }));
+    const editV: Variant[] = editImages.map((ei, i) => ({ key: `edit-${ei.id}`, label: `Edit ${i + 1}`, image: ei.image }));
     return [...base, ...lifeV, ...editV];
   })() : [];
   const currentVariant = resultVariants.find(v => v.key === activeVariant) ?? resultVariants.find(v => v.key === 'final') ?? resultVariants[0];
@@ -690,6 +890,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               </div>
             )}
 
+            {/* Product Notes */}
+            <div className="product-notes-bar">
+              <textarea
+                className="product-notes-input"
+                placeholder="Add details about your product (e.g. &quot;This is a matte black wireless speaker, 15cm tall, brand name is SoundPulse&quot;)"
+                value={config.productNotes ?? ''}
+                onChange={(e) => updateConfig('productNotes', e.target.value)}
+                disabled={isRunning}
+                rows={2}
+              />
+            </div>
+
             {/* Controls Bar */}
             <div className="controls-bar">
               <div className="controls-left">
@@ -780,7 +992,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
           <section className="result-viewer">
             <div className="result-layout">
               <div className="result-card">
-                <div className="result-canvas">
+                <div className={`result-canvas ${['cutout', 'debug-retouch', 'debug-shadow'].includes(activeVariant) ? 'result-canvas--checkerboard' : ''}`}>
                   <img src={currentVariant.image} alt={currentVariant.label} className="result-canvas-img" />
 
                   {/* Thumbnail strip - bottom center */}
@@ -826,8 +1038,79 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                     <path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7L8 1z" fill="currentColor"/>
                   </svg>
                   <span>Generate Lifestyle</span>
+                  <div className="resolution-toggle" style={{ marginLeft: 'auto' }}>
+                    <button className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '2K')} disabled={isGeneratingLifestyle}>2K</button>
+                    <button className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '4K')} disabled={isGeneratingLifestyle}>4K</button>
+                  </div>
                 </div>
                 <p className="prompt-panel-hint">Describe the scene for your product (e.g. "on a marble kitchen counter with soft morning light")</p>
+
+                {/* Style Reference Images */}
+                <div className="style-ref-section">
+                  <div className="style-ref-header">
+                    <span className="style-ref-label">Style references</span>
+                    {styleRefImages.length < 4 && (
+                      <button
+                        className="style-ref-add-btn"
+                        onClick={() => styleRefInputRef.current?.click()}
+                        disabled={isAnalyzingStyle || isGeneratingLifestyle}
+                      >
+                        + Add
+                      </button>
+                    )}
+                    <input
+                      ref={styleRefInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={handleStyleRefUpload}
+                    />
+                  </div>
+
+                  {styleRefImages.length > 0 && (
+                    <div className="style-ref-thumbs">
+                      {styleRefImages.map((img, i) => (
+                        <div key={i} className="style-ref-thumb">
+                          <img src={img} alt={`Style ref ${i + 1}`} />
+                          <button
+                            className="style-ref-thumb-remove"
+                            onClick={() => removeStyleRef(i)}
+                            disabled={isAnalyzingStyle}
+                            title="Remove"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {isAnalyzingStyle && (
+                    <p className="prompt-panel-status">
+                      <span className="btn-spinner" style={{ width: 12, height: 12, marginRight: 6 }} />
+                      Analyzing visual style...
+                    </p>
+                  )}
+
+                  {styleError && (
+                    <p className="prompt-panel-error">{styleError}</p>
+                  )}
+
+                  {styleDescription && !isAnalyzingStyle && (
+                    <div className="style-description-toggle">
+                      <button
+                        className="style-description-btn"
+                        onClick={() => setShowStyleDescription(v => !v)}
+                      >
+                        ✓ Style detected
+                        <span className="style-description-chevron">{showStyleDescription ? '▲' : '▼'}</span>
+                      </button>
+                      {showStyleDescription && (
+                        <p className="style-description-text">{styleDescription}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="prompt-panel-input-row">
                   <input
                     type="text"
@@ -855,6 +1138,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 {isGeneratingLifestyle && (
                   <p className="prompt-panel-status">Generating your lifestyle scene...</p>
                 )}
+                {lifestyleError && (
+                  <p className="prompt-panel-error">{lifestyleError}</p>
+                )}
               </div>
             )}
 
@@ -866,6 +1152,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                     <path d="M11.5 1.5l3 3-8.5 8.5H3v-3l8.5-8.5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                   <span>AI Edit</span>
+                  <div className="resolution-toggle" style={{ marginLeft: 'auto' }}>
+                    <button className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '2K')} disabled={isGeneratingEdit}>2K</button>
+                    <button className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '4K')} disabled={isGeneratingEdit}>4K</button>
+                  </div>
                 </div>
                 <p className="prompt-panel-hint">Retouch or modify the studio image (e.g. "new angle", "remove scratch", "brighter lighting")</p>
                 <div className="prompt-panel-input-row">
@@ -895,6 +1185,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 {isGeneratingEdit && (
                   <p className="prompt-panel-status">Applying edit...</p>
                 )}
+                {editError && (
+                  <p className="prompt-panel-error">{editError}</p>
+                )}
               </div>
             )}
           </section>
@@ -908,7 +1201,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
           <div className="result-sidebar-top">
             <span className="result-sidebar-name">
               {isFastMode ? 'Fast Generation' : project.name}
-              {saved && <span className="result-sidebar-saved">Saved</span>}
+              {isDeleting && <span className="result-sidebar-saved" style={{ background: '#ff9800' }}>Saving…</span>}
+              {saved && !isDeleting && <span className="result-sidebar-saved">Saved</span>}
             </span>
             <span className="result-sidebar-date">
               {project?.updatedAt

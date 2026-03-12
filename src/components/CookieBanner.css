@@ -1,0 +1,93 @@
+/* ===== CNIL-Compliant Cookie Banner ===== */
+
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.cookie-banner-content {
+  pointer-events: auto;
+  max-width: 520px;
+  margin: 0 auto;
+  background: #1D1D1F;
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.cookie-banner-text strong {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.cookie-banner-text p {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cookie-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cookie-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 150ms ease;
+  font-family: inherit;
+}
+
+/* CNIL compliance: both buttons must have equal visual weight */
+.cookie-btn-refuse {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.cookie-btn-refuse:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.cookie-btn-accept {
+  background: #ff4000;
+  color: #ffffff;
+}
+
+.cookie-btn-accept:hover {
+  background: #e63900;
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+  .cookie-banner {
+    padding: 12px;
+  }
+
+  .cookie-banner-content {
+    padding: 16px 18px;
+    border-radius: 14px;
+  }
+
+  .cookie-banner-actions {
+    flex-direction: column;
+  }
+}

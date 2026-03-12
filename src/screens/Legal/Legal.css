@@ -1,0 +1,130 @@
+/* Legal Pages — shared stylesheet */
+
+.legal-page {
+  min-height: 100vh;
+  background: #FAFAF8;
+  font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #1D1D1F;
+  padding: 40px 24px 80px;
+}
+
+.legal-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.legal-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6B6B6B;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 0;
+  margin-bottom: 32px;
+  transition: color 0.15s;
+}
+
+.legal-back:hover {
+  color: #1D1D1F;
+}
+
+.legal-page h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1D1D1F;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.legal-page .legal-subtitle {
+  font-size: 14px;
+  color: #86868B;
+  margin-bottom: 40px;
+}
+
+.legal-page h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1D1D1F;
+  margin-top: 40px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #E8E8E4;
+}
+
+.legal-page h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1D1D1F;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+.legal-page p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #3D3D3F;
+  margin-bottom: 16px;
+}
+
+.legal-page ul {
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+.legal-page li {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #3D3D3F;
+  margin-bottom: 8px;
+}
+
+.legal-page strong {
+  font-weight: 600;
+  color: #1D1D1F;
+}
+
+.legal-page a {
+  color: #ff4000;
+  text-decoration: none;
+}
+
+.legal-page a:hover {
+  text-decoration: underline;
+}
+
+.legal-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 13px;
+}
+
+.legal-page th {
+  text-align: left;
+  font-weight: 600;
+  color: #1D1D1F;
+  padding: 10px 12px;
+  background: #F5F4F0;
+  border: 1px solid #E8E8E4;
+}
+
+.legal-page td {
+  padding: 10px 12px;
+  border: 1px solid #E8E8E4;
+  color: #3D3D3F;
+  line-height: 1.5;
+}
+
+.placeholder {
+  color: #ff4000;
+  font-weight: 600;
+  background: rgba(255, 64, 0, 0.06);
+  padding: 1px 6px;
+  border-radius: 4px;
+}

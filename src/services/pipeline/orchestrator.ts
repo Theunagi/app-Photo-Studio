@@ -223,38 +223,34 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 4: PARAMETRIC RETOUCH (Color Grading — Pure DSP, client-side)
+  // STEP 4: BACKGROUND REMOVAL (Pixelcut via Edge Function)
+  // Run BEFORE color grading so Pixelcut gets the clean studio image.
   // =========================================================================
-  const retouch = await executeStep<RetouchResult>(state, 'retouch', onStateChange, async () => {
-    const preset = luminanceClass === 'Dark' ? RETOUCH_PRESET_DARK : RETOUCH_PRESET_LIGHT;
-    const result = await applyColorGrading(studioGen.imageDataUrl, preset);
-
-    return {
-      imageBlob: result.imageBlob,
-      imageDataUrl: result.imageDataUrl,
-      presetUsed: preset,
-    };
-  });
-
-  // =========================================================================
-  // STEP 5: BACKGROUND REMOVAL (Fal.ai / Bria via Edge Function)
-  // =========================================================================
-  // Upload retouched image for BG removal
-  const retouchStorageUrl = await uploadToStorage(retouch.imageDataUrl, sessionId, 'retouched');
+  // Upload raw studio image for BG removal (not retouched — preserves whites)
+  const studioStorageUrl = await uploadToStorage(studioGen.imageDataUrl, sessionId, 'studio-for-bg');
 
   const cutout = await executeStep<CutoutResult>(state, 'cutout', onStateChange, async () => {
-    const result = await removeBackground(retouchStorageUrl, sessionId, false);
-    // Download result for DSP steps
-    const imageDataUrl = await urlToDataUrl(result.resultImageUrl);
+    const result = await removeBackground(studioStorageUrl, sessionId, false);
+    // Download result for DSP steps (Pixelcut returns clean cutout with correct colors)
+    const cutoutDataUrl = await urlToDataUrl(result.resultImageUrl);
+    const cutoutBlob = dataUrlToBlob(cutoutDataUrl);
+
     return {
-      imageBlob: dataUrlToBlob(imageDataUrl),
-      imageDataUrl,
+      imageBlob: cutoutBlob,
+      imageDataUrl: cutoutDataUrl,
     };
   });
+
+  // =========================================================================
+  // STEP 5: PARAMETRIC RETOUCH — SKIPPED (disabled for now)
+  // =========================================================================
+  (state.retouch as NodeResult<RetouchResult>) = { status: 'skipped', durationMs: 0 };
+  onStateChange({ ...state }, 'retouch');
 
   // =========================================================================
   // STEP 6: SMART SHADOW COMPOSER (DSP — client-side)
   // Skipped for 'transparent-clean' output format.
+  // Uses raw studio image (white bg) for shadow extraction + cutout.
   // =========================================================================
   let step6ImageDataUrl: string;
 
@@ -265,7 +261,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   } else {
     const shadow = await executeStep<ShadowCompositeResult>(state, 'shadowComposite', onStateChange, async () => {
       const result = await composeShadow(
-        retouch.imageDataUrl,
+        studioGen.imageDataUrl,
         cutout.imageDataUrl,
         0.8,
         8,

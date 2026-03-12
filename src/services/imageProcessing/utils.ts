@@ -98,6 +98,41 @@ export function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 /**
+ * Rebuild a cutout using Bria's alpha mask but the original retouched RGB.
+ * Bria can degrade white product colors during background removal;
+ * this preserves exact pixel colors from the retouched image.
+ */
+export async function rebuildCutoutWithOriginalRgb(
+  cutoutDataUrl: string,
+  retouchedDataUrl: string,
+): Promise<{ imageDataUrl: string; imageBlob: Blob }> {
+  const { imageData: cutoutData } = await getImageData(cutoutDataUrl);
+  const { imageData: retouchData } = await getImageData(retouchedDataUrl);
+  const { width, height } = cutoutData;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d')!;
+  const output = ctx.createImageData(width, height);
+
+  for (let i = 0; i < cutoutData.data.length; i += 4) {
+    // Alpha from Bria (shape of the product)
+    const alpha = cutoutData.data[i + 3];
+    // RGB from the retouched image (untouched colors)
+    output.data[i]     = retouchData.data[i];
+    output.data[i + 1] = retouchData.data[i + 1];
+    output.data[i + 2] = retouchData.data[i + 2];
+    output.data[i + 3] = alpha;
+  }
+
+  ctx.putImageData(output, 0, 0);
+  const imageDataUrl = canvasToDataUrl(canvas);
+  const imageBlob = await canvasToBlob(canvas);
+  return { imageDataUrl, imageBlob };
+}
+
+/**
  * Clamp a value between min and max.
  */
 export function clamp(value: number, min: number, max: number): number {

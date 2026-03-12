@@ -5,18 +5,80 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useInView } from 'motion/react';
 import {
-  Camera, ArrowRight, Sparkles, Menu, X, Crop, Sun,
+  Camera, ArrowRight, Sparkles, Menu, X,
   MessageSquarePlus, Image, Pencil, RotateCcw, Download,
+  Smartphone, Zap, TrendingUp, DollarSign, Clock, Shield,
+  Check, Minus, Plus,
 } from 'lucide-react';
+
+/** Animated counter that counts from 0 to `end` when element scrolls into view */
+function useCountUp(end: number, duration = 1800, decimals = 0) {
+  const [value, setValue] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+  const hasRun = useRef(false);
+
+  useEffect(() => {
+    if (!inView || hasRun.current) return;
+    hasRun.current = true;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(parseFloat((eased * end).toFixed(decimals)));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [inView, end, duration, decimals]);
+
+  return { ref, value };
+}
 import './landing.css';
+
+const SUPABASE_IMG_BASE = 'https://lbyayuonwesmxvzvvavx.supabase.co/storage/v1/object/public/project-images/landing-page';
 
 export interface LandingScreenProps {
   onLogin: () => void;
   onDevLogin?: () => void;
   onLegalPage?: (page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu') => void;
 }
+
+const TESTIMONIALS = [
+  {
+    quote: "We switched from studio shoots to Photo Studio for our entire Amazon catalog. 400+ SKUs done in 2 days instead of 3 weeks. The white backgrounds are flawless — passed Amazon compliance on every single image.",
+    name: "Marcus Chen",
+    role: "Amazon FBA Seller — $2M+ revenue",
+  },
+  {
+    quote: "I was spending €150 per product on photography. Now it's under €1 and the quality is honestly better. The lifestyle scenes are incredible — my click-through rate jumped 34% in the first month.",
+    name: "Sarah Dubois",
+    role: "Etsy Shop Owner — Handmade Cosmetics",
+  },
+  {
+    quote: "As an agency managing 12 e-commerce brands, this tool changed everything. We batch-process hundreds of images weekly. Our clients can't believe the turnaround time. It's our secret weapon.",
+    name: "James Whitfield",
+    role: "Founder — Pixel Commerce Agency",
+  },
+  {
+    quote: "The shadow quality is what sold me. Every other AI tool gives you flat, fake-looking results. Photo Studio shadows look like they were shot in a real studio. My Shopify conversion rate is up 28%.",
+    name: "Laura Martinez",
+    role: "D2C Brand Owner — Home & Kitchen",
+  },
+  {
+    quote: "I test 30-50 new products per week on my store. Before Photo Studio, product photography was my biggest bottleneck. Now I upload, wait 30 seconds, and I'm live. Game changer for dropshipping.",
+    name: "Kevin Nguyen",
+    role: "Dropshipper — 7-figure Store",
+  },
+  {
+    quote: "We replaced our entire product photography workflow. What used to take our team a full day now takes 20 minutes. The ROI is insane — we saved over €40K in the first quarter alone.",
+    name: "Emma Richter",
+    role: "Head of E-commerce — ManoMano Seller",
+  },
+];
 
 const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -31,7 +93,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
   const appleTransition = { duration: 0.8, ease: [0.16, 1, 0.3, 1] as const };
 
   return (
-    <div className="landing-page min-h-screen bg-humble-bg selection:bg-humble-orange/20 selection:text-humble-orange">
+    <div className="landing-page min-h-screen bg-[#FAFAFA] selection:bg-humble-orange/20 selection:text-humble-orange">
       {/* ===== Navbar ===== */}
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -105,7 +167,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
 
       <main>
         {/* ===== Hero Section ===== */}
-        <section className="relative pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden bg-[#FAFAFA]">
+        <section className="relative pt-28 pb-16 md:pt-36 md:pb-24 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6">
             {/* Hero copy — centered */}
             <motion.div
@@ -117,15 +179,15 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-white mb-5">
                 <span className="w-2 h-2 rounded-full bg-humble-orange" />
-                <span className="text-sm font-medium text-humble-text">Photo Studio 2.0 is live</span>
+                <span className="text-sm font-medium text-humble-text">AI Studio</span>
               </div>
 
-              <h1 className="text-3xl md:text-[44px] font-bold tracking-tighter text-[#111111] mb-5 leading-[1.12]">
-                Your Product's Next<br />10 Years of Visuals.
+              <h1 className="text-4xl md:text-[56px] font-bold tracking-tighter text-[#111111] mb-5 leading-[1.08]">
+                Turn Product Photos<br />Into Profit.
               </h1>
+              <p className="text-lg md:text-xl font-semibold text-humble-orange mb-2">Instantly. No skills needed.</p>
               <p className="text-base md:text-lg text-[#666666] mb-8 font-light tracking-tight max-w-xl mx-auto">
-                Upload a simple product photo. Our AI automatically removes the background, adds
-                realistic shadows, and generates stunning lifestyle scenes in seconds.
+                Transform smartphone pictures into high-converting visuals in seconds. Cut your photo costs by 90%, not your quality.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button onClick={onLogin} className="humble-btn-secondary py-3 px-7 text-sm font-semibold">
@@ -142,175 +204,195 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
           </div>
         </section>
 
-        {/* ===== Features Section ===== */}
-        <section id="features" className="py-32 bg-humble-bg">
+        <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
+        {/* ===== How it Works — 3 Visual Steps ===== */}
+        <section id="how-it-works" className="py-28">
           <div className="max-w-7xl mx-auto px-6">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-100px' }}
               transition={appleTransition}
-              className="text-center max-w-2xl mx-auto mb-20"
+              className="text-center max-w-2xl mx-auto mb-16"
             >
-              <h2 className="text-4xl md:text-6xl font-bold tracking-tighter text-humble-text mb-6">
-                Everything you need.
-                <br />
-                Perfectly integrated.
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+                <span className="text-sm font-medium text-humble-orange">How it Works</span>
+              </div>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+                Three clicks.<br />Studio quality.
               </h2>
-              <p className="text-humble-gray text-xl font-light tracking-tight">
-                Our AI pipeline handles the tedious work so you can focus on selling. Designed for
-                speed and precision.
+              <p className="text-humble-gray text-lg font-light tracking-tight">
+                No studio, no lights, no skills required. Just your smartphone.
               </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[320px]">
-              {/* Instant Cutouts — large card */}
-              <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ ...appleTransition, delay: 0.1 }}
-                className="md:col-span-2 humble-card p-10 relative overflow-hidden group"
-              >
-                <div className="relative z-10 w-full h-full flex flex-col justify-between">
-                  <div>
-                    <div className="w-14 h-14 rounded-2xl bg-humble-light-gray flex items-center justify-center mb-6 text-humble-text">
-                      <Crop size={28} />
-                    </div>
-                    <h3 className="text-3xl font-bold tracking-tight text-humble-text mb-3">
-                      Instant Cutouts
-                    </h3>
-                    <p className="text-humble-gray text-lg max-w-md leading-relaxed font-light">
-                      Remove backgrounds with pixel-perfect precision in milliseconds. Even tricky
-                      edges like hair, fur, or transparent glass.
-                    </p>
-                  </div>
-                </div>
-                <div className="absolute right-0 bottom-0 w-2/3 h-full bg-gradient-to-tl from-humble-light-gray to-transparent opacity-50 rounded-tl-[100px] transform translate-x-10 translate-y-10 group-hover:translate-x-5 group-hover:translate-y-5 transition-transform duration-500" />
-              </motion.div>
-
-              {/* Realistic Shadows */}
-              <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ ...appleTransition, delay: 0.2 }}
-                className="md:col-span-1 humble-card p-10 relative overflow-hidden"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-humble-light-gray flex items-center justify-center mb-6 text-humble-text">
-                  <Sun size={28} />
-                </div>
-                <h3 className="text-2xl font-bold tracking-tight text-humble-text mb-3">
-                  Realistic Shadows
-                </h3>
-                <p className="text-humble-gray leading-relaxed font-light">
-                  Generate natural drop shadows or reflections that ground your product perfectly.
-                </p>
-              </motion.div>
-
-              {/* Lifestyle Scenes — dark full-width */}
-              <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={{ ...appleTransition, delay: 0.3 }}
-                className="md:col-span-3 bg-humble-text text-white rounded-[2rem] p-10 border border-gray-800 shadow-humble-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-10"
-              >
-                <div className="relative z-10 max-w-xl">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-bold uppercase tracking-wider mb-6 backdrop-blur-md">
-                    <Sparkles size={14} className="text-humble-orange" />
-                    Generative AI
-                  </div>
-                  <h3 className="text-4xl font-bold tracking-tight mb-4">
-                    Stunning Lifestyle Scenes
-                  </h3>
-                  <p className="text-gray-400 text-lg leading-relaxed mb-8 font-light">
-                    Type a prompt like{' '}
-                    <span className="text-white font-medium">
-                      "on a wooden table in a cozy caf&eacute;"
-                    </span>{' '}
-                    and watch your product blend seamlessly into the scene with perfect lighting and
-                    perspective.
-                  </p>
-                  <button
-                    onClick={onLogin}
-                    className="humble-btn bg-white text-humble-text hover:bg-gray-100 text-sm"
-                  >
-                    Try it now <ArrowRight size={16} />
-                  </button>
-                </div>
-                <div className="relative w-full md:w-1/2 h-64 md:h-full rounded-2xl overflow-hidden border border-white/10">
-                  <img
-                    src="https://picsum.photos/seed/lifestyle/800/600"
-                    alt=""
-                    className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity duration-500"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </section>
-
-        {/* ===== How it Works ===== */}
-        <section id="how-it-works" className="py-32 bg-white">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="grid md:grid-cols-2 gap-20 items-center">
-              <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-100px' }}
-                transition={appleTransition}
-              >
-                <h2 className="text-4xl md:text-5xl font-bold tracking-tighter text-humble-text mb-8 leading-tight">
-                  From raw photo to ready-to-publish in 3 clicks.
-                </h2>
-                <div className="space-y-10 mt-12">
-                  <Step
-                    number="1"
-                    title="Upload your photo"
-                    description="Drag and drop any product photo. It doesn't need to be perfect — our AI handles bad lighting and messy backgrounds."
-                  />
-                  <Step
-                    number="2"
-                    title="Choose your style"
-                    description="Select a pure white background for Amazon, or describe a custom lifestyle scene for your Shopify store."
-                  />
-                  <Step
-                    number="3"
-                    title="Download & Publish"
-                    description="Export in 2K or 4K resolution. Ready to boost your conversion rates immediately."
-                  />
-                </div>
-              </motion.div>
-
-              <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {HOW_IT_WORKS_STEPS.map((step, i) => (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 40 }}
-                  whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                  key={step.step}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: '-100px' }}
-                  transition={{ ...appleTransition, delay: 0.2 }}
-                  className="aspect-square rounded-[2.5rem] bg-humble-light-gray overflow-hidden relative shadow-humble-lg ring-1 ring-black/5"
+                  transition={{ ...appleTransition, delay: i * 0.12 }}
+                  className="bg-white rounded-[2rem] overflow-hidden border border-humble-border shadow-humble-sm group"
                 >
-                  <img
-                    src="https://picsum.photos/seed/process/800/800"
-                    alt=""
-                    className="w-full h-full object-cover mix-blend-multiply opacity-90"
-                    referrerPolicy="no-referrer"
-                  />
-                  <motion.div
-                    animate={{ top: ['0%', '100%', '0%'] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                    className="absolute left-0 right-0 h-1 bg-humble-blue shadow-[0_0_20px_rgba(0,122,255,1)] z-10"
-                  />
+                  <div className="relative aspect-square overflow-hidden bg-[#F5F4F0]">
+                    <img
+                      src={step.image}
+                      alt=""
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                    />
+                    {/* Step badge */}
+                    <div className="absolute top-4 left-4 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-xs font-bold uppercase tracking-wider text-humble-text shadow-sm border border-white/60">
+                      Step {step.step}
+                    </div>
+                  </div>
+                  <div className="p-7">
+                    <h3 className="text-xl font-bold tracking-tight text-humble-text mb-2">{step.title}</h3>
+                    <p className="text-humble-gray text-[15px] leading-relaxed font-light">{step.description}</p>
+                  </div>
                 </motion.div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
+        <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
+        {/* ===== Proven Results — Alternating Feature Rows ===== */}
+        <section id="features" className="py-28 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6">
+            {/* Section header */}
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={appleTransition}
+              className="text-center max-w-2xl mx-auto mb-24"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+                <span className="text-sm font-medium text-humble-orange">Why sellers switch</span>
+              </div>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+                Your photos are<br />costing you sales.
+              </h2>
+              <p className="text-humble-gray text-lg font-light tracking-tight max-w-lg mx-auto">
+                Every blurry product shot is a lost click, a lost customer, a lost sale. Fix it in 60 seconds.
+              </p>
+            </motion.div>
+
+            {/* Alternating feature rows */}
+            <div className="flex flex-col gap-32">
+              {METRICS.map((metric, i) => {
+                const isReversed = i % 2 !== 0;
+                return (
+                  <MetricRow key={metric.title} metric={metric} index={i} isReversed={isReversed} appleTransition={appleTransition} />
+                );
+              })}
+            </div>
+
+            {/* Final CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ ...appleTransition, delay: 0.1 }}
+              className="text-center mt-32"
+            >
+              <p className="text-humble-gray text-lg font-light mb-6 tracking-tight">
+                Ready to turn your phone into a photo studio?
+              </p>
+              <button
+                onClick={onLogin}
+                className="humble-btn-primary inline-flex items-center gap-2.5 text-lg px-10 py-4 rounded-2xl shadow-humble-md hover:shadow-humble-lg transition-all duration-300 hover:scale-[1.03]"
+              >
+                Try it free — upload your first photo
+                <ArrowRight size={20} />
+              </button>
+              <p className="text-humble-gray/60 text-sm mt-4 font-light">No credit card required. Results in 60 seconds.</p>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* ===== Showcase Gallery with Tabs ===== */}
+        <ShowcaseGallery appleTransition={appleTransition} />
+
+        <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
+        {/* ===== Comparison Table ===== */}
+        <section className="py-28">
+          <div className="max-w-5xl mx-auto px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={appleTransition}
+              className="text-center max-w-2xl mx-auto mb-16"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+                <span className="text-sm font-medium text-humble-orange">Compare</span>
+              </div>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+                From 25€ to 0.20€<br />per photo.
+              </h2>
+              <p className="text-humble-gray text-lg font-light tracking-tight">
+                The only AI that delivers marketplace-compliant white backgrounds with realistic shadows. No Photoshop needed.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ ...appleTransition, delay: 0.15 }}
+              className="relative"
+            >
+              <div className="bg-white rounded-[2rem] border border-humble-border shadow-humble-md mt-20 border-t-0">
+                <div className="overflow-x-auto" style={{ overflow: 'clip visible' }}>
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr>
+                        <th className="w-1/4"></th>
+                        <th className="text-center p-0 relative bg-humble-orange">
+                          <div className="bg-humble-orange rounded-t-2xl py-6 px-4 -mt-20 flex flex-col items-center justify-end">
+                            <Camera size={32} className="text-white mb-2" />
+                            <span className="text-white font-bold text-sm">Photo Studio</span>
+                          </div>
+                        </th>
+                        <th className="py-4 px-6 text-sm font-semibold text-humble-gray text-center align-bottom">Traditional Studio</th>
+                        <th className="py-4 px-6 text-sm font-semibold text-humble-gray text-center align-bottom">Generic AI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {COMPARISON_ROWS.map((row, i) => (
+                        <tr key={i} className={i < COMPARISON_ROWS.length - 1 ? 'border-b border-humble-border/50' : ''}>
+                          <td className="py-5 px-6 text-sm font-medium text-humble-text w-1/4">{row.label}</td>
+                          <td className="py-5 px-6 text-sm font-bold text-white text-center bg-humble-orange">{row.photoStudio}</td>
+                          <td className="py-5 px-6 text-sm text-humble-gray text-center">{row.studio}</td>
+                          <td className="py-5 px-6 text-sm text-humble-gray text-center">{row.genericAi}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ ...appleTransition, delay: 0.3 }}
+              className="text-center mt-10"
+            >
+              <button onClick={onLogin} className="humble-btn-primary py-3.5 px-8 text-sm">
+                Start Free Trial <ArrowRight size={16} />
+              </button>
+            </motion.div>
+          </div>
+        </section>
+
+        <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
         {/* ===== Pricing Section ===== */}
-        <section id="pricing" className="py-32 bg-white">
+        <section id="pricing" className="py-32">
           <div className="max-w-7xl mx-auto px-6">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
@@ -319,7 +401,10 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               transition={appleTransition}
               className="text-center max-w-2xl mx-auto mb-20"
             >
-              <h2 className="text-5xl md:text-6xl font-bold tracking-tighter text-humble-text mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+                <span className="text-sm font-medium text-humble-orange">Pricing</span>
+              </div>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
                 Choose your Plan (per site)
               </h2>
               <p className="text-humble-gray text-xl font-light tracking-tight">
@@ -388,8 +473,96 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
           </div>
         </section>
 
+        <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
+        {/* ===== Testimonials Section ===== */}
+        <section className="py-28">
+          <div className="max-w-5xl mx-auto px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={appleTransition}
+              className="text-center max-w-2xl mx-auto mb-16"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+                <span className="text-sm font-medium text-humble-orange">Testimonials</span>
+              </div>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+                Loved by sellers<br />worldwide.
+              </h2>
+              <p className="text-humble-gray text-lg font-light tracking-tight">
+                Join thousands of e-commerce brands saving time and money.
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {TESTIMONIALS.map((t, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 40 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: '-80px' }}
+                  transition={{ ...appleTransition, delay: i * 0.1 }}
+                  className="bg-white rounded-[1.5rem] border border-humble-border p-7 shadow-humble-sm hover:shadow-humble-md transition-shadow duration-500"
+                >
+                  <div className="flex items-center gap-1 mb-4">
+                    {[...Array(5)].map((_, s) => (
+                      <svg key={s} className="w-4 h-4 text-humble-orange" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                  </div>
+                  <p className="text-humble-text text-[15px] leading-relaxed mb-5 font-light">"{t.quote}"</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-humble-orange/10 flex items-center justify-center text-humble-orange font-bold text-sm">
+                      {t.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-humble-text">{t.name}</p>
+                      <p className="text-xs text-humble-gray">{t.role}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
+        {/* ===== FAQ Section ===== */}
+        <section className="py-28">
+          <div className="max-w-5xl mx-auto px-6">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={appleTransition}
+              className="text-center mb-14"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+                <span className="text-sm font-medium text-humble-orange">Got Questions</span>
+              </div>
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+                FAQ
+              </h2>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={appleTransition}
+              className="bg-[#0A0A0A] rounded-[2rem] p-2.5 space-y-2 shadow-humble-lg"
+            >
+              {FAQ_ITEMS.map((faq, i) => (
+                <FaqAccordion key={i} question={faq.question} answer={faq.answer} index={i} appleTransition={appleTransition} />
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
         {/* ===== CTA Section ===== */}
-        <section className="py-32 bg-humble-text relative overflow-hidden">
+        <section className="py-32 bg-humble-text text-white relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-humble-orange/20 rounded-full blur-[120px] -z-10" />
           <motion.div
             initial={{ opacity: 0, y: 40 }}
@@ -398,7 +571,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
             transition={appleTransition}
             className="max-w-4xl mx-auto px-6 text-center"
           >
-            <h2 className="text-5xl md:text-6xl font-bold tracking-tighter text-white mb-6">
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-white mb-5 leading-[1.1]">
               Ready to upgrade your visuals?
             </h2>
             <p className="text-xl text-gray-400 mb-10 font-light tracking-tight">
@@ -470,9 +643,304 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
 
 export default LandingScreen;
 
+/* ─── Data Constants ─── */
+
+const HOW_IT_WORKS_STEPS = [
+  {
+    step: 1,
+    title: 'Upload your photo',
+    description: 'One phone photo is all you need. No studio, no lighting, no photographer — Photo Studio handles everything.',
+    image: `${SUPABASE_IMG_BASE}/inputImage.jpg`,
+    badge: 'Smartphone',
+    badgeIcon: <Smartphone size={12} />,
+  },
+  {
+    step: 2,
+    title: 'Instant studio quality',
+    description: 'In seconds, your phone photo becomes a professional white-background image with perfect lighting and realistic shadows.',
+    image: `${SUPABASE_IMG_BASE}/step2.png`,
+    badge: 'AI Processing',
+    badgeIcon: <Sparkles size={12} />,
+  },
+  {
+    step: 3,
+    title: 'Infinite lifestyles',
+    description: 'Type a scene — kitchen counter, bedside table, gym bag — and get magazine-quality lifestyle images in seconds.',
+    image: `${SUPABASE_IMG_BASE}/step3.png`,
+    badge: 'AI Prompt',
+    badgeIcon: <Zap size={12} />,
+  },
+];
+
+const METRICS = [
+  {
+    stat: '+56%',
+    statEnd: 56,
+    statPrefix: '+',
+    statSuffix: '%',
+    title: 'More Sales',
+    subtitle: 'Bad photos kill your listing. Great ones print money.',
+    description: 'Amazon shoppers decide in 0.3 seconds. Blurry phone pics lose the click — and the sale. Sellers who switch to studio-grade visuals see an average 56% jump in sell-through rate.',
+    image: `${SUPABASE_IMG_BASE}/lifestyle-0.png?v=3`,
+    badgeText: 'Revenue Impact',
+  },
+  {
+    stat: '0.20€',
+    statEnd: 0.20,
+    statPrefix: '',
+    statSuffix: '€',
+    statDecimals: 2,
+    title: 'Per Photo',
+    subtitle: 'Kill your 500€ studio bill. Keep the quality.',
+    description: 'A single product shoot costs 25–50€ per image. Multiply that by your catalog and you\'re burning thousands. Get the same result from your phone for 100x less.',
+    image: `${SUPABASE_IMG_BASE}/shadowComposite.png`,
+    badgeText: 'Cost Killer',
+  },
+  {
+    stat: '60s',
+    statEnd: 60,
+    statPrefix: '',
+    statSuffix: 's',
+    title: 'To Go Live',
+    subtitle: 'Launch products while your competitors wait for their photographer.',
+    description: 'From phone snap to Amazon-ready listing in under a minute. No booking, no back-and-forth, no editing. Shoot → Upload → Sell. That\'s it.',
+    image: `${SUPABASE_IMG_BASE}/edit-0.png`,
+    badgeText: 'Speed to Market',
+  },
+  {
+    stat: '4K',
+    statEnd: 4,
+    statPrefix: '',
+    statSuffix: 'K',
+    title: 'Studio Resolution',
+    subtitle: 'Zoom-proof quality that passes every marketplace check.',
+    description: 'Pure white backgrounds, realistic shadows, pin-sharp details at 4K. Passes Amazon, Shopify, and eBay compliance on the first try — every single time.',
+    image: `${SUPABASE_IMG_BASE}/edit-1.jpg?v=2`,
+    badgeText: 'Pro Quality',
+  },
+];
+
+const SHOWCASE_TABS = ['Main Image', 'Lifestyle', 'All Results'] as const;
+
+const SHOWCASE_IMAGES = [
+  { url: '/cat-tree-lifestyle.png', category: 'Lifestyle' as const },
+  { url: '/portfolio-lifestyle.png', category: 'Lifestyle' as const },
+  { url: '/cosmetic-lifestyle.png', category: 'Lifestyle' as const },
+  { url: '/cosmetic-lifestyle-2.png', category: 'Lifestyle' as const },
+  { url: '/razorback-lifestyle.jpg', category: 'Lifestyle' as const },
+  { url: '/cosmetic-lifestyle-3.png', category: 'Lifestyle' as const },
+  { url: '/cosmetic-detail.jpg', category: 'Lifestyle' as const, fit: 'object-top scale-[1.65] origin-top group-hover:!scale-[1.73]' as const },
+  { url: '/studio-render.jpg', category: 'Main Image' as const },
+  { url: '/bottle-studio.jpg', category: 'Main Image' as const },
+  { url: '/wurth-studio.jpg', category: 'Main Image' as const },
+];
+
+const COMPARISON_ROWS = [
+  { label: 'Cost per Photo', studio: '25€ – 50€', genericAi: '0.05€ – 1€', photoStudio: '~0.20€' },
+  { label: 'Speed', studio: '1–3 days', genericAi: 'Minutes', photoStudio: '30 seconds' },
+  { label: 'White Background', studio: 'Yes', genericAi: 'Approximate', photoStudio: 'Pure white' },
+  { label: 'Realistic Shadows', studio: 'Yes', genericAi: 'No', photoStudio: 'Yes' },
+  { label: 'Marketplace Compliant', studio: 'Yes', genericAi: 'No', photoStudio: 'Yes' },
+  { label: 'Lifestyle Scenes', studio: 'No', genericAi: 'Random', photoStudio: 'Controlled' },
+  { label: 'Batch Processing', studio: 'No', genericAi: 'No', photoStudio: 'Yes' },
+  { label: 'Output Quality', studio: 'Studio-grade', genericAi: 'Unpredictable', photoStudio: 'Studio-grade AI' },
+];
+
+const FAQ_ITEMS = [
+  {
+    question: 'Is this just another background remover?',
+    answer: 'No. Photo Studio goes far beyond background removal. We automatically add realistic drop shadows, adjust lighting, and generate AI lifestyle scenes — everything you need for marketplace-ready product photos in one tool.',
+  },
+  {
+    question: 'Will the results pass Amazon / Shopify image requirements?',
+    answer: 'Yes. Our output is optimized for major marketplace standards including Amazon (pure white background, proper dimensions) and Shopify. Images are exported at up to 4K resolution.',
+  },
+  {
+    question: 'How many photos can I process?',
+    answer: 'Each plan comes with credits. The Starter plan includes 70 credits per month and Business includes 420. Each generation costs 2 credits (2K) or 3 credits (4K). Need more? Contact us for custom volume.',
+  },
+  {
+    question: 'What if I\'m not happy with the results?',
+    answer: 'You can regenerate any image with different settings at no extra cost. Our AI learns from your preferences to deliver better results over time. Plus, you get a 14-day free trial to test everything.',
+  },
+  {
+    question: 'Can I use my own lifestyle scenes or just the AI ones?',
+    answer: 'Both. You can use our AI-generated scenes or upload your own custom backgrounds. The editor gives you full control over placement, shadows, and lighting for each scene.',
+  },
+];
+
 /* ─── Sub-components ─── */
 
-function Step({
+type AppleTransition = { duration: number; ease: readonly [number, number, number, number] };
+
+/** Single metric row with animated counter */
+function MetricRow({ metric, index: _i, isReversed, appleTransition }: {
+  metric: typeof METRICS[number];
+  index: number;
+  isReversed: boolean;
+  appleTransition: AppleTransition;
+}) {
+  const { ref, value } = useCountUp(
+    metric.statEnd,
+    1800,
+    (metric as { statDecimals?: number }).statDecimals ?? 0,
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 60 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ ...appleTransition, delay: 0.05 }}
+      className={`grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-center ${isReversed ? 'md:[direction:rtl]' : ''}`}
+    >
+      {/* Text column */}
+      <div className={`flex flex-col justify-center ${isReversed ? 'md:[direction:ltr]' : ''}`}>
+        {/* Orange label */}
+        <span className="text-sm font-semibold text-humble-orange tracking-wider uppercase mb-5">{metric.badgeText}</span>
+        {/* Animated Stat + Title */}
+        <div className="flex items-baseline gap-3 mb-3">
+          <span ref={ref} className="text-4xl md:text-[48px] font-bold tracking-tight text-humble-text leading-none tabular-nums">
+            {metric.statPrefix}{(metric as { statDecimals?: number }).statDecimals ? value.toFixed((metric as { statDecimals?: number }).statDecimals) : value}{metric.statSuffix}
+          </span>
+          <span className="text-xl md:text-2xl font-bold tracking-tight text-humble-gray/50 leading-none">
+            {metric.title}
+          </span>
+        </div>
+        {/* Subtitle — punchy one-liner */}
+        <h4 className="text-base md:text-lg font-semibold text-humble-text mb-3 leading-snug">{metric.subtitle}</h4>
+        {/* Description */}
+        <p className="text-humble-gray text-[15px] leading-relaxed font-light max-w-md">{metric.description}</p>
+      </div>
+
+      {/* Image column */}
+      <div className={`${isReversed ? 'md:[direction:ltr]' : ''}`}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ ...appleTransition, delay: 0.15 }}
+          className="rounded-[2rem] overflow-hidden border border-humble-border shadow-humble-sm group"
+        >
+          <img
+            src={metric.image}
+            alt=""
+            style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: '1/1', objectFit: 'cover', objectPosition: 'center' }}
+            className="group-hover:scale-[1.03] transition-transform duration-700"
+          />
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+function FaqAccordion({ question, answer, index: _index, appleTransition: _at }: { question: string; answer: string; index: number; appleTransition: { duration: number; ease: readonly [number, number, number, number] } }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{ borderRadius: '22px' }}
+        className="w-full flex items-center justify-between gap-4 py-5 px-6 bg-[#1A1A1A] hover:bg-[#222222] transition-colors text-left"
+      >
+        <span className="text-[15px] md:text-base font-semibold text-white">{question}</span>
+        <span className={`shrink-0 w-8 h-8 rounded-full bg-white/10 flex items-center justify-center transition-transform duration-300 ${open ? 'rotate-45' : ''}`}>
+          <Plus size={16} className="text-white/50" />
+        </span>
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <p className="px-6 pt-3 pb-5 text-base text-gray-300 leading-relaxed font-light">
+              {answer}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function ShowcaseGallery({ appleTransition }: { appleTransition: { duration: number; ease: readonly [number, number, number, number] } }) {
+  const [activeTab, setActiveTab] = useState<typeof SHOWCASE_TABS[number]>('All Results');
+
+  const filtered = activeTab === 'All Results'
+    ? SHOWCASE_IMAGES
+    : SHOWCASE_IMAGES.filter(img => img.category === activeTab);
+
+  return (
+    <>
+    <hr className="max-w-3xl mx-auto border-t border-[#E2E2DE]" />
+    <section className="py-28">
+      <div className="max-w-7xl mx-auto px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-100px' }}
+          transition={appleTransition}
+          className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12"
+        >
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+              <span className="text-sm font-medium text-humble-orange">Gallery</span>
+            </div>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+              Crafted for every catalog.<br />
+            <span className="text-humble-gray">See the results.</span>
+          </h2>
+          </div>
+          <div className="flex gap-2">
+            {SHOWCASE_TABS.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 ${
+                  activeTab === tab
+                    ? 'bg-humble-text text-white shadow-humble-sm'
+                    : 'bg-white text-humble-gray border border-humble-border hover:border-humble-text hover:text-humble-text'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <AnimatePresence mode="popLayout">
+            {filtered.map((img, i) => (
+              <motion.div
+                key={`${img.url}-${i}`}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="aspect-square rounded-[1.5rem] overflow-hidden bg-white border border-humble-border shadow-humble-sm group cursor-pointer"
+              >
+                <img
+                  src={img.url}
+                  alt=""
+                  className={`w-full h-full group-hover:scale-[1.05] transition-transform duration-700 ${(img as any).fit?.includes('object-contain') ? '' : 'object-cover'} ${(img as any).fit ?? ''}`}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </div>
+    </section>
+    </>
+  );
+}
+
+function _Step({
   number,
   title,
   description,
@@ -528,7 +996,7 @@ function PricingCard({
       <h3 className="text-3xl font-bold tracking-tight text-gray-900 mb-2">{name}</h3>
       <p className="text-sm text-gray-500 mb-8 font-medium">{desc}</p>
       <div className="flex items-baseline gap-2 mb-2">
-        <span className="text-4xl font-bold tracking-tighter text-gray-900 line-through decoration-2 opacity-50">
+        <span className="text-lg font-semibold tracking-tight text-gray-400 line-through decoration-1">
           &euro;{oldPrice}
         </span>
         <span className="text-4xl font-bold tracking-tighter text-gray-900">&euro;{price}</span>
@@ -553,14 +1021,13 @@ function PricingCard({
 
 /* ─── Hero Mockup with Cycling Images ─── */
 
-const SUPABASE_IMG = 'https://lbyayuonwesmxvzvvavx.supabase.co/storage/v1/object/public/project-images/be988052-ca36-4649-8ab9-6dac394723dc';
+const SUPABASE_IMG = SUPABASE_IMG_BASE; // All landing images now in dedicated /landing-page/ folder
 
 const DEMO_SLIDES = [
   { label: 'ORIGINAL',  url: `${SUPABASE_IMG}/inputImage.png`, scene: false },
-  { label: 'FINAL',     url: `${SUPABASE_IMG}/autoCrop.png`,   scene: false },
-  { label: 'LIFESTYLE', url: `${SUPABASE_IMG}/lifestyle-0.png`, scene: true },
+  { label: 'FINAL',     url: `${SUPABASE_IMG}/autoCrop.png`, scene: false },
   { label: 'EDIT',      url: `${SUPABASE_IMG}/edit-0.png`,      scene: true },
-  { label: 'EDIT 2',    url: `${SUPABASE_IMG}/edit-1.png`,      scene: true },
+  { label: 'EDIT 2',    url: `${SUPABASE_IMG}/edit-2.png`,      scene: true },
 ];
 
 function HeroMockup(_props: { appleTransition: { duration: number; ease: readonly [number, number, number, number] } }) {

@@ -9,7 +9,7 @@
  *   analyze   — OpenAI GPT-4o Vision (product analysis)
  *   luminance — OpenAI GPT-4o Vision (light/dark classification)
  *   generate  — Fal.ai NanoBanana Pro Edit (primary) → NanoBanana/kie.ai (fallback)
- *   bg-remove — Fal.ai Bria 2.3 RMBG
+ *   bg-remove — Fal.ai Pixelcut Background Removal
  *   lifestyle — Gemini image generation
  *   edit      — Fal.ai NanoBanana Pro Edit
  *   group-images — OpenAI GPT-4o Vision (batch image grouping by similarity)
@@ -299,9 +299,9 @@ async function handleGenerate(body: {
   // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
   if (falKey) {
     try {
-      console.log(`[Edge] Generate: trying Fal.ai nano-banana-pro/edit (${resolution}, ${outputFormat})`);
+      console.log(`[Edge] Generate: trying Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat})`);
       const falResp = await fetch(
-        "https://fal.run/fal-ai/nano-banana-pro/edit",
+        "https://fal.run/fal-ai/nano-banana-2/edit",
         {
           method: "POST",
           headers: {
@@ -349,7 +349,7 @@ async function handleGenerate(body: {
       Authorization: `Bearer ${nbKey}`,
     },
     body: JSON.stringify({
-      model: "nano-banana-pro",
+      model: "nano-banana-2",
       input: {
         prompt: fullPrompt,
         image_input: [body.imageUrl, ...(body.referenceImageUrls ?? [])],
@@ -417,13 +417,61 @@ async function handleGenerate(body: {
 }
 
 /**
- * Step 5: Background Removal — Fal.ai Bria 2.3 RMBG
+ * Analyze Style References — GPT-4o Vision
+ * Describes the visual style/mood of reference images for lifestyle generation.
+ */
+async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Response> {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
+
+  const imageContent: unknown[] = [
+    {
+      type: "text",
+      text: "Analyze these reference images and describe the visual style, mood, lighting, color palette, and composition in a concise paragraph. Focus on elements that could be replicated in a product lifestyle photo.",
+    },
+  ];
+
+  for (const url of body.imageUrls) {
+    imageContent.push({
+      type: "image_url",
+      image_url: { url, detail: "high" },
+    });
+  }
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      max_tokens: 500,
+      temperature: 0.3,
+      messages: [
+        { role: "user", content: imageContent },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text().catch(() => "");
+    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+  }
+
+  const data = await resp.json();
+  const styleDescription = data.choices?.[0]?.message?.content ?? "";
+  return jsonResponse({ styleDescription });
+}
+
+/**
+ * Step 5: Background Removal — Fal.ai Pixelcut
  */
 async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const resp = await fetch("https://fal.run/fal-ai/bria/background/remove", {
+  const resp = await fetch("https://fal.run/pixelcut/background-removal", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -431,30 +479,32 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
     },
     body: JSON.stringify({
       image_url: body.imageUrl,
-      keep_shadows: false,
+      output_format: "rgba",
     }),
   });
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`Fal.ai Bria error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`Fal.ai Pixelcut error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
   const data = await resp.json();
   const resultUrl = data.image?.url ?? data.image;
-  if (!resultUrl) return errorResponse("Fal.ai Bria: no result image", 502);
+  if (!resultUrl) return errorResponse("Fal.ai Pixelcut: no result image", 502);
 
   return jsonResponse({ imageUrl: resultUrl });
 }
 
 /**
- * Lifestyle Generation — Fal.ai NanoBanana Pro Edit
+ * Lifestyle Generation — Submit to Fal.ai Queue (non-blocking)
+ * Returns a request_id for polling via lifestyle-poll.
  */
-async function handleLifestyle(body: {
+async function handleLifestyleSubmit(body: {
   imageUrl: string;
   userPrompt: string;
   resolution?: string;
   aspectRatio?: string;
+  styleDescription?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
@@ -462,12 +512,119 @@ async function handleLifestyle(body: {
   const resolution = body.resolution ?? "2K";
   const aspectRatio = body.aspectRatio ?? "1:1";
 
-  const prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+  let prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
 
-  const resp = await fetch("https://fal.run/fal-ai/nano-banana-pro/edit", {
+  if (body.styleDescription) {
+    prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+  }
+
+  // Submit to fal.ai QUEUE (returns immediately with request_id)
+  const resp = await fetch("https://queue.fal.run/fal-ai/nano-banana-2/edit", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Key ${falKey}`,
+    },
+    body: JSON.stringify({
+      image_urls: [body.imageUrl],
+      prompt,
+      resolution,
+      aspect_ratio: aspectRatio,
+      output_format: "png",
+      num_images: 1,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text().catch(() => "");
+    return errorResponse(`Fal.ai queue submit error ${resp.status}: ${err.slice(0, 500)}`, 502);
+  }
+
+  const data = await resp.json();
+  const requestId = data.request_id;
+  if (!requestId) return errorResponse("Fal.ai queue: no request_id returned", 502);
+
+  return jsonResponse({ request_id: requestId });
+}
+
+/**
+ * Lifestyle Poll — Check status of a queued Fal.ai request.
+ * Returns { status, imageUrl? }
+ */
+async function handleLifestylePoll(body: {
+  request_id: string;
+}): Promise<Response> {
+  const falKey = Deno.env.get("FAL_API_KEY");
+  if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
+  if (!body.request_id) return errorResponse("Missing request_id", 400);
+
+  // Check status — use base model ID (without /edit subpath) for queue status/result
+  const queueBase = "https://queue.fal.run/fal-ai/nano-banana-2";
+  const statusResp = await fetch(
+    `${queueBase}/requests/${body.request_id}/status`,
+    { headers: { Authorization: `Key ${falKey}` } }
+  );
+
+  if (!statusResp.ok) {
+    const err = await statusResp.text().catch(() => "");
+    return errorResponse(`Fal.ai status error ${statusResp.status}: ${err.slice(0, 500)}`, 502);
+  }
+
+  const statusData = await statusResp.json();
+
+  // Queue status: IN_QUEUE, IN_PROGRESS, COMPLETED
+  if (statusData.status === "COMPLETED") {
+    // Fetch the actual result
+    const resultResp = await fetch(
+      `${queueBase}/requests/${body.request_id}`,
+      { headers: { Authorization: `Key ${falKey}` } }
+    );
+
+    if (!resultResp.ok) {
+      const err = await resultResp.text().catch(() => "");
+      return errorResponse(`Fal.ai result error ${resultResp.status}: ${err.slice(0, 500)}`, 502);
+    }
+
+    const resultData = await resultResp.json();
+    const resultUrl = resultData.images?.[0]?.url ?? resultData.image?.url ?? resultData.image;
+    if (!resultUrl) return errorResponse("Fal.ai lifestyle: no result image", 502);
+
+    return jsonResponse({ status: "COMPLETED", imageUrl: resultUrl });
+  }
+
+  // Still processing
+  return jsonResponse({ status: statusData.status ?? "IN_PROGRESS" });
+}
+
+/**
+ * Legacy synchronous lifestyle (kept as fallback for 2K)
+ */
+async function handleLifestyle(body: {
+  imageUrl: string;
+  userPrompt: string;
+  resolution?: string;
+  aspectRatio?: string;
+  styleDescription?: string;
+}): Promise<Response> {
+  const falKey = Deno.env.get("FAL_API_KEY");
+  if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
+
+  const resolution = body.resolution ?? "2K";
+  const aspectRatio = body.aspectRatio ?? "1:1";
+
+  let prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
+Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
+High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
+
+  if (body.styleDescription) {
+    prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+  }
+
+  const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -510,7 +667,7 @@ Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
 Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
 Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
 
-  const resp = await fetch("https://fal.run/fal-ai/nano-banana-pro/edit", {
+  const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -676,6 +833,9 @@ Deno.serve(async (req: Request) => {
           }
         );
 
+      case "analyze-style":
+        return await handleAnalyzeStyle(body as { action: string; imageUrls: string[] });
+
       case "bg-remove":
         return await handleBgRemove(body as { action: string; imageUrl: string });
 
@@ -687,7 +847,25 @@ Deno.serve(async (req: Request) => {
             userPrompt: string;
             resolution?: string;
             aspectRatio?: string;
+            styleDescription?: string;
           }
+        );
+
+      case "lifestyle-submit":
+        return await handleLifestyleSubmit(
+          body as {
+            action: string;
+            imageUrl: string;
+            userPrompt: string;
+            resolution?: string;
+            aspectRatio?: string;
+            styleDescription?: string;
+          }
+        );
+
+      case "lifestyle-poll":
+        return await handleLifestylePoll(
+          body as { action: string; request_id: string }
         );
 
       case "edit":

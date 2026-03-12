@@ -223,14 +223,13 @@ async function sbSave(project: Project): Promise<void> {
   }
 
   const userId = await getAuthUserId();
-  const row = {
+  const row: Record<string, unknown> = {
     id: project.id,
     user_id: userId,
     name: project.name,
     created_at: new Date(project.createdAt).toISOString(),
     updated_at: new Date().toISOString(),
     thumbnail: thumbnailPath ?? null,
-    collection_id: project.collectionId ?? null,
     config: project.config,
     results,
   };
@@ -383,6 +382,78 @@ export async function deleteProject(id: string): Promise<void> {
     console.warn('[DB] Supabase delete failed:', err);
   }
   await idbDelete(id);
+}
+
+/**
+ * Lightweight partial update — only patches lifestyles/edits in the DB results
+ * WITHOUT re-uploading any images. Used for deletions so they're instant.
+ */
+export async function patchProjectVariants(
+  projectId: string,
+  lifestyles: { id?: string; image: string; prompt: string }[] | undefined,
+  edits: { id?: string; image: string; prompt: string }[] | undefined,
+): Promise<void> {
+  if (useSB) {
+    try {
+      // Read current DB row to get existing results with storage paths
+      const { data: row, error: readErr } = await supabase
+        .from('projects')
+        .select('results')
+        .eq('id', projectId)
+        .single();
+
+      if (readErr || !row) throw new Error(`Read failed: ${readErr?.message}`);
+
+      const dbResults = (row.results ?? {}) as Record<string, unknown>;
+
+      // Only update the lifestyle/edit arrays — keep everything else as-is (storage paths, pipeline images, etc.)
+      if (lifestyles && lifestyles.length > 0) {
+        // Keep storage paths for images that are already stored; only store URL for new ones
+        const dbLifestyles = (dbResults.lifestyles ?? []) as { id?: string; image: string; prompt: string }[];
+        dbResults.lifestyles = lifestyles.map(li => {
+          // Try to find the matching DB entry to preserve its storage path
+          const dbMatch = dbLifestyles.find(d => d.id === li.id) ??
+                          dbLifestyles.find(d => d.prompt === li.prompt);
+          return dbMatch ? { ...dbMatch, id: li.id } : li;
+        });
+      } else {
+        delete dbResults.lifestyles;
+      }
+
+      if (edits && edits.length > 0) {
+        const dbEdits = (dbResults.edits ?? []) as { id?: string; image: string; prompt: string }[];
+        dbResults.edits = edits.map(ei => {
+          const dbMatch = dbEdits.find(d => d.id === ei.id) ??
+                          dbEdits.find(d => d.prompt === ei.prompt);
+          return dbMatch ? { ...dbMatch, id: ei.id } : ei;
+        });
+      } else {
+        delete dbResults.edits;
+      }
+
+      const { error: updateErr } = await supabase
+        .from('projects')
+        .update({ results: dbResults, updated_at: new Date().toISOString() })
+        .eq('id', projectId);
+
+      if (updateErr) throw new Error(`Update failed: ${updateErr.message}`);
+    } catch (err) {
+      console.warn('[DB] Supabase patchProjectVariants failed, falling back to IndexedDB:', err);
+    }
+  }
+
+  // Also patch IndexedDB
+  try {
+    const localProject = await idbGetProject(projectId);
+    if (localProject) {
+      localProject.results.lifestyles = lifestyles && lifestyles.length > 0 ? lifestyles : undefined;
+      localProject.results.edits = edits && edits.length > 0 ? edits : undefined;
+      localProject.updatedAt = Date.now();
+      await idbSave(localProject);
+    }
+  } catch (err) {
+    console.warn('[DB] IndexedDB patchProjectVariants failed:', err);
+  }
 }
 
 export async function getProjectsByCollection(collectionId: string): Promise<Project[]> {

@@ -37,6 +37,7 @@
 .landing-page h5,
 .landing-page h6 {
   font-family: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: inherit;
 }
 
 /* Reset link color inside landing page — prevent global blue from index.css */

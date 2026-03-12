@@ -177,6 +177,14 @@ export async function composeShadow(
   // Blur the shadow mask
   const blurredShadow = boxBlur(shadowAlpha, width, height, blurRadius);
 
+  // Re-mask shadow after blur: suppress shadow where the product exists.
+  // The blur spreads shadow INTO the product area; multiply by inverse cutout
+  // alpha so product pixels stay untouched (especially visible on white products).
+  for (let i = 0; i < width * height; i++) {
+    const cutoutAlpha = cutoutData.data[i * 4 + 3] / 255;
+    blurredShadow[i] *= (1 - cutoutAlpha);
+  }
+
   // Composite: transparent background + shadow + product on top
   const outputCanvas = document.createElement('canvas');
   outputCanvas.width = width;

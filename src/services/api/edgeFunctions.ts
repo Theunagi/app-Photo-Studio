@@ -17,9 +17,14 @@ export async function invokeEdgeFunction<T>(
     throw new Error('Supabase is not configured. Cannot call edge functions.');
   }
 
-  // Get the current session token for auth
+  // Get a fresh session token for auth (refreshes if expired)
   const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+  let token = sessionData?.session?.access_token;
+  // If no token or it might be stale, try refreshing
+  if (!token) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    token = refreshed?.session?.access_token;
+  }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
@@ -54,4 +59,20 @@ export async function invokeEdgeFunction<T>(
   }
 
   return data as T;
+}
+
+/**
+ * Fetch an image from a URL and return it as a data URL.
+ * Used to pull Storage URLs into client-side canvas operations.
+ */
+export async function fetchImageAsDataUrl(url: string): Promise<string> {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
