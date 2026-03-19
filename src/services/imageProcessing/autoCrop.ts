@@ -164,7 +164,8 @@ export async function autoCrop(inputDataUrl: string, margin = 10, safetyZone = 1
   const srcCanvas = document.createElement('canvas');
   srcCanvas.width = width;
   srcCanvas.height = height;
-  const srcCtx = srcCanvas.getContext('2d')!;
+  const srcCtx = srcCanvas.getContext('2d');
+  if (!srcCtx) throw new Error('Failed to get canvas 2D context');
   srcCtx.putImageData(imageData, 0, 0);
 
   // Asymmetric safety zone: more at bottom for drop shadow
@@ -178,7 +179,8 @@ export async function autoCrop(inputDataUrl: string, margin = 10, safetyZone = 1
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = finalWidth;
   finalCanvas.height = finalHeight;
-  const finalCtx = finalCanvas.getContext('2d')!;
+  const finalCtx = finalCanvas.getContext('2d');
+  if (!finalCtx) throw new Error('Failed to get canvas 2D context');
 
   // Fill safety zone with white for opaque images (keeps shadow realistic)
   if (isOpaque) {

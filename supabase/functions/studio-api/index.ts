@@ -25,7 +25,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 // ─── CORS (uses shared whitelist — no more wildcard *) ───────────────────────
 // _corsReq is set at the start of each request to provide origin-aware headers
 let _corsReq: Request | null = null;
-function CORS() { return _corsReq ? corsHeaders(_corsReq) : { "Access-Control-Allow-Origin": "http://localhost:3000", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" }; }
+function CORS() { return _corsReq ? corsHeaders(_corsReq) : { "Access-Control-Allow-Origin": "https://frameflow.design", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" }; }
 
 // ─── Prompts (server-side only — never sent to frontend) ─────────────────────
 
@@ -139,6 +139,7 @@ async function verifyAuth(req: Request): Promise<string> {
   // Dev mode: if token is the anon key (public, already in frontend),
   // allow bypass for local development only.
   // The anon key is NOT a user JWT so getUser() would reject it.
+  // TODO: Remove this bypass before production launch with real users.
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   if (anonKey && token === anonKey) {
     console.log("[Edge] Dev/anon mode: anon key used as bearer — returning dev user");
@@ -505,6 +506,7 @@ async function handleLifestyleSubmit(body: {
   resolution?: string;
   aspectRatio?: string;
   styleDescription?: string;
+  productDescription?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
@@ -516,6 +518,10 @@ async function handleLifestyleSubmit(body: {
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
+
+  if (body.productDescription) {
+    prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
+  }
 
   if (body.styleDescription) {
     prompt += `\n\nApply this visual style: ${body.styleDescription}`;
@@ -608,6 +614,7 @@ async function handleLifestyle(body: {
   resolution?: string;
   aspectRatio?: string;
   styleDescription?: string;
+  productDescription?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
@@ -619,6 +626,10 @@ async function handleLifestyle(body: {
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
+
+  if (body.productDescription) {
+    prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
+  }
 
   if (body.styleDescription) {
     prompt += `\n\nApply this visual style: ${body.styleDescription}`;
@@ -658,14 +669,24 @@ High-end product photography style, natural lighting, shallow depth of field whe
 async function handleEdit(body: {
   imageUrl: string;
   userPrompt: string;
+  isLifestyle?: boolean;
+  productDescription?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const prompt = `Edit this product photo on white background. Apply: ${body.userPrompt}.
+  const productContext = body.productDescription
+    ? `\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`
+    : '';
+
+  const prompt = body.isLifestyle
+    ? `Edit this product lifestyle photo. Apply: ${body.userPrompt}.
+Keep the product photorealistic and true to the original.
+Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${productContext}`
+    : `Edit this product photo on white background. Apply: ${body.userPrompt}.
 Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
 Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
-Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.`;
+Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${productContext}`;
 
   const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
@@ -848,6 +869,7 @@ Deno.serve(async (req: Request) => {
             resolution?: string;
             aspectRatio?: string;
             styleDescription?: string;
+            productDescription?: string;
           }
         );
 
@@ -860,6 +882,7 @@ Deno.serve(async (req: Request) => {
             resolution?: string;
             aspectRatio?: string;
             styleDescription?: string;
+            productDescription?: string;
           }
         );
 
@@ -870,7 +893,13 @@ Deno.serve(async (req: Request) => {
 
       case "edit":
         return await handleEdit(
-          body as { action: string; imageUrl: string; userPrompt: string }
+          body as {
+            action: string;
+            imageUrl: string;
+            userPrompt: string;
+            isLifestyle?: boolean;
+            productDescription?: string;
+          }
         );
 
       case "group-images":

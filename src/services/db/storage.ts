@@ -159,7 +159,7 @@ export async function downloadProjectImages(
     try {
       dataUrls[slot] = await downloadImage(path);
     } catch (err) {
-      console.warn(`Failed to download ${slot}:`, err);
+      import.meta.env.DEV && console.warn(`Failed to download ${slot}:`, err);
     }
   });
 

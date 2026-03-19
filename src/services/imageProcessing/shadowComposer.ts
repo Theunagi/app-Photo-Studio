@@ -189,7 +189,8 @@ export async function composeShadow(
   const outputCanvas = document.createElement('canvas');
   outputCanvas.width = width;
   outputCanvas.height = height;
-  const outCtx = outputCanvas.getContext('2d')!;
+  const outCtx = outputCanvas.getContext('2d');
+  if (!outCtx) throw new Error('Failed to get canvas 2D context');
   const outputData = outCtx.createImageData(width, height);
 
   for (let y = 0; y < height; y++) {

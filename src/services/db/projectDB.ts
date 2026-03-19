@@ -42,12 +42,26 @@ interface ProjectRow {
 }
 
 function rowToProject(row: ProjectRow): Project {
+  // Derive thumbnail from results if not explicitly set
+  let thumbPath = row.thumbnail;
+  if (!thumbPath) {
+    const r = row.results as Record<string, unknown>;
+    const fallbacks = ['autoCrop', 'retouch', 'shadowComposite', 'studioGeneration', 'inputImage'];
+    for (const slot of fallbacks) {
+      const val = r[slot];
+      if (typeof val === 'string' && val && !val.startsWith('data:')) {
+        thumbPath = val;
+        break;
+      }
+    }
+  }
+
   return {
     id: row.id,
     name: row.name,
     createdAt: new Date(row.created_at).getTime(),
     updatedAt: new Date(row.updated_at).getTime(),
-    thumbnail: row.thumbnail ? getPublicUrl(row.thumbnail) : undefined,
+    thumbnail: thumbPath ? getPublicUrl(thumbPath) : undefined,
     config: {
       imageSize: (row.config?.imageSize as string) ?? '2K',
       aspectRatio: (row.config?.aspectRatio as string) ?? '1:1',
@@ -345,7 +359,7 @@ async function withFallback<T>(
   try {
     return await sbFn();
   } catch (err) {
-    console.warn('[DB] Supabase call failed, falling back to IndexedDB:', err);
+    import.meta.env.DEV && console.warn('[DB] Supabase call failed, falling back to IndexedDB:', err);
     return idbFn();
   }
 }
@@ -364,13 +378,13 @@ export async function saveProject(project: Project): Promise<void> {
   try {
     await sbSave(project);
   } catch (err) {
-    console.warn('[DB] Supabase save failed, saving to IndexedDB:', err);
+    import.meta.env.DEV && console.warn('[DB] Supabase save failed, saving to IndexedDB:', err);
   }
   // Always keep a local copy (non-blocking — don't crash if IDB fails)
   try {
     await idbSave(project);
   } catch (err) {
-    console.warn('[DB] IndexedDB save failed:', err);
+    import.meta.env.DEV && console.warn('[DB] IndexedDB save failed:', err);
   }
 }
 
@@ -379,7 +393,7 @@ export async function deleteProject(id: string): Promise<void> {
   try {
     await sbDelete(id);
   } catch (err) {
-    console.warn('[DB] Supabase delete failed:', err);
+    import.meta.env.DEV && console.warn('[DB] Supabase delete failed:', err);
   }
   await idbDelete(id);
 }
@@ -438,7 +452,7 @@ export async function patchProjectVariants(
 
       if (updateErr) throw new Error(`Update failed: ${updateErr.message}`);
     } catch (err) {
-      console.warn('[DB] Supabase patchProjectVariants failed, falling back to IndexedDB:', err);
+      import.meta.env.DEV && console.warn('[DB] Supabase patchProjectVariants failed, falling back to IndexedDB:', err);
     }
   }
 
@@ -452,7 +466,7 @@ export async function patchProjectVariants(
       await idbSave(localProject);
     }
   } catch (err) {
-    console.warn('[DB] IndexedDB patchProjectVariants failed:', err);
+    import.meta.env.DEV && console.warn('[DB] IndexedDB patchProjectVariants failed:', err);
   }
 }
 

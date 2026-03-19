@@ -22,7 +22,7 @@ const Cookies: React.FC<Props> = ({ onBack }) => {
         <h2>1. Qu'est-ce qu'un cookie ?</h2>
         <p>Un cookie est un petit fichier texte d&eacute;pos&eacute; sur votre terminal (ordinateur, tablette, smartphone) lors de la consultation d'un site internet. Il permet au site de m&eacute;moriser des informations sur votre visite, comme vos pr&eacute;f&eacute;rences de langue ou d'autres param&egrave;tres.</p>
 
-        <h2>2. Cookies utilis&eacute;s sur Photo Studio</h2>
+        <h2>2. Cookies utilis&eacute;s sur FrameFlow</h2>
 
         <h3>Cookies strictement n&eacute;cessaires (sans consentement)</h3>
         <p>Ces cookies sont indispensables au fonctionnement du site et ne peuvent pas &ecirc;tre d&eacute;sactiv&eacute;s :</p>
@@ -69,7 +69,7 @@ const Cookies: React.FC<Props> = ({ onBack }) => {
         </ul>
 
         <h2>6. Contact</h2>
-        <p>Pour toute question concernant notre utilisation des cookies, contactez-nous &agrave; : <span className="placeholder">[email &agrave; compl&eacute;ter]</span></p>
+        <p>Pour toute question concernant notre utilisation des cookies, contactez-nous &agrave; : contact@frameflow.design</p>
       </div>
     </div>
   );

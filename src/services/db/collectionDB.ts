@@ -183,7 +183,7 @@ async function withFallback<T>(
   try {
     return await sbFn();
   } catch (err) {
-    console.warn('[CollectionDB] Supabase call failed, falling back to IndexedDB:', err);
+    import.meta.env.DEV && console.warn('[CollectionDB] Supabase call failed, falling back to IndexedDB:', err);
     return idbFn();
   }
 }
@@ -198,7 +198,7 @@ export async function saveCollection(collection: Collection): Promise<void> {
   try {
     await sbSave(collection);
   } catch (err) {
-    console.warn('[CollectionDB] Supabase save failed, saving to IndexedDB:', err);
+    import.meta.env.DEV && console.warn('[CollectionDB] Supabase save failed, saving to IndexedDB:', err);
   }
   // Always keep a local copy
   await idbSave(collection);
@@ -209,7 +209,7 @@ export async function deleteCollection(id: string): Promise<void> {
   try {
     await sbDelete(id);
   } catch (err) {
-    console.warn('[CollectionDB] Supabase delete failed:', err);
+    import.meta.env.DEV && console.warn('[CollectionDB] Supabase delete failed:', err);
   }
   await idbDelete(id);
 }

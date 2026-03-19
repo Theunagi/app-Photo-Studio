@@ -58,10 +58,10 @@ export async function purchasePackage(
   htmlTarget: HTMLElement,
   customerEmail?: string,
 ): Promise<CustomerInfo> {
-  console.log('[RC] purchasePackage called');
-  console.log('[RC] Package:', rcPackage.identifier, rcPackage);
-  console.log('[RC] htmlTarget:', htmlTarget, 'offsetWidth:', htmlTarget.offsetWidth, 'offsetHeight:', htmlTarget.offsetHeight);
-  console.log('[RC] customerEmail:', customerEmail);
+  import.meta.env.DEV && console.log('[RC] purchasePackage called');
+  import.meta.env.DEV && console.log('[RC] Package:', rcPackage.identifier, rcPackage);
+  import.meta.env.DEV && console.log('[RC] htmlTarget:', htmlTarget, 'offsetWidth:', htmlTarget.offsetWidth, 'offsetHeight:', htmlTarget.offsetHeight);
+  import.meta.env.DEV && console.log('[RC] customerEmail:', customerEmail);
 
   try {
     const result = await getInstance().purchase({
@@ -70,7 +70,7 @@ export async function purchasePackage(
       customerEmail,
       selectedLocale: 'fr',
     });
-    console.log('[RC] Purchase result:', result);
+    import.meta.env.DEV && console.log('[RC] Purchase result:', result);
     return result.customerInfo;
   } catch (err) {
     console.error('[RC] Purchase error:', err);

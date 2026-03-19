@@ -1,14 +1,14 @@
 // src/screens/Upload/components/GroupingView.tsx
 import React, { useState, useCallback } from 'react';
 import type { ImageGroup, GroupingResult } from '../../../services/api/imageGrouping';
+import { GENERATION_COST } from '../../../services/db/points';
 
 interface GroupingViewProps {
   files: File[];
   groupingResult: GroupingResult;
   thumbnails: string[];
-  creditsPerProject: number;
   creditsAvailable: number;
-  onLaunchBatch: (groups: ImageGroup[]) => void;
+  onLaunchBatch: (groups: ImageGroup[], imageSize: '2K' | '4K') => void;
   onBack: () => void;
 }
 
@@ -16,7 +16,6 @@ const GroupingView: React.FC<GroupingViewProps> = ({
   files,
   groupingResult,
   thumbnails,
-  creditsPerProject,
   creditsAvailable,
   onLaunchBatch,
   onBack,
@@ -25,7 +24,9 @@ const GroupingView: React.FC<GroupingViewProps> = ({
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
     new Set(groupingResult.groups.map((_, i) => i))
   );
+  const [imageSize, setImageSize] = useState<'2K' | '4K'>('2K');
 
+  const creditsPerProject = GENERATION_COST[imageSize] ?? 2;
   const selectedGroups = groups.filter((_, i) => selectedIndices.has(i));
   const totalCost = selectedGroups.length * creditsPerProject;
   const canAfford = totalCost <= creditsAvailable;
@@ -61,8 +62,8 @@ const GroupingView: React.FC<GroupingViewProps> = ({
 
   const handleLaunch = useCallback(() => {
     const toProcess = groups.filter((_, i) => selectedIndices.has(i));
-    onLaunchBatch(toProcess);
-  }, [groups, selectedIndices, onLaunchBatch]);
+    onLaunchBatch(toProcess, imageSize);
+  }, [groups, selectedIndices, onLaunchBatch, imageSize]);
 
   return (
     <div className="grouping-view">
@@ -73,6 +74,17 @@ const GroupingView: React.FC<GroupingViewProps> = ({
           <h2>{groups.length} product{groups.length !== 1 ? 's' : ''} detected</h2>
         </div>
         <div className="grouping-header-right">
+          {/* Resolution Toggle */}
+          <div className="resolution-toggle">
+            <button
+              className={`res-btn ${imageSize === '2K' ? 'active' : ''}`}
+              onClick={() => setImageSize('2K')}
+            >2K</button>
+            <button
+              className={`res-btn ${imageSize === '4K' ? 'active' : ''}`}
+              onClick={() => setImageSize('4K')}
+            >4K</button>
+          </div>
           <span className="grouping-cost">
             Cost: {totalCost} credits
             {!canAfford && <span className="grouping-cost-warning"> (insufficient)</span>}

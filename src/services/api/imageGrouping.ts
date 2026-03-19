@@ -128,7 +128,7 @@ export async function groupImagesByAI(
       }
       allUngrouped.push(...result.ungrouped.map(idx => idx + batchOffset));
     } catch (err) {
-      console.warn('[Grouping] Vision API failed for batch, using fallback:', err);
+      import.meta.env.DEV && console.warn('[Grouping] Vision API failed for batch, using fallback:', err);
       // Fallback: each image in this batch becomes its own group
       for (let j = 0; j < batch.length; j++) {
         const globalIdx = batchOffset + j;

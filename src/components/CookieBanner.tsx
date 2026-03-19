@@ -12,16 +12,19 @@ function setConsent(status: 'accepted' | 'refused') {
   localStorage.setItem('cookie_consent_date', new Date().toISOString());
 }
 
-// Load Google Analytics only if consent given
+// Load Google Analytics + Google Ads pixel only if consent given
 function loadAnalytics() {
   // Only load if not already loaded
   if (document.querySelector('script[src*="googletagmanager"]')) return;
 
   const gaId = import.meta.env.VITE_GA_ID;
-  if (!gaId) return;
+  const gAdsId = import.meta.env.VITE_GOOGLE_ADS_ID;
+  // Need at least one ID
+  if (!gaId && !gAdsId) return;
 
+  const primaryId = gaId || gAdsId;
   const script = document.createElement('script');
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${primaryId}`;
   script.async = true;
   document.head.appendChild(script);
 
@@ -29,7 +32,12 @@ function loadAnalytics() {
     (window as any).dataLayer = (window as any).dataLayer || [];
     function gtag(...args: any[]) { (window as any).dataLayer.push(args); }
     gtag('js', new Date());
-    gtag('config', gaId);
+    // Google Analytics
+    if (gaId) gtag('config', gaId);
+    // Google Ads pixel
+    if (gAdsId) gtag('config', gAdsId);
+    // Expose gtag globally for conversion tracking
+    (window as any).gtag = gtag;
   };
 }
 

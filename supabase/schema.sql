@@ -1,4 +1,4 @@
--- Photo Studio — Supabase Schema
+-- FrameFlow — Supabase Schema
 -- Run this in the Supabase SQL Editor (Dashboard > SQL Editor > New query)
 
 -- ============================================================

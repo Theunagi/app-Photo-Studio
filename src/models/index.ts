@@ -1,5 +1,5 @@
 /**
- * Photo Studio - Data Models
+ * FrameFlow - Data Models
  */
 
 // Studio Pro Pipeline

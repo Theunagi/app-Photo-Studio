@@ -15,12 +15,14 @@ import Confidentialite from './screens/Legal/Confidentialite';
 import CookiesPage from './screens/Legal/Cookies';
 import CGU from './screens/Legal/CGU';
 import CookieBanner from './components/CookieBanner';
+import SettingsScreen from './screens/Settings/SettingsScreen';
 
 type View =
   | { screen: 'home'; collectionFilter?: string }
   | { screen: 'studio'; project: Project | null }
   | { screen: 'pricing' }
   | { screen: 'upload' }
+  | { screen: 'settings' }
   | { screen: 'loading' }
   | { screen: 'legal'; page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu' };
 
@@ -107,6 +109,7 @@ function App() {
   const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); }, [refreshProfile]);
   const goPricing = useCallback(() => { setView({ screen: 'pricing' }); }, []);
   const goUpload = useCallback(() => { setView({ screen: 'upload' }); }, []);
+  const goSettings = useCallback(() => { setView({ screen: 'settings' }); }, []);
   const goLegal = useCallback((page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu') => {
     setView({ screen: 'legal', page });
   }, []);
@@ -144,7 +147,7 @@ function App() {
   if (view.screen === 'legal') {
     const backFn = user ? goHome : goLanding;
     switch (view.page) {
-      case 'mentions-legales': return <><MentionsLegales onBack={backFn} /><CookieBanner /></>;
+      case 'mentions-legales': return <><MentionsLegales onBack={backFn} onLegalPage={goLegal} /><CookieBanner /></>;
       case 'cgv': return <><CGV onBack={backFn} /><CookieBanner /></>;
       case 'confidentialite': return <><Confidentialite onBack={backFn} /><CookieBanner /></>;
       case 'cookies': return <><CookiesPage onBack={backFn} /><CookieBanner /></>;
@@ -155,7 +158,7 @@ function App() {
   // Not logged in
   if (!user) {
     if (showLogin) {
-      return <LoginScreen onDevLogin={handleDevLogin} />;
+      return <LoginScreen onDevLogin={handleDevLogin} onBack={() => setShowLogin(false)} />;
     }
     return <><LandingScreen onLogin={() => setShowLogin(true)} onDevLogin={handleDevLogin} onLegalPage={goLegal} /><CookieBanner /></>;
   }
@@ -200,6 +203,7 @@ function App() {
       case 'studio':
         return (
           <StudioScreen
+            key={view.project?.id ?? '__fast__'}
             project={view.project}
             onBack={goHome}
             onOpenStudio={openStudio}
@@ -210,6 +214,7 @@ function App() {
             credits={profile?.points_balance}
             onSignOut={handleSignOut}
             onGoPricing={goPricing}
+            onGoSettings={goSettings}
             onMassImport={goUpload}
           />
         );
@@ -224,6 +229,17 @@ function App() {
             onCreditsChanged={refreshProfile}
           />
         );
+      case 'settings':
+        return (
+          <SettingsScreen
+            onBack={goHome}
+            user={user}
+            profile={profile}
+            onSignOut={handleSignOut}
+            onGoPricing={goPricing}
+            onProfileUpdated={refreshProfile}
+          />
+        );
       default:
         return (
           <HomeScreen
@@ -234,6 +250,7 @@ function App() {
             credits={profile?.points_balance}
             onSignOut={handleSignOut}
             onGoPricing={goPricing}
+            onGoSettings={goSettings}
             collectionFilter={(view as { collectionFilter?: string }).collectionFilter}
           />
         );

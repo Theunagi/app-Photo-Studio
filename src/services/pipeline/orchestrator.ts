@@ -28,8 +28,6 @@ import type {
   PipelineStep,
 } from '../../models/pipeline';
 import {
-  RETOUCH_PRESET_LIGHT,
-  RETOUCH_PRESET_DARK,
   createInitialPipelineState,
 } from '../../models/pipeline';
 
@@ -40,7 +38,7 @@ import { generateStudioImage } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
 
 // Image Processing (DSP — client-side, no API keys)
-import { applyColorGrading } from '../imageProcessing/colorGrading';
+// applyColorGrading: imported when retouch step is re-enabled
 import { composeShadow } from '../imageProcessing/shadowComposer';
 import { autoCrop } from '../imageProcessing/autoCrop';
 import { blobToDataUrl, dataUrlToBlob } from '../imageProcessing/utils';
@@ -70,8 +68,9 @@ async function uploadToStorage(
   sessionId: string,
   label: string,
 ): Promise<string> {
-  const parts = dataUrl.split(',');
-  const bstr = atob(parts[1]);
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx < 0) throw new Error('Invalid data URL format');
+  const bstr = atob(dataUrl.slice(commaIdx + 1));
   const n = bstr.length;
   const u8arr = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
@@ -196,7 +195,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
         imageDataUrl,
       };
     } catch (falErr) {
-      console.warn('[Pipeline] Fal.ai failed, trying NanoBanana:', falErr);
+      import.meta.env.DEV && console.warn('[Pipeline] Fal.ai failed, trying NanoBanana:', falErr);
     }
 
     // 2) NanoBanana Pro — fallback
@@ -218,7 +217,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   // =========================================================================
   // Use the ORIGINAL input image for luminance check (much smaller than 4K generated image)
   // The product luminance is the same regardless of the render resolution
-  const luminanceClass = await executeStep<LuminanceClass>(state, 'luminanceCheck', onStateChange, async () => {
+  await executeStep<LuminanceClass>(state, 'luminanceCheck', onStateChange, async () => {
     return checkLuminance(inputStorageUrl);
   });
 

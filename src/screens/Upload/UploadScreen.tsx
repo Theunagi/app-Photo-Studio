@@ -42,7 +42,8 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
   const [isPaused] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const CREDITS_PER_PROJECT = GENERATION_COST['2K'] ?? 2;
+  const [batchImageSize, setBatchImageSize] = useState<'2K' | '4K'>('2K');
+  const CREDITS_PER_PROJECT = GENERATION_COST[batchImageSize] ?? 2;
 
   // Step 1: Files selected from DropZone
   const handleFilesSelected = useCallback(async (selectedFiles: File[]) => {
@@ -90,7 +91,8 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
   }, [collectionName]);
 
   // Step 2 -> Step 3: Launch batch
-  const handleLaunchBatch = useCallback(async (groups: ImageGroup[]) => {
+  const handleLaunchBatch = useCallback(async (groups: ImageGroup[], imageSize: '2K' | '4K' = '2K') => {
+    setBatchImageSize(imageSize);
     setStep('batch');
 
     // Create collection
@@ -121,7 +123,7 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
       try {
         // Deduct credits before running pipeline
         try {
-          await deductPoints(CREDITS_PER_PROJECT);
+          await deductPoints(GENERATION_COST[imageSize] ?? 2);
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Insufficient credits';
           statuses[i] = { ...statuses[i], status: 'error', error: errMsg };
@@ -151,7 +153,7 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
         // Run pipeline
         const state = await runPipeline({
           config: {
-            imageSize: '2K',
+            imageSize: imageSize,
             aspectRatio: '1:1',
             outputFormat: 'transparent-shadow',
             sessionId: project.id,
@@ -177,6 +179,11 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
           shadowComposite: state.shadowComposite?.data?.imageDataUrl,
           autoCrop: state.autoCrop?.data?.imageDataUrl,
         };
+        project.thumbnail = state.autoCrop?.data?.imageDataUrl
+          ?? state.retouch?.data?.imageDataUrl
+          ?? state.shadowComposite?.data?.imageDataUrl
+          ?? state.studioGeneration?.data?.imageDataUrl
+          ?? state.input?.data?.imageDataUrl;
         await saveProject(project);
 
         statuses[i] = { ...statuses[i], status: 'completed', progress: 100 };
@@ -248,7 +255,6 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
             files={files}
             groupingResult={groupingResult}
             thumbnails={thumbnails}
-            creditsPerProject={CREDITS_PER_PROJECT}
             creditsAvailable={creditsAvailable}
             onLaunchBatch={handleLaunchBatch}
             onBack={() => { setStep('drop'); setGroupingResult(null); }}

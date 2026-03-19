@@ -24,10 +24,10 @@ if (supabaseUrl && supabaseAnonKey) {
     });
     _initOk = true;
   } catch (err) {
-    console.warn('[Supabase] createClient failed — falling back to IndexedDB:', err);
+    import.meta.env.DEV && console.warn('[Supabase] createClient failed — falling back to IndexedDB:', err);
   }
 } else {
-  console.warn('[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — DB features disabled.');
+  import.meta.env.DEV && console.warn('[Supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — DB features disabled.');
 }
 
 /**
@@ -106,7 +106,7 @@ export async function testSupabaseConnection(): Promise<SupabaseDiagnostic> {
     storageConnected: false, storageWritable: false,
   };
   if (!_initOk || !_supabase) {
-    console.warn('[Supabase] Not configured — using IndexedDB');
+    import.meta.env.DEV && console.warn('[Supabase] Not configured — using IndexedDB');
     return result;
   }
   result.configured = true;
@@ -148,6 +148,6 @@ export async function testSupabaseConnection(): Promise<SupabaseDiagnostic> {
     else { result.storageWritable = true; await _supabase.storage.from('project-images').remove([testPath]); }
   } catch (err) { result.storageWriteError = String(err); }
 
-  console.log('[Supabase] Diagnostic:', JSON.stringify(result, null, 2));
+  import.meta.env.DEV && console.log('[Supabase] Diagnostic:', JSON.stringify(result, null, 2));
   return result;
 }

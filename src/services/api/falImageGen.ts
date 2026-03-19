@@ -41,6 +41,10 @@ export async function editImage(
     resolution?: string;
     aspectRatio?: string;
     sessionId?: string;
+    /** When true, the source image is a lifestyle scene (not a white-bg studio shot) */
+    isLifestyle?: boolean;
+    /** Product description from pipeline analysis (texts, colors, materials) */
+    productDescription?: string;
   },
 ): Promise<{ resultImageUrl: string }> {
   const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
@@ -49,6 +53,8 @@ export async function editImage(
     userPrompt: editPrompt,
     resolution: options?.resolution,
     aspectRatio: options?.aspectRatio,
+    isLifestyle: options?.isLifestyle ?? false,
+    productDescription: options?.productDescription,
   });
   return { resultImageUrl: result.imageUrl };
 }

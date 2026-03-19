@@ -56,7 +56,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
     fetchOfferings().then(offerings => {
       const current = offerings.current;
       if (!current) {
-        console.warn('[RC] No current offering found');
+        import.meta.env.DEV && console.warn('[RC] No current offering found');
         return;
       }
 
@@ -67,7 +67,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
         pkgMap.set(planId, pkg);
       }
       setRcPackages(pkgMap);
-      console.log('[RC] Offerings loaded:', [...pkgMap.keys()]);
+      import.meta.env.DEV && console.log('[RC] Offerings loaded:', [...pkgMap.keys()]);
     }).catch(err => {
       console.error('[RC] Failed to load offerings:', err);
     });
@@ -95,30 +95,30 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
       pollingRef.current = null;
     }
 
-    console.log(`[RC] finalizePurchase from ${source} for plan: ${planId}`);
+    import.meta.env.DEV && console.log(`[RC] finalizePurchase from ${source} for plan: ${planId}`);
 
     // Determine the plan from the entitlement or fallback to the selected planId
     let confirmedPlan = planId;
     try {
       const activePlan = await getActiveEntitlement();
       if (activePlan) confirmedPlan = activePlan;
-      console.log('[RC] Active entitlement plan:', activePlan);
+      import.meta.env.DEV && console.log('[RC] Active entitlement plan:', activePlan);
     } catch (entErr) {
-      console.warn('[RC] Could not check entitlement, using selected plan:', planId);
+      import.meta.env.DEV && console.warn('[RC] Could not check entitlement, using selected plan:', planId);
     }
 
     // Provision credits directly in Supabase
     try {
       const updatedProfile = await provisionCredits(confirmedPlan);
-      console.log('[RC] Credits provisioned:', updatedProfile.plan, updatedProfile.points_balance, 'credits');
+      import.meta.env.DEV && console.log('[RC] Credits provisioned:', updatedProfile.plan, updatedProfile.points_balance, 'credits');
     } catch (provisionErr) {
       console.error('[RC] Credit provisioning failed:', provisionErr);
       // Fallback: try refreshProfile in case webhook already handled it
       try {
         const fallbackProfile = await refreshProfile();
-        console.log('[RC] Fallback profile:', fallbackProfile.plan, fallbackProfile.points_balance, 'credits');
+        import.meta.env.DEV && console.log('[RC] Fallback profile:', fallbackProfile.plan, fallbackProfile.points_balance, 'credits');
       } catch (syncErr) {
-        console.warn('[RC] Profile sync also failed:', syncErr);
+        import.meta.env.DEV && console.warn('[RC] Profile sync also failed:', syncErr);
       }
     }
 
@@ -136,7 +136,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
       return;
     }
 
-    console.log('[RC] handleRCPurchase:', planId, 'pkg:', pkg.identifier);
+    import.meta.env.DEV && console.log('[RC] handleRCPurchase:', planId, 'pkg:', pkg.identifier);
     provisionedRef.current = false; // Reset for new purchase
     setLoading(planId);
     setError(null);
@@ -152,7 +152,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
       return;
     }
 
-    console.log('[RC] checkoutRef ready, dimensions:', checkoutRef.current.offsetWidth, 'x', checkoutRef.current.offsetHeight);
+    import.meta.env.DEV && console.log('[RC] checkoutRef ready, dimensions:', checkoutRef.current.offsetWidth, 'x', checkoutRef.current.offsetHeight);
 
     // --- Strategy: Race between purchase() Promise and polling ---
 
@@ -169,9 +169,9 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
           expires: (v as unknown as { expirationDate?: string }).expirationDate ?? '',
         }))
       );
-      console.log('[RC] Entitlement snapshot before checkout:', snapshotBefore);
+      import.meta.env.DEV && console.log('[RC] Entitlement snapshot before checkout:', snapshotBefore);
     } catch {
-      console.warn('[RC] Could not snapshot entitlements before checkout');
+      import.meta.env.DEV && console.warn('[RC] Could not snapshot entitlements before checkout');
     }
 
     // 1. Start polling getCustomerInfo() every 3s to detect entitlement CHANGES
@@ -189,19 +189,19 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
         );
         // Detect ANY change in entitlements (new, different product, different expiry)
         if (snapshotNow !== snapshotBefore && Object.keys(activeNow).length > 0) {
-          console.log('[RC] Polling detected entitlement CHANGE:', snapshotNow);
+          import.meta.env.DEV && console.log('[RC] Polling detected entitlement CHANGE:', snapshotNow);
           finalizePurchase(planId, 'polling');
         }
       } catch (pollErr) {
         // Silently ignore polling errors
-        console.debug('[RC] Poll error (ignored):', pollErr);
+        import.meta.env.DEV && console.debug('[RC] Poll error (ignored):', pollErr);
       }
     }, 3000);
 
     // 2. Also await purchase() in case it resolves
     try {
       const customerInfo = await purchasePackage(pkg, checkoutRef.current, userEmail);
-      console.log('[RC] purchase() Promise resolved:', customerInfo);
+      import.meta.env.DEV && console.log('[RC] purchase() Promise resolved:', customerInfo);
       finalizePurchase(planId, 'promise');
     } catch (err) {
       console.error('[RC] Purchase failed:', err);

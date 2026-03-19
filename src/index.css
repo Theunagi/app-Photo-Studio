@@ -1,5 +1,5 @@
 /**
- * Photo Studio - Design System
+ * FrameFlow - Design System
  * Apple HIG-inspired aesthetic for a professional photography tool
  * System font stack: SF Pro Display / SF Pro Text via -apple-system
  */
@@ -201,55 +201,55 @@ body {
   scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
-/* ─── Typography ─── */
-h1, h2, h3, h4, h5, h6 {
+/* ─── Typography (scoped: excluded from .landing-page which uses Tailwind) ─── */
+:where(:not(.landing-page, .landing-page *)):is(h1, h2, h3, h4, h5, h6) {
   font-family: var(--font-display);
   font-weight: var(--fw-semibold);
   line-height: var(--lh-heading);
   color: var(--color-text);
 }
 
-h1 {
+:where(:not(.landing-page, .landing-page *)):is(h1) {
   font-size: var(--text-5xl);
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
 }
 
-h2 {
+:where(:not(.landing-page, .landing-page *)):is(h2) {
   font-size: var(--text-4xl);
   font-weight: var(--fw-bold);
   letter-spacing: var(--ls-tight);
 }
 
-h3 {
+:where(:not(.landing-page, .landing-page *)):is(h3) {
   font-size: var(--text-3xl);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--ls-heading);
 }
 
-h4 {
+:where(:not(.landing-page, .landing-page *)):is(h4) {
   font-size: var(--text-2xl);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--ls-heading);
 }
 
-h5 {
+:where(:not(.landing-page, .landing-page *)):is(h5) {
   font-size: var(--text-xl);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--ls-subheading);
 }
 
-h6 {
+:where(:not(.landing-page, .landing-page *)):is(h6) {
   font-size: var(--text-lg);
   font-weight: var(--fw-semibold);
   letter-spacing: var(--ls-subheading);
 }
 
-p {
+:where(:not(.landing-page, .landing-page *)):is(p) {
   line-height: var(--lh-body);
 }
 
-small {
+:where(:not(.landing-page, .landing-page *)):is(small) {
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
 }

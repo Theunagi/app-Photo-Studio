@@ -40,7 +40,9 @@ function resolvePlanId(priceId: string, productName?: string): string {
   const priceLower = priceId.toLowerCase();
   if (priceLower.includes('business')) return 'business';
   if (priceLower.includes('pro')) return 'pro';
-  return 'starter';
+  if (priceLower.includes('starter')) return 'starter';
+  console.error(`[stripe-webhook] Unknown price ID: ${priceId}, product: ${productName}`);
+  return 'starter'; // safe default — logs the unknown ID for investigation
 }
 
 // --- Stripe signature verification ---
@@ -71,23 +73,20 @@ function getAdminClient() {
   );
 }
 
-// --- Idempotency check (prevent duplicate event processing) ---
+// --- Idempotency: atomic claim via INSERT (PK conflict = duplicate) ---
 
-async function isEventAlreadyProcessed(eventId: string): Promise<boolean> {
+async function claimEvent(eventId: string, eventType: string): Promise<boolean> {
   const supabase = getAdminClient();
-  const { data } = await supabase
+  const { error } = await supabase
     .from('webhook_events')
-    .select('event_id')
-    .eq('event_id', eventId)
-    .single();
-  return !!data;
-}
-
-async function markEventProcessed(eventId: string, eventType: string): Promise<void> {
-  const supabase = getAdminClient();
-  await supabase
-    .from('webhook_events')
-    .upsert({ event_id: eventId, event_type: eventType, processed_at: new Date().toISOString() });
+    .insert({ event_id: eventId, event_type: eventType, processed_at: new Date().toISOString() });
+  if (error) {
+    // PK conflict (23505) = already processed
+    if (error.code === '23505') return false;
+    console.error(`[Webhook] Failed to claim event ${eventId}:`, error.message);
+    return false;
+  }
+  return true; // successfully claimed — safe to process
 }
 
 // --- Event handlers ---
@@ -366,8 +365,9 @@ serve(async (req: Request) => {
 
     console.log(`[Webhook] Received event: ${event.type} (${event.id})`);
 
-    // Idempotency: skip if we already processed this event
-    if (await isEventAlreadyProcessed(event.id)) {
+    // Idempotency: atomically claim the event (INSERT with PK — no race condition)
+    const claimed = await claimEvent(event.id, event.type);
+    if (!claimed) {
       console.log(`[Webhook] Event ${event.id} already processed — skipping`);
       return new Response(JSON.stringify({ received: true, duplicate: true }), {
         headers: { 'Content-Type': 'application/json' },
@@ -394,9 +394,6 @@ serve(async (req: Request) => {
       default:
         console.log(`[Webhook] Unhandled event type: ${event.type}`);
     }
-
-    // Mark event as processed for idempotency
-    await markEventProcessed(event.id, event.type);
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { 'Content-Type': 'application/json' },

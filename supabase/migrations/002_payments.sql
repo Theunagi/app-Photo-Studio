@@ -1,5 +1,5 @@
 -- ============================================================
--- Photo Studio — Payment & Subscription Schema
+-- FrameFlow — Payment & Subscription Schema
 -- Run after schema.sql (001)
 -- ============================================================
 

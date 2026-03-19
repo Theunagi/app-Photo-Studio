@@ -1,5 +1,5 @@
 /**
- * Photo Studio - Landing Page
+ * FrameFlow - Landing Page
  * Marketing page shown to unauthenticated users.
  * Uses Tailwind CSS + Motion + Lucide icons.
  */
@@ -9,8 +9,7 @@ import { motion, AnimatePresence, useInView } from 'motion/react';
 import {
   Camera, ArrowRight, Sparkles, Menu, X,
   MessageSquarePlus, Image, Pencil, RotateCcw, Download,
-  Smartphone, Zap, TrendingUp, DollarSign, Clock, Shield,
-  Check, Minus, Plus,
+  Smartphone, Zap, Plus,
 } from 'lucide-react';
 
 /** Animated counter that counts from 0 to `end` when element scrolls into view */
@@ -49,7 +48,7 @@ export interface LandingScreenProps {
 
 const TESTIMONIALS = [
   {
-    quote: "We switched from studio shoots to Photo Studio for our entire Amazon catalog. 400+ SKUs done in 2 days instead of 3 weeks. The white backgrounds are flawless — passed Amazon compliance on every single image.",
+    quote: "We switched from studio shoots to FrameFlow for our entire Amazon catalog. 400+ SKUs done in 2 days instead of 3 weeks. The white backgrounds are flawless — passed Amazon compliance on every single image.",
     name: "Marcus Chen",
     role: "Amazon FBA Seller — $2M+ revenue",
   },
@@ -64,12 +63,12 @@ const TESTIMONIALS = [
     role: "Founder — Pixel Commerce Agency",
   },
   {
-    quote: "The shadow quality is what sold me. Every other AI tool gives you flat, fake-looking results. Photo Studio shadows look like they were shot in a real studio. My Shopify conversion rate is up 28%.",
+    quote: "The shadow quality is what sold me. Every other AI tool gives you flat, fake-looking results. FrameFlow shadows look like they were shot in a real studio. My Shopify conversion rate is up 28%.",
     name: "Laura Martinez",
     role: "D2C Brand Owner — Home & Kitchen",
   },
   {
-    quote: "I test 30-50 new products per week on my store. Before Photo Studio, product photography was my biggest bottleneck. Now I upload, wait 30 seconds, and I'm live. Game changer for dropshipping.",
+    quote: "I test 30-50 new products per week on my store. Before FrameFlow, product photography was my biggest bottleneck. Now I upload, wait 30 seconds, and I'm live. Game changer for dropshipping.",
     name: "Kevin Nguyen",
     role: "Dropshipper — 7-figure Store",
   },
@@ -108,7 +107,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               <Camera size={18} />
             </div>
             <span className="font-display font-bold text-xl tracking-tight text-humble-text">
-              Photo Studio
+              FrameFlow
             </span>
           </div>
 
@@ -116,6 +115,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
             <a href="#features" className="hover:text-humble-text transition-colors">Features</a>
             <a href="#how-it-works" className="hover:text-humble-text transition-colors">How it Works</a>
             <a href="#pricing" className="hover:text-humble-text transition-colors">Pricing</a>
+            <a href="#contact" className="hover:text-humble-text transition-colors">Contact</a>
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
@@ -152,6 +152,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               <a href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
               <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>How it Works</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
+              <a href="#contact" onClick={() => setMobileMenuOpen(false)}>Contact</a>
               <hr className="border-humble-border" />
               <button className="text-left" onClick={onLogin}>Log in</button>
               <button
@@ -176,26 +177,91 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               transition={appleTransition}
               className="text-center max-w-3xl mx-auto mb-10"
             >
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-white mb-5">
-                <span className="w-2 h-2 rounded-full bg-humble-orange" />
-                <span className="text-sm font-medium text-humble-text">AI Studio</span>
-              </div>
-
               <h1 className="text-4xl md:text-[56px] font-bold tracking-tighter text-[#111111] mb-5 leading-[1.08]">
                 Turn Product Photos<br />Into Profit.
               </h1>
-              <p className="text-lg md:text-xl font-semibold text-humble-orange mb-2">Instantly. No skills needed.</p>
-              <p className="text-base md:text-lg text-[#666666] mb-8 font-light tracking-tight max-w-xl mx-auto">
-                Transform smartphone pictures into high-converting visuals in seconds. Cut your photo costs by 90%, not your quality.
+              <p className="text-base md:text-lg text-humble-text font-medium tracking-tight mb-8">
+                Our AI is trained on the <span className="text-humble-orange font-semibold">top 1% of Amazon best-selling listings.</span>
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <button onClick={onLogin} className="humble-btn-secondary py-3 px-7 text-sm font-semibold">
-                  Talk to Sales
+              <div className="flex flex-col items-center gap-3">
+                <button onClick={onLogin} className="humble-btn-primary py-3 px-10 text-base">
+                  Start Free Trial <ArrowRight size={16} className="inline ml-1" />
                 </button>
-                <button onClick={onLogin} className="humble-btn-primary py-3 px-7 text-sm">
-                  Start Free Trial
-                </button>
+              </div>
+
+              {/* Metrics bar — single line with icons */}
+              <div className="hidden md:flex items-center justify-center gap-6 mt-10">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.5 3.5L13 5l-2.5 2.5.5 3.5L8 9.5 4.5 11l.5-3.5L2.5 5l3.5-.5L8 1z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-[13px] text-humble-text font-medium whitespace-nowrap">10,000+ photos generated</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm-.5 2v3.5l2.5 1.5.5-.87-2-1.2V5h-1z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-[13px] text-humble-text font-medium whitespace-nowrap">Results in 60s</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 12V4.5L8 2l6 2.5V12l-6 2.5L2 12zm2-1.2l4 1.7 4-1.7V5.7L8 4 4 5.7v5.1z" fill="#E8613A"/><path d="M6 7.5l1.5 1.5L11 5.5l-1-1-2.5 2.5L6.5 6 6 7.5z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-[13px] text-humble-text font-medium whitespace-nowrap">90% cheaper</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7.25 5a.75.75 0 011.5 0v3.19l2.03 1.22a.75.75 0 01-.78 1.28l-2.25-1.35A.75.75 0 017.25 8.6V5z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-[13px] text-humble-text font-medium whitespace-nowrap">No credit card required</span>
+                </div>
+              </div>
+              {/* Mobile: 2x2 grid */}
+              <div className="grid grid-cols-2 gap-3 mt-6 md:hidden px-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.5 3.5L13 5l-2.5 2.5.5 3.5L8 9.5 4.5 11l.5-3.5L2.5 5l3.5-.5L8 1z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-xs text-humble-text font-medium">10,000+ photos</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 2a5 5 0 110 10A5 5 0 018 3zm-.5 2v3.5l2.5 1.5.5-.87-2-1.2V5h-1z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-xs text-humble-text font-medium">Results in 60s</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 12V4.5L8 2l6 2.5V12l-6 2.5L2 12zm2-1.2l4 1.7 4-1.7V5.7L8 4 4 5.7v5.1z" fill="#E8613A"/><path d="M6 7.5l1.5 1.5L11 5.5l-1-1-2.5 2.5L6.5 6 6 7.5z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-xs text-humble-text font-medium">90% cheaper</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-humble-orange/10 flex items-center justify-center flex-shrink-0">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM7.25 5a.75.75 0 011.5 0v3.19l2.03 1.22a.75.75 0 01-.78 1.28l-2.25-1.35A.75.75 0 017.25 8.6V5z" fill="#E8613A"/></svg>
+                  </div>
+                  <span className="text-xs text-humble-text font-medium">No credit card</span>
+                </div>
+              </div>
+
+              {/* Social proof — avatars + stars */}
+              <div className="inline-flex items-center gap-3 mt-6 px-5 py-2.5 rounded-full bg-white border border-humble-border/60 shadow-sm">
+                <div className="flex -space-x-2">
+                  <div className="w-7 h-7 rounded-full bg-[#F4C7A3] border-2 border-white flex items-center justify-center text-xs">👩🏽</div>
+                  <div className="w-7 h-7 rounded-full bg-[#D4A574] border-2 border-white flex items-center justify-center text-xs">👨🏾</div>
+                  <div className="w-7 h-7 rounded-full bg-[#FFD7B5] border-2 border-white flex items-center justify-center text-xs">👩🏼</div>
+                  <div className="w-7 h-7 rounded-full bg-[#C4956A] border-2 border-white flex items-center justify-center text-xs">👨🏿</div>
+                </div>
+                <div className="flex gap-0.5">
+                  {[...Array(5)].map((_, i) => (
+                    <svg key={i} width="14" height="14" viewBox="0 0 20 20" fill="#F59E0B">
+                      <path d="M10 1.12L12.47 6.73L18.56 7.6L14.14 11.67L15.18 17.88L10 14.97L4.82 17.88L5.86 11.67L1.44 7.6L7.53 6.73L10 1.12Z"/>
+                    </svg>
+                  ))}
+                </div>
+                <span className="text-sm text-humble-text font-medium">
+                  Approved by <span className="font-semibold">500+</span> businesses
+                </span>
               </div>
             </motion.div>
 
@@ -354,7 +420,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                         <th className="text-center p-0 relative bg-humble-orange">
                           <div className="bg-humble-orange rounded-t-2xl py-6 px-4 -mt-20 flex flex-col items-center justify-end">
                             <Camera size={32} className="text-white mb-2" />
-                            <span className="text-white font-bold text-sm">Photo Studio</span>
+                            <span className="text-white font-bold text-sm">FrameFlow</span>
                           </div>
                         </th>
                         <th className="py-4 px-6 text-sm font-semibold text-humble-gray text-center align-bottom">Traditional Studio</th>
@@ -405,10 +471,10 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                 <span className="text-sm font-medium text-humble-orange">Pricing</span>
               </div>
               <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
-                Choose your Plan (per site)
+                Choose your Plan
               </h2>
               <p className="text-humble-gray text-xl font-light tracking-tight">
-                Each generation costs 2 credits (2K) or 3 credits (4K).
+                Per seller account · Cancel anytime
               </p>
             </motion.div>
 
@@ -419,7 +485,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   desc="Perfect for small projects."
                   oldPrice="19.90"
                   price="9.90"
-                  credits={70}
+                  photos={35}
                   spots={10}
                   features={[
                     'AI Background Removal',
@@ -427,6 +493,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                     'Lifestyle Generation',
                     '2K Resolution Export',
                   ]}
+                  ctaText="Get Started →"
+                  onCta={onLogin}
                   delay={0.1}
                   transition={appleTransition}
                 />
@@ -435,7 +503,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   desc="For growing brands."
                   oldPrice="39.90"
                   price="19.90"
-                  credits={180}
+                  photos={90}
                   spots={5}
                   features={[
                     'Everything in Starter',
@@ -444,6 +512,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                     'Priority Support',
                     'Commercial License',
                   ]}
+                  ctaText="Start Free Trial →"
+                  onCta={onLogin}
                   delay={0.2}
                   transition={appleTransition}
                 />
@@ -452,8 +522,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   desc="For high-volume needs."
                   oldPrice="79.90"
                   price="39.90"
-                  credits={420}
-                  spots={2}
+                  photos={210}
+                  spots={5}
                   features={[
                     'Everything in Pro',
                     'Custom Branding',
@@ -461,6 +531,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                     'Dedicated Account Manager',
                     'Custom AI Models',
                   ]}
+                  ctaText="Contact Sales →"
+                  onCta={onLogin}
                   delay={0.3}
                   transition={appleTransition}
                 />
@@ -491,7 +563,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                 Loved by sellers<br />worldwide.
               </h2>
               <p className="text-humble-gray text-lg font-light tracking-tight">
-                Join thousands of e-commerce brands saving time and money.
+                Join 500+ Amazon &amp; Shopify sellers generating studio-quality photos every day.
               </p>
             </motion.div>
 
@@ -513,14 +585,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                     ))}
                   </div>
                   <p className="text-humble-text text-[15px] leading-relaxed mb-5 font-light">"{t.quote}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-humble-orange/10 flex items-center justify-center text-humble-orange font-bold text-sm">
-                      {t.name.split(' ').map(n => n[0]).join('')}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-humble-text">{t.name}</p>
-                      <p className="text-xs text-humble-gray">{t.role}</p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-semibold text-humble-text">{t.name} <span className="font-normal text-humble-gray">· {t.role}</span></p>
                   </div>
                 </motion.div>
               ))}
@@ -575,7 +641,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               Ready to upgrade your visuals?
             </h2>
             <p className="text-xl text-gray-400 mb-10 font-light tracking-tight">
-              Join thousands of brands creating studio-quality photos without the studio.
+              Join 500+ sellers creating studio-quality photos without the studio.
             </p>
             <button
               onClick={onLogin}
@@ -587,6 +653,35 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
         </section>
       </main>
 
+      {/* ===== Contact Section ===== */}
+      <section id="contact" className="py-20 bg-white border-t border-humble-border">
+        <div className="max-w-2xl mx-auto px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={appleTransition}
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
+              <span className="text-sm font-medium text-humble-orange">Get in touch</span>
+            </div>
+            <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
+              Questions?<br />We&apos;re here to help.
+            </h2>
+            <p className="text-humble-gray text-lg font-light tracking-tight mb-8 max-w-md mx-auto">
+              Whether you need help getting started, want a demo, or have a specific request — reach out anytime.
+            </p>
+            <a
+              href="mailto:contact@frameflow.design"
+              className="humble-btn-primary py-3 px-8 text-base inline-flex items-center gap-2"
+            >
+              <MessageSquarePlus size={18} />
+              contact@frameflow.design
+            </a>
+          </motion.div>
+        </div>
+      </section>
+
       {/* ===== Footer ===== */}
       <footer className="bg-white py-16 border-t border-humble-border">
         <div className="max-w-7xl mx-auto px-6">
@@ -595,16 +690,23 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               <div className="w-10 h-10 rounded-xl bg-humble-text flex items-center justify-center text-white">
                 <Camera size={20} />
               </div>
-              <span className="font-display font-bold text-2xl text-humble-text">Photo Studio</span>
+              <span className="font-display font-bold text-2xl text-humble-text">FrameFlow</span>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-16 gap-y-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-16 gap-y-8">
               <div>
                 <h4 className="text-sm font-bold text-humble-text uppercase tracking-wider mb-4">Product</h4>
                 <div className="flex flex-col gap-3">
                   <a href="#features" className="text-sm text-humble-gray hover:text-humble-text transition-colors">Features</a>
                   <a href="#pricing" className="text-sm text-humble-gray hover:text-humble-text transition-colors">Pricing</a>
                   <a href="#how-it-works" className="text-sm text-humble-gray hover:text-humble-text transition-colors">How it Works</a>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-humble-text uppercase tracking-wider mb-4">Contact</h4>
+                <div className="flex flex-col gap-3">
+                  <a href="mailto:contact@frameflow.design" className="text-sm text-humble-gray hover:text-humble-text transition-colors">contact@frameflow.design</a>
+                  <a href="#contact" className="text-sm text-humble-gray hover:text-humble-text transition-colors">Get in touch</a>
                 </div>
               </div>
               <div>
@@ -627,7 +729,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
 
           <div className="pt-8 border-t border-humble-border flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-humble-gray font-light">
-              &copy; {new Date().getFullYear()} Photo Studio. All rights reserved.
+              &copy; {new Date().getFullYear()} FrameFlow. All rights reserved.
             </p>
             <div className="flex gap-6 text-sm text-humble-gray">
               <button onClick={() => onLegalPage?.('mentions-legales')} className="hover:text-humble-text transition-colors">Mentions légales</button>
@@ -649,7 +751,7 @@ const HOW_IT_WORKS_STEPS = [
   {
     step: 1,
     title: 'Upload your photo',
-    description: 'One phone photo is all you need. No studio, no lighting, no photographer — Photo Studio handles everything.',
+    description: 'One phone photo is all you need. No studio, no lighting, no photographer — FrameFlow handles everything.',
     image: `${SUPABASE_IMG_BASE}/inputImage.jpg`,
     badge: 'Smartphone',
     badgeIcon: <Smartphone size={12} />,
@@ -713,9 +815,9 @@ const METRICS = [
     statPrefix: '',
     statSuffix: 'K',
     title: 'Studio Resolution',
-    subtitle: 'Zoom-proof quality that passes every marketplace check.',
-    description: 'Pure white backgrounds, realistic shadows, pin-sharp details at 4K. Passes Amazon, Shopify, and eBay compliance on the first try — every single time.',
-    image: `${SUPABASE_IMG_BASE}/edit-1.jpg?v=2`,
+    subtitle: 'Zoom-proof quality with accurate text and logos.',
+    description: 'Pure white backgrounds, realistic shadows, pin-sharp details at 4K. Unlike other AI tools, your product text and logos stay crisp and readable — no distortion, no artifacts. Passes Amazon, Shopify, and eBay compliance on the first try.',
+    image: `${SUPABASE_IMG_BASE}/edit-1.jpg?v=3`,
     badgeText: 'Pro Quality',
   },
 ];
@@ -736,7 +838,7 @@ const SHOWCASE_IMAGES = [
 ];
 
 const COMPARISON_ROWS = [
-  { label: 'Cost per Photo', studio: '25€ – 50€', genericAi: '0.05€ – 1€', photoStudio: '~0.20€' },
+  { label: 'Cost per Photo', studio: '25€ – 50€', genericAi: '0.05€ – 1€', photoStudio: '0.20€' },
   { label: 'Speed', studio: '1–3 days', genericAi: 'Minutes', photoStudio: '30 seconds' },
   { label: 'White Background', studio: 'Yes', genericAi: 'Approximate', photoStudio: 'Pure white' },
   { label: 'Realistic Shadows', studio: 'Yes', genericAi: 'No', photoStudio: 'Yes' },
@@ -749,7 +851,7 @@ const COMPARISON_ROWS = [
 const FAQ_ITEMS = [
   {
     question: 'Is this just another background remover?',
-    answer: 'No. Photo Studio goes far beyond background removal. We automatically add realistic drop shadows, adjust lighting, and generate AI lifestyle scenes — everything you need for marketplace-ready product photos in one tool.',
+    answer: 'No. FrameFlow goes far beyond background removal. We automatically add realistic drop shadows, adjust lighting, and generate AI lifestyle scenes — everything you need for marketplace-ready product photos in one tool.',
   },
   {
     question: 'Will the results pass Amazon / Shopify image requirements?',
@@ -757,7 +859,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'How many photos can I process?',
-    answer: 'Each plan comes with credits. The Starter plan includes 70 credits per month and Business includes 420. Each generation costs 2 credits (2K) or 3 credits (4K). Need more? Contact us for custom volume.',
+    answer: 'It depends on your plan. Starter gives you 35 photos/month, Pro gives you 90, and Business gives you 210 — all at 2K resolution (Amazon & Shopify ready). Want 4K? It counts as 1.5 photo credits. Need more? Contact us for custom volume.',
   },
   {
     question: 'What if I\'m not happy with the results?',
@@ -927,49 +1029,35 @@ function ShowcaseGallery({ appleTransition }: { appleTransition: { duration: num
               >
                 <img
                   src={img.url}
-                  alt=""
+                  alt={`AI product photography - ${img.category.toLowerCase()} - FrameFlow`}
                   className={`w-full h-full group-hover:scale-[1.05] transition-transform duration-700 ${(img as any).fit?.includes('object-contain') ? '' : 'object-cover'} ${(img as any).fit ?? ''}`}
                 />
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
+
+        <p className="text-center text-sm text-humble-gray/70 mt-8 font-light">
+          All images above were generated from smartphone photos using FrameFlow.
+          <strong className="text-humble-gray"> No editing. No studio. No Photoshop.</strong>
+        </p>
       </div>
     </section>
     </>
   );
 }
 
-function _Step({
-  number,
-  title,
-  description,
-}: {
-  number: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex gap-6 group">
-      <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-humble-light-gray text-humble-text font-bold text-2xl flex items-center justify-center group-hover:bg-humble-text group-hover:text-white transition-colors duration-300">
-        {number}
-      </div>
-      <div>
-        <h3 className="text-2xl font-bold tracking-tight text-humble-text mb-2">{title}</h3>
-        <p className="text-humble-gray text-lg leading-relaxed font-light">{description}</p>
-      </div>
-    </div>
-  );
-}
 
 interface PricingCardProps {
   name: string;
   desc: string;
   oldPrice: string;
   price: string;
-  credits: number;
+  photos: number;
   spots: number;
   features: string[];
+  ctaText: string;
+  onCta: () => void;
   delay: number;
   transition: { duration: number; ease: readonly [number, number, number, number] };
 }
@@ -979,9 +1067,11 @@ function PricingCard({
   desc,
   oldPrice,
   price,
-  credits,
+  photos,
   spots,
   features,
+  ctaText,
+  onCta,
   delay,
   transition,
 }: PricingCardProps) {
@@ -1001,14 +1091,16 @@ function PricingCard({
         </span>
         <span className="text-4xl font-bold tracking-tighter text-gray-900">&euro;{price}</span>
       </div>
-      <p className="text-sm text-gray-500 mb-2 font-medium">
-        / month &bull; {credits} Credits
-      </p>
+      <div className="mb-2">
+        <span className="text-2xl font-bold text-gray-900">{photos}</span>
+        <span className="text-sm text-gray-500 font-medium ml-1">photos / month</span>
+      </div>
+      <p className="text-xs text-gray-400 mb-2 font-medium">2K · Amazon &amp; Shopify ready</p>
       <p className="text-sm text-humble-orange font-medium mb-8">
         Join as founding customer ({spots} spots).
       </p>
-      <button className="bg-black text-white rounded-full py-4 px-6 font-bold shadow-lg w-full mb-8 hover:bg-gray-900 transition-colors">
-        Book a Call
+      <button onClick={onCta} className="bg-black text-white rounded-full py-4 px-6 font-bold shadow-lg w-full mb-8 hover:bg-gray-900 transition-colors">
+        {ctaText}
       </button>
       <ul className="space-y-0 flex-1 border-t border-gray-100 pt-2">
         {features.map((f) => (
@@ -1058,7 +1150,7 @@ function HeroMockup(_props: { appleTransition: { duration: number; ease: readonl
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: '#ff4000' }}>
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="currentColor" opacity="0.12"/><path d="M14 8a3 3 0 100 6 3 3 0 000-6zm-5 3a5 5 0 1110 0 5 5 0 01-10 0z" fill="currentColor"/><circle cx="19" cy="9" r="1.5" fill="currentColor"/><rect x="4" y="6" width="20" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none"/></svg>
               </div>
-              <span className="font-semibold text-[15px] tracking-tight" style={{ color: '#1D1D1F' }}>Photo Studio</span>
+              <span className="font-semibold text-[15px] tracking-tight" style={{ color: '#1D1D1F' }}>FrameFlow</span>
             </div>
             {/* Buttons */}
             <div className="flex flex-col gap-1 mb-7">

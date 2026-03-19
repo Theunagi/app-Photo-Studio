@@ -19,6 +19,7 @@ interface HomeScreenProps {
   credits?: number;
   onSignOut?: () => void;
   onGoPricing?: () => void;
+  onGoSettings?: () => void;
   collectionFilter?: string;
 }
 
@@ -30,6 +31,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   credits,
   onSignOut,
   onGoPricing,
+  onGoSettings,
   collectionFilter,
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -82,15 +84,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     if (e.key === 'Escape') { setShowNewModal(false); setNewName(''); }
   }, [handleCreateProject]);
 
-  // Pick the best available data-URL image for a project card (final > original)
-  // Only use data: URLs — storage URLs can expire
+  // Pick the best available image for a project card (final > original)
   const getBestThumbnail = (p: Project): string | undefined => {
-    const isData = (s?: string) => s && s.startsWith('data:');
+    const isImg = (s?: string) => s && (s.startsWith('data:') || s.startsWith('http'));
     const r = p.results;
-    return isData(r.autoCrop) ? r.autoCrop
-      : isData(r.retouch) ? r.retouch
-      : isData(r.shadowComposite) ? r.shadowComposite
-      : isData(r.studioGeneration) ? r.studioGeneration
+    return isImg(r.autoCrop) ? r.autoCrop
+      : isImg(r.retouch) ? r.retouch
+      : isImg(r.shadowComposite) ? r.shadowComposite
+      : isImg(r.studioGeneration) ? r.studioGeneration
       : p.thumbnail;
   };
 
@@ -108,7 +109,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <circle cx="14" cy="14" r="5" stroke="currentColor" strokeWidth="1.5"/>
             <circle cx="20" cy="8" r="2" fill="currentColor"/>
           </svg>
-          <span className="sidebar-logo-text">Photo Studio</span>
+          <span className="sidebar-logo-text">FrameFlow</span>
         </div>
 
         {/* Actions */}
@@ -217,10 +218,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               <span className="sidebar-credits">{credits} credits</span>
             )}
           </div>
-          <button className="sidebar-bottom-btn" onClick={onGoPricing}>
+          <button className="sidebar-bottom-btn" onClick={onGoSettings ?? onGoPricing}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M8 5v6M5.5 7.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6.5 1.5h3l.4 1.6a5.5 5.5 0 011.3.7l1.5-.6 1.5 2.6-1.2 1a5.5 5.5 0 010 1.4l1.2 1-1.5 2.6-1.5-.6a5.5 5.5 0 01-1.3.7l-.4 1.6h-3l-.4-1.6a5.5 5.5 0 01-1.3-.7l-1.5.6-1.5-2.6 1.2-1a5.5 5.5 0 010-1.4l-1.2-1 1.5-2.6 1.5.6a5.5 5.5 0 011.3-.7l.4-1.6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
+              <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
             </svg>
             Settings
           </button>

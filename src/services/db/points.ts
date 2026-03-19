@@ -136,7 +136,7 @@ export async function provisionCredits(_planId: string): Promise<UserProfile> {
     throw new Error(`Provision credits: ${result.error ?? 'Unknown error'}`);
   }
 
-  console.log(`[Points] Provisioned ${result.credits} credits for plan "${result.plan}"`);
+  import.meta.env.DEV && console.log(`[Points] Provisioned ${result.credits} credits for plan "${result.plan}"`);
 
   // Return updated profile
   return refreshProfile();

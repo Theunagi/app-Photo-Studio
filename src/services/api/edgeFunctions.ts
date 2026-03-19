@@ -30,15 +30,29 @@ export async function invokeEdgeFunction<T>(
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
   const url = `${supabaseUrl}/functions/v1/${functionName}`;
 
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token ?? anonKey}`,
-      'apikey': anonKey,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token ?? anonKey}`,
+        'apikey': anonKey,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Edge function "${functionName}" timed out after 120s`);
+    }
+    throw err;
+  }
+  clearTimeout(timeout);
 
   if (!resp.ok) {
     // Read the actual error body from the Edge Function

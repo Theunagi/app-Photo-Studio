@@ -3,9 +3,10 @@ import './Legal.css';
 
 interface Props {
   onBack: () => void;
+  onLegalPage?: (page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu') => void;
 }
 
-const MentionsLegales: React.FC<Props> = ({ onBack }) => {
+const MentionsLegales: React.FC<Props> = ({ onBack, onLegalPage }) => {
   return (
     <div className="legal-page">
       <div className="legal-container">
@@ -21,7 +22,7 @@ const MentionsLegales: React.FC<Props> = ({ onBack }) => {
 
         <h2>1. Éditeur du site</h2>
         <p>
-          Le site <strong>Photo Studio</strong> est édité par :<br/>
+          Le site <strong>FrameFlow</strong> est édité par :<br/>
           <span className="placeholder">[Dénomination sociale à compléter]</span><br/>
           Forme juridique : <span className="placeholder">[À compléter]</span><br/>
           Capital social : <span className="placeholder">[À compléter]</span><br/>
@@ -30,7 +31,7 @@ const MentionsLegales: React.FC<Props> = ({ onBack }) => {
           SIRET : <span className="placeholder">[Numéro SIRET à compléter]</span><br/>
           TVA intracommunautaire : <span className="placeholder">[Numéro TVA à compléter]</span><br/>
           Téléphone : <span className="placeholder">[À compléter]</span><br/>
-          Email : <span className="placeholder">[À compléter]</span>
+          Email : contact@frameflow.design
         </p>
         <p>
           Directeur de la publication : <span className="placeholder">[Nom du représentant légal à compléter]</span>
@@ -46,7 +47,7 @@ const MentionsLegales: React.FC<Props> = ({ onBack }) => {
 
         <h2>3. Propriété intellectuelle</h2>
         <p>
-          L'ensemble du contenu du site Photo Studio (textes, images, graphismes, logo, icônes, logiciels) est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
+          L'ensemble du contenu du site FrameFlow (textes, images, graphismes, logo, icônes, logiciels) est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
         </p>
         <p>
           Toute reproduction, représentation, modification, publication ou adaptation de tout ou partie du site, quel que soit le moyen ou le procédé utilisé, est interdite sans l'autorisation écrite préalable de l'éditeur.
@@ -63,18 +64,18 @@ const MentionsLegales: React.FC<Props> = ({ onBack }) => {
           <li>Droit d'opposition</li>
         </ul>
         <p>
-          Pour exercer ces droits, vous pouvez nous contacter à l'adresse : <span className="placeholder">[email DPO à compléter]</span>
+          Pour exercer ces droits, vous pouvez nous contacter à l'adresse : contact@frameflow.design
         </p>
         <p>
           Vous pouvez également introduire une réclamation auprès de la CNIL : <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer">www.cnil.fr</a>
         </p>
         <p>
-          Pour plus d'informations, consultez notre <a href="#" onClick={(e) => { e.preventDefault(); }}>Politique de Confidentialité</a>.
+          Pour plus d'informations, consultez notre <a href="#" onClick={(e) => { e.preventDefault(); onLegalPage?.('confidentialite'); }}>Politique de Confidentialité</a>.
         </p>
 
         <h2>5. Cookies</h2>
         <p>
-          Le site utilise des cookies pour assurer son bon fonctionnement et mesurer son audience. Pour en savoir plus, consultez notre <a href="#" onClick={(e) => { e.preventDefault(); }}>Politique de Cookies</a>.
+          Le site utilise des cookies pour assurer son bon fonctionnement et mesurer son audience. Pour en savoir plus, consultez notre <a href="#" onClick={(e) => { e.preventDefault(); onLegalPage?.('cookies'); }}>Politique de Cookies</a>.
         </p>
 
         <h2>6. Médiation de la consommation</h2>

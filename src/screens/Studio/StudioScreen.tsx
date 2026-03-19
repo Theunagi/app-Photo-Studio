@@ -1,5 +1,5 @@
 /**
- * Photo Studio - Studio Screen
+ * FrameFlow - Studio Screen
  * Sidebar layout with pipeline viewer.
  */
 
@@ -29,7 +29,10 @@ function ensureIds(entries: { id?: string; image: string; prompt: string }[]): {
 
 /** Convert a data URL string to a File object so the pipeline can consume it */
 function dataUrlToFile(dataUrl: string, fileName = 'restored-image.png'): File {
-  const [header, base64] = dataUrl.split(',');
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx < 0) throw new Error('Invalid data URL format');
+  const header = dataUrl.slice(0, commaIdx);
+  const base64 = dataUrl.slice(commaIdx + 1);
   const mime = header.match(/:(.*?);/)?.[1] ?? 'image/png';
   const bstr = atob(base64);
   const n = bstr.length;
@@ -72,12 +75,13 @@ export interface StudioScreenProps {
   credits?: number;
   onSignOut?: () => void;
   onGoPricing?: () => void;
+  onGoSettings?: () => void;
   onMassImport?: () => void;
 }
 
 const StudioScreen: React.FC<StudioScreenProps> = ({
   project, onBack, onOpenStudio, pointsBalance, onPointsChanged,
-  userName = 'User', userAvatar, credits, onSignOut, onGoPricing, onMassImport,
+  userName = 'User', userAvatar, credits, onSignOut, onGoPricing, onGoSettings, onMassImport,
 }) => {
   // --- State ---
   const [config, setConfig] = useState<PipelineConfig>({
@@ -332,7 +336,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   }, []);
 
   // --- Pipeline Execution ---
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
+
   const handleRunPipeline = useCallback(async () => {
+    if (isRunning) return; // prevent double-click
+
     // Use the real File if available, otherwise reconstruct from data URL preview
     const fileToUse = inputFile ?? (inputPreview ? dataUrlToFile(inputPreview, project?.name ?? 'restored-image.png') : null);
     if (!fileToUse) return;
@@ -343,15 +351,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       return;
     }
 
-    try {
-      await deductPoints(cost);
-      onPointsChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to deduct credits');
-      return;
-    }
-
     setIsRunning(true);
+    setPipelineError(null);
     const freshState = createInitialPipelineState();
     setPipelineState(freshState);
     pipelineStateRef.current = freshState;
@@ -369,13 +370,22 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         },
       });
       pipelineStateRef.current = result;
+
+      // Deduct credits only after successful pipeline completion
+      try {
+        await deductPoints(cost);
+        onPointsChanged();
+      } catch (err) {
+        console.error('Credit deduction failed after pipeline success:', err);
+      }
     } catch (err) {
       console.error('Pipeline failed:', err);
+      setPipelineError(err instanceof Error ? err.message : 'Pipeline failed. Please try again.');
     } finally {
       setIsRunning(false);
       await autoSave();
     }
-  }, [inputFile, inputPreview, inputPreviews, config, autoSave, pointsBalance, onPointsChanged, project?.name]);
+  }, [isRunning, inputFile, inputPreview, inputPreviews, config, autoSave, pointsBalance, onPointsChanged, project?.name]);
 
   const handleReset = useCallback(() => {
     setInputFiles([]);
@@ -427,7 +437,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
           edits: editImagesRef.current.length > 0 ? editImagesRef.current : undefined,
         };
         p.updatedAt = Date.now();
-        console.log('[confirmDelete] ✅ Deletion saved');
+        import.meta.env.DEV && console.log('[confirmDelete] ✅ Deletion saved');
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       } catch (err) {
@@ -476,8 +486,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // --- Helper: Upload data URL image to Storage for Edge Functions ---
   const uploadForEdgeFunction = useCallback(async (dataUrl: string, label: string): Promise<string> => {
-    const parts = dataUrl.split(',');
-    const bstr = atob(parts[1]);
+    const commaIdx = dataUrl.indexOf(',');
+    if (commaIdx < 0) throw new Error('Invalid data URL format');
+    const bstr = atob(dataUrl.slice(commaIdx + 1));
     const n = bstr.length;
     const u8arr = new Uint8Array(n);
     for (let i = 0; i < n; i++) {
@@ -573,10 +584,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         imageUrl = toUsableImageUrl(sourceImage);
       }
 
+      // Get product description from analysis (for text/label preservation)
+      const analysisData = pipelineState.analysis.status === 'completed' && pipelineState.analysis.data
+        ? (pipelineState.analysis.data as { rawResponse?: string }).rawResponse
+        : project?.results.analysis;
+
       const response = await generateLifestyleImage(imageUrl, lifestylePrompt.trim(), {
         imageSize: config.imageSize ?? '2K',
         aspectRatio: config.aspectRatio ?? '1:1',
         styleDescription: styleDescriptionRef.current ?? undefined,
+        productDescription: analysisData ?? undefined,
       });
 
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
@@ -629,9 +646,17 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         imageUrl = toUsableImageUrl(sourceImage);
       }
 
+      // Get product description from analysis (for text/label preservation)
+      const analysisData = pipelineState.analysis.status === 'completed' && pipelineState.analysis.data
+        ? (pipelineState.analysis.data as { rawResponse?: string }).rawResponse
+        : project?.results.analysis;
+
+      const isLifestyleSource = activeVariant.startsWith('lifestyle-');
       const response = await editImage(imageUrl, editPrompt.trim(), {
         resolution: config.imageSize ?? '2K',
         aspectRatio: config.aspectRatio ?? '1:1',
+        isLifestyle: isLifestyleSource,
+        productDescription: analysisData ?? undefined,
       });
 
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
@@ -718,7 +743,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
             <circle cx="14" cy="14" r="5" stroke="currentColor" strokeWidth="1.5"/>
             <circle cx="20" cy="8" r="2" fill="currentColor"/>
           </svg>
-          <span className="sidebar-logo-text">Photo Studio</span>
+          <span className="sidebar-logo-text">FrameFlow</span>
         </div>
 
         {/* Actions */}
@@ -800,10 +825,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               <span className="sidebar-credits">{credits} credits</span>
             )}
           </div>
-          <button className="sidebar-bottom-btn" onClick={onGoPricing}>
+          <button className="sidebar-bottom-btn" onClick={onGoSettings ?? onGoPricing}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.3"/>
-              <path d="M8 5v6M5.5 7.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6.5 1.5h3l.4 1.6a5.5 5.5 0 011.3.7l1.5-.6 1.5 2.6-1.2 1a5.5 5.5 0 010 1.4l1.2 1-1.5 2.6-1.5-.6a5.5 5.5 0 01-1.3.7l-.4 1.6h-3l-.4-1.6a5.5 5.5 0 01-1.3-.7l-1.5.6-1.5-2.6 1.2-1a5.5 5.5 0 010-1.4l-1.2-1 1.5-2.6 1.5.6a5.5 5.5 0 011.3-.7l.4-1.6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
+              <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
             </svg>
             Settings
           </button>
@@ -984,6 +1009,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               <span className="progress-message">{progressMessage}</span>
               <span className="progress-percent">{Math.round(progressPercent)}%</span>
             </div>
+          </section>
+        )}
+
+        {/* Pipeline Error */}
+        {pipelineError && (
+          <section className="pipeline-error" style={{ padding: '12px 16px', margin: '0 24px 16px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, color: '#991b1b', fontSize: 14 }}>
+            <strong>Error:</strong> {pipelineError}
+            <button onClick={() => setPipelineError(null)} style={{ marginLeft: 12, color: '#991b1b', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>Dismiss</button>
           </section>
         )}
 
