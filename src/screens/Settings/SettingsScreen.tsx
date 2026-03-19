@@ -3,7 +3,7 @@
  * Profil, Préférences, Sécurité, Plans & Facturation, Équipe, Référral
  */
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import type { UserProfile } from '../../services/db/points';
 import { PLANS, GENERATION_COST } from '../../services/db/points';
 import './SettingsScreen.css';
