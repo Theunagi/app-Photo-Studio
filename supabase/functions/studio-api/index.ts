@@ -136,14 +136,15 @@ async function verifyAuth(req: Request): Promise<string> {
 
   const token = authHeader.replace("Bearer ", "");
 
-  // Dev mode: if token is the anon key (public, already in frontend),
-  // allow bypass for local development only.
-  // The anon key is NOT a user JWT so getUser() would reject it.
-  // TODO: Remove this bypass before production launch with real users.
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  if (anonKey && token === anonKey) {
-    console.log("[Edge] Dev/anon mode: anon key used as bearer — returning dev user");
-    return "dev-user-00000000";
+  // Dev mode bypass — ONLY in local development, NEVER in production.
+  // Supabase Edge Functions set DENO_DEPLOYMENT_ID in production.
+  const isProduction = !!Deno.env.get("DENO_DEPLOYMENT_ID");
+  if (!isProduction) {
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (anonKey && token === anonKey) {
+      console.log("[Edge] Dev/anon mode: anon key used as bearer — returning dev user");
+      return "dev-user-00000000";
+    }
   }
 
   // Production: verify real user JWT
@@ -280,9 +281,11 @@ async function handleLuminance(body: { imageUrl: string }): Promise<Response> {
 }
 
 /**
- * Step 2: Studio Generation — Fal.ai (primary) → NanoBanana/kie.ai (fallback)
+ * Step 2: Studio Generation — Submit to Fal.ai queue (non-blocking).
+ * Returns a request_id + provider for client-side polling via generate-poll.
+ * Falls back to NanoBanana if Fal.ai submit fails.
  */
-async function handleGenerate(body: {
+async function handleGenerateSubmit(body: {
   imageUrl: string;
   productDescription: string;
   resolution?: string;
@@ -293,16 +296,16 @@ async function handleGenerate(body: {
   const nbKey = Deno.env.get("NANOBANANA_API_KEY");
   const resolution = body.resolution ?? "2K";
   const aspectRatio = body.aspectRatio ?? "1:1";
-  // Use JPEG for 4K to keep file size under OpenAI's 20MB URL limit
   const outputFormat = resolution === "4K" ? "jpeg" : "png";
   const fullPrompt = `${STUDIO_RENDER_PROMPT}\n\n${body.productDescription}`;
 
-  // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
+  // 1) Try Fal.ai queue submit
   if (falKey) {
     try {
-      console.log(`[Edge] Generate: trying Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat})`);
-      const falResp = await fetch(
-        "https://fal.run/fal-ai/nano-banana-2/edit",
+      console.log(`[Edge] Generate-submit: Fal.ai queue nano-banana-2/edit (${resolution}, ${outputFormat})`);
+
+      const submitResp = await fetch(
+        "https://queue.fal.run/fal-ai/nano-banana-2/edit",
         {
           method: "POST",
           headers: {
@@ -320,29 +323,29 @@ async function handleGenerate(body: {
         }
       );
 
-      if (!falResp.ok) {
-        const errText = await falResp.text().catch(() => "");
-        console.warn(`[Edge] Fal.ai HTTP ${falResp.status}: ${errText.slice(0, 300)}`);
-        throw new Error(`Fal.ai HTTP ${falResp.status}`);
+      if (!submitResp.ok) {
+        const errText = await submitResp.text().catch(() => "");
+        console.warn(`[Edge] Fal.ai queue submit HTTP ${submitResp.status}: ${errText.slice(0, 300)}`);
+        throw new Error(`Fal.ai queue submit HTTP ${submitResp.status}`);
       }
 
-      const falData = await falResp.json();
-      const resultUrl =
-        falData.images?.[0]?.url ?? falData.image?.url ?? falData.image;
-      if (!resultUrl) throw new Error("Fal.ai: no result image");
+      const submitData = await submitResp.json();
+      const requestId = submitData.request_id;
+      if (!requestId) throw new Error("Fal.ai queue: no request_id");
 
-      return jsonResponse({ imageUrl: resultUrl });
+      console.log(`[Edge] Fal.ai queue request_id: ${requestId}`);
+      return jsonResponse({ request_id: requestId, provider: "fal" });
     } catch (falErr) {
-      console.warn("[Edge] Fal.ai failed, trying NanoBanana:", falErr);
+      console.warn("[Edge] Fal.ai submit failed, trying NanoBanana:", falErr);
     }
   }
 
-  // 2) NanoBanana Pro (kie.ai) — FALLBACK
+  // 2) NanoBanana fallback submit
   if (!nbKey) {
     return errorResponse("No image generation API available", 500);
   }
 
-  console.log("[Edge] Generate: trying NanoBanana (fallback)");
+  console.log("[Edge] Generate-submit: NanoBanana (fallback)");
   const createResp = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
     method: "POST",
     headers: {
@@ -375,18 +378,81 @@ async function handleGenerate(body: {
     createData.data?.taskId ?? createData.data?.task_id ?? createData.taskId;
   if (!taskId) return errorResponse("NanoBanana: no taskId returned", 502);
 
-  // Poll for result
-  const POLL_INTERVAL = 5000;
-  const MAX_POLLS = 60;
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+  return jsonResponse({ request_id: taskId, provider: "nanobanana" });
+}
+
+/**
+ * Step 2 Poll: Check status of a queued studio generation.
+ * Returns { status, imageUrl? }
+ */
+async function handleGeneratePoll(body: {
+  request_id: string;
+  provider: string;
+}): Promise<Response> {
+  if (!body.request_id) return errorResponse("Missing request_id", 400);
+
+  const provider = body.provider ?? "fal";
+
+  if (provider === "fal") {
+    const falKey = Deno.env.get("FAL_API_KEY");
+    if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
+
+    // Use full model path (with /edit) for queue status — matches submit URL
+    const queueBase = "https://queue.fal.run/fal-ai/nano-banana-2/edit";
+    const statusResp = await fetch(
+      `${queueBase}/requests/${body.request_id}/status`,
+      { headers: { Authorization: `Key ${falKey}` } }
+    );
+
+    if (!statusResp.ok) {
+      const err = await statusResp.text().catch(() => "");
+      console.warn(`[Edge] Fal.ai status HTTP ${statusResp.status}: ${err.slice(0, 300)}`);
+      // Return IN_PROGRESS so client retries (transient status fetch failure)
+      return jsonResponse({ status: "IN_PROGRESS" });
+    }
+
+    const statusData = await statusResp.json();
+    console.log(`[Edge] Generate-poll (fal): ${statusData.status}`);
+
+    if (statusData.status === "COMPLETED") {
+      // Fetch actual result
+      const resultResp = await fetch(
+        `${queueBase}/requests/${body.request_id}`,
+        { headers: { Authorization: `Key ${falKey}` } }
+      );
+
+      if (!resultResp.ok) {
+        const err = await resultResp.text().catch(() => "");
+        return errorResponse(`Fal.ai result fetch HTTP ${resultResp.status}: ${err.slice(0, 300)}`, 502);
+      }
+
+      const resultData = await resultResp.json();
+      const resultUrl = resultData.images?.[0]?.url ?? resultData.image?.url ?? resultData.image;
+      if (!resultUrl) return errorResponse("Fal.ai: no result image in completed response", 502);
+
+      return jsonResponse({ status: "COMPLETED", imageUrl: resultUrl });
+    }
+
+    if (statusData.status === "FAILED") {
+      return jsonResponse({ status: "FAILED", error: JSON.stringify(statusData).slice(0, 300) });
+    }
+
+    // IN_QUEUE or IN_PROGRESS
+    return jsonResponse({ status: statusData.status ?? "IN_PROGRESS" });
+  }
+
+  if (provider === "nanobanana") {
+    const nbKey = Deno.env.get("NANOBANANA_API_KEY");
+    if (!nbKey) return errorResponse("NanoBanana API key not configured", 500);
 
     const pollResp = await fetch(
-      `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${taskId}`,
+      `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${body.request_id}`,
       { headers: { Authorization: `Bearer ${nbKey}` } }
     );
 
-    if (!pollResp.ok) continue;
+    if (!pollResp.ok) {
+      return jsonResponse({ status: "IN_PROGRESS" });
+    }
 
     const pollData = await pollResp.json();
     const taskData = pollData.data ?? pollData;
@@ -403,18 +469,20 @@ async function handleGenerate(body: {
       if (!resultUrls?.length) {
         return errorResponse("NanoBanana: no result URLs", 502);
       }
-      return jsonResponse({ imageUrl: resultUrls[0] });
+      return jsonResponse({ status: "COMPLETED", imageUrl: resultUrls[0] });
     }
 
     if (state === "fail" || state === "failed" || state === "error") {
-      return errorResponse(
-        `NanoBanana task failed: ${taskData.failMsg ?? taskData.message ?? "Unknown"}`,
-        502
-      );
+      return jsonResponse({
+        status: "FAILED",
+        error: taskData.failMsg ?? taskData.message ?? "Unknown",
+      });
     }
+
+    return jsonResponse({ status: "IN_PROGRESS" });
   }
 
-  return errorResponse("NanoBanana task timed out (5 min)", 504);
+  return errorResponse(`Unknown provider: ${provider}`, 400);
 }
 
 /**
@@ -567,8 +635,8 @@ async function handleLifestylePoll(body: {
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
   if (!body.request_id) return errorResponse("Missing request_id", 400);
 
-  // Check status — use base model ID (without /edit subpath) for queue status/result
-  const queueBase = "https://queue.fal.run/fal-ai/nano-banana-2";
+  // Check status — use full model path (with /edit) matching submit URL
+  const queueBase = "https://queue.fal.run/fal-ai/nano-banana-2/edit";
   const statusResp = await fetch(
     `${queueBase}/requests/${body.request_id}/status`,
     { headers: { Authorization: `Key ${falKey}` } }
@@ -669,11 +737,18 @@ High-end product photography style, natural lighting, shallow depth of field whe
 async function handleEdit(body: {
   imageUrl: string;
   userPrompt: string;
+  resolution?: string;
+  aspectRatio?: string;
   isLifestyle?: boolean;
   productDescription?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
+
+  const resolution = body.resolution ?? "2K";
+  const aspectRatio = body.aspectRatio ?? "1:1";
+  // Use JPEG for 4K to keep file size manageable
+  const outputFormat = resolution === "4K" ? "jpeg" : "png";
 
   const productContext = body.productDescription
     ? `\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`
@@ -688,6 +763,7 @@ Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
 Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
 Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${productContext}`;
 
+  console.log(`[Edge] Edit: Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat})`);
   const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
@@ -697,9 +773,9 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${
     body: JSON.stringify({
       image_urls: [body.imageUrl],
       prompt,
-      resolution: "2K",
-      aspect_ratio: "1:1",
-      output_format: "png",
+      resolution,
+      aspect_ratio: aspectRatio,
+      output_format: outputFormat,
       num_images: 1,
     }),
   });
@@ -843,7 +919,8 @@ Deno.serve(async (req: Request) => {
         return await handleLuminance(body as { action: string; imageUrl: string });
 
       case "generate":
-        return await handleGenerate(
+      case "generate-submit":
+        return await handleGenerateSubmit(
           body as {
             action: string;
             imageUrl: string;
@@ -852,6 +929,11 @@ Deno.serve(async (req: Request) => {
             aspectRatio?: string;
             referenceImageUrls?: string[];
           }
+        );
+
+      case "generate-poll":
+        return await handleGeneratePoll(
+          body as { action: string; request_id: string; provider: string }
         );
 
       case "analyze-style":
@@ -897,6 +979,8 @@ Deno.serve(async (req: Request) => {
             action: string;
             imageUrl: string;
             userPrompt: string;
+            resolution?: string;
+            aspectRatio?: string;
             isLifestyle?: boolean;
             productDescription?: string;
           }

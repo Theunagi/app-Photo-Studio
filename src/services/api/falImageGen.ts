@@ -9,6 +9,7 @@ import { invokeEdgeFunction } from './edgeFunctions';
 
 /**
  * Generate a studio image (Step 2 — primary).
+ * Uses submit + poll pattern to avoid edge function timeout.
  * The full studio prompt (RIMOWA Bright Edition) is assembled server-side.
  */
 export async function generateStudioImage(
@@ -20,14 +21,46 @@ export async function generateStudioImage(
     sessionId?: string;
   },
 ): Promise<{ resultImageUrl: string }> {
-  const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
-    action: 'generate',
-    imageUrl,
-    productDescription,
-    resolution: options?.resolution,
-    aspectRatio: options?.aspectRatio,
-  });
-  return { resultImageUrl: result.imageUrl };
+  // 1) Submit to queue — returns immediately with request_id
+  const submit = await invokeEdgeFunction<{ request_id: string; provider: string }>(
+    'studio-api',
+    {
+      action: 'generate-submit',
+      imageUrl,
+      productDescription,
+      resolution: options?.resolution,
+      aspectRatio: options?.aspectRatio,
+    },
+  );
+
+  // 2) Poll for result from client (each poll is a short edge function call)
+  const POLL_INTERVAL = 5_000; // 5s between polls
+  const MAX_POLLS = 36;        // 36 × 5s = 180s max wait
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+
+    const poll = await invokeEdgeFunction<{
+      status: string;
+      imageUrl?: string;
+      error?: string;
+    }>('studio-api', {
+      action: 'generate-poll',
+      request_id: submit.request_id,
+      provider: submit.provider,
+    });
+
+    if (poll.status === 'COMPLETED' && poll.imageUrl) {
+      return { resultImageUrl: poll.imageUrl };
+    }
+
+    if (poll.status === 'FAILED') {
+      throw new Error(`Studio generation failed: ${poll.error ?? 'Unknown error'}`);
+    }
+
+    // IN_QUEUE or IN_PROGRESS — keep polling
+  }
+
+  throw new Error('Studio generation timed out after 180s');
 }
 
 /**
