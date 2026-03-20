@@ -9,8 +9,6 @@ import { invokeEdgeFunction } from './edgeFunctions';
 
 /** Polling interval for queue-based generation (ms) */
 const POLL_INTERVAL = 3000;
-/** Max polling time before giving up (ms) — 3 minutes */
-const POLL_TIMEOUT = 180_000;
 
 /**
  * Generate a lifestyle image.
@@ -73,20 +71,34 @@ async function generateLifestyleQueued(
     aspectRatio: options?.aspectRatio,
     styleDescription: options?.styleDescription,
     productDescription: options?.productDescription,
-  });
+  }, { timeoutMs: 60_000 });
 
   const requestId = submitResult.request_id;
   if (!requestId) throw new Error('No request_id returned from queue submit');
 
   // Step 2: Poll for completion
-  const startTime = Date.now();
-  while (Date.now() - startTime < POLL_TIMEOUT) {
+  const MAX_POLLS = 60; // 60 × 3s = 180s max wait
+  let consecutiveErrors = 0;
+  const MAX_CONSECUTIVE_ERRORS = 3;
+
+  for (let i = 0; i < MAX_POLLS; i++) {
     await sleep(POLL_INTERVAL);
 
-    const pollResult = await invokeEdgeFunction<{ status: string; imageUrl?: string }>('studio-api', {
-      action: 'lifestyle-poll',
-      request_id: requestId,
-    });
+    let pollResult: { status: string; imageUrl?: string };
+    try {
+      pollResult = await invokeEdgeFunction<{ status: string; imageUrl?: string }>('studio-api', {
+        action: 'lifestyle-poll',
+        request_id: requestId,
+      }, { timeoutMs: 20_000 });
+      consecutiveErrors = 0; // Reset on successful poll
+    } catch (err) {
+      consecutiveErrors++;
+      console.warn(`[Lifestyle Poll] Error ${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS}:`, err);
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        throw new Error('Lifestyle generation failed: unable to check status after multiple attempts');
+      }
+      continue; // Retry poll
+    }
 
     if (pollResult.status === 'COMPLETED' && pollResult.imageUrl) {
       return { resultImageUrl: pollResult.imageUrl };

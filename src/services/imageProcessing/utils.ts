@@ -8,8 +8,12 @@
 export function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('Failed to load image'));
+    const timer = setTimeout(() => {
+      img.src = ''; // Cancel load
+      reject(new Error('Image loading timed out after 30s'));
+    }, 30_000);
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error('Failed to load image')); };
     img.src = dataUrl;
   });
 }
@@ -75,8 +79,14 @@ export function canvasToDataUrl(canvas: HTMLCanvasElement, type = 'image/png'): 
 export function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('FileReader returned non-string result'));
+      }
+    };
+    reader.onerror = () => reject(new Error('FileReader failed to read blob'));
     reader.readAsDataURL(blob);
   });
 }
@@ -85,16 +95,22 @@ export function blobToDataUrl(blob: Blob): Promise<string> {
  * Convert a data URL to a Blob.
  */
 export function dataUrlToBlob(dataUrl: string): Blob {
-  const parts = dataUrl.split(',');
-  const mimeMatch = parts[0].match(/:(.*?);/);
+  const commaIdx = dataUrl.indexOf(',');
+  if (commaIdx < 0) throw new Error('Invalid data URL: missing comma separator');
+  const header = dataUrl.slice(0, commaIdx);
+  const mimeMatch = header.match(/:(.*?);/);
   const mime = mimeMatch ? mimeMatch[1] : 'image/png';
-  const bstr = atob(parts[1]);
-  const n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    u8arr[i] = bstr.charCodeAt(i);
+  try {
+    const bstr = atob(dataUrl.slice(commaIdx + 1));
+    const n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      u8arr[i] = bstr.charCodeAt(i);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch (err) {
+    throw new Error(`Failed to decode data URL: ${err instanceof Error ? err.message : String(err)}`);
   }
-  return new Blob([u8arr], { type: mime });
 }
 
 /**

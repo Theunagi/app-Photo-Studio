@@ -12,6 +12,7 @@ import { supabase, isSupabaseConfigured } from '../db/supabase';
 export async function invokeEdgeFunction<T>(
   functionName: string,
   body: Record<string, unknown>,
+  options?: { timeoutMs?: number },
 ): Promise<T> {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is not configured. Cannot call edge functions.');
@@ -31,7 +32,8 @@ export async function invokeEdgeFunction<T>(
   const url = `${supabaseUrl}/functions/v1/${functionName}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+  const timeoutMs = options?.timeoutMs ?? 300_000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   let resp: Response;
   try {
@@ -48,7 +50,7 @@ export async function invokeEdgeFunction<T>(
   } catch (err) {
     clearTimeout(timeout);
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`Edge function "${functionName}" timed out after 120s`);
+      throw new Error(`Edge function "${functionName}" timed out after ${timeoutMs / 1000}s`);
     }
     throw err;
   }
