@@ -99,7 +99,9 @@ async function urlToDataUrl(url: string, timeoutMs = 60_000): Promise<string> {
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error(`Image download timed out after ${Math.round(timeoutMs / 1000)}s`);
     }
-    throw err;
+    // Wrap raw "Failed to fetch" with the URL for debugging
+    const host = (() => { try { return new URL(url).hostname; } catch { return url.slice(0, 50); } })();
+    throw new Error(`Image download failed (${host}): ${err instanceof Error ? err.message : String(err)}`);
   }
   clearTimeout(timer);
   if (!response.ok) throw new Error(`Failed to download image: ${response.status}`);
