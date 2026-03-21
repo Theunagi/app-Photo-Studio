@@ -36,6 +36,7 @@ import { analyzeProduct, checkLuminance } from '../api/openai';
 import { callNanoBananaImageGen } from '../api/nanobanana';
 import { generateStudioImage } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
+import { proxyImageDownload } from '../api/edgeFunctions';
 
 // Image Processing (DSP — client-side, no API keys)
 // applyColorGrading: imported when retouch step is re-enabled
@@ -87,13 +88,7 @@ async function uploadToStorage(
   return data.publicUrl;
 }
 
-/** Download image from URL back to a data URL (for client-side DSP steps) */
-async function urlToDataUrl(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Failed to download image: ${response.status}`);
-  const blob = await response.blob();
-  return blobToDataUrl(blob);
-}
+// urlToDataUrl removed — replaced by proxyImageDownload (server-side, bypasses CORS)
 
 // --- Helper: Execute a step with timing and error handling ---
 
@@ -189,7 +184,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
         sessionId,
       });
       // Download result for DSP steps
-      const imageDataUrl = await urlToDataUrl(response.resultImageUrl);
+      const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
       return {
         imageBlob: dataUrlToBlob(imageDataUrl),
         imageDataUrl,
@@ -205,7 +200,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
       aspectRatio: config.aspectRatio ?? '1:1',
       sessionId,
     });
-    const imageDataUrl = await urlToDataUrl(response.resultImageUrl);
+    const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
     return {
       imageBlob: dataUrlToBlob(imageDataUrl),
       imageDataUrl,
@@ -225,13 +220,19 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   // STEP 4: BACKGROUND REMOVAL (Pixelcut via Edge Function)
   // Run BEFORE color grading so Pixelcut gets the clean studio image.
   // =========================================================================
-  // Upload raw studio image for BG removal (not retouched — preserves whites)
-  const studioStorageUrl = await uploadToStorage(studioGen.imageDataUrl, sessionId, 'studio-for-bg');
+  // Upload raw studio image for BG removal — fall back to data URL if storage upload fails
+  let studioUrlForBg: string;
+  try {
+    studioUrlForBg = await uploadToStorage(studioGen.imageDataUrl, sessionId, 'studio-for-bg');
+  } catch (err) {
+    console.warn('[Pipeline] Storage upload failed, using data URL for bg-remove:', err);
+    studioUrlForBg = studioGen.imageDataUrl;
+  }
 
   const cutout = await executeStep<CutoutResult>(state, 'cutout', onStateChange, async () => {
-    const result = await removeBackground(studioStorageUrl, sessionId, false);
+    const result = await removeBackground(studioUrlForBg, sessionId, false);
     // Download result for DSP steps (Pixelcut returns clean cutout with correct colors)
-    const cutoutDataUrl = await urlToDataUrl(result.resultImageUrl);
+    const cutoutDataUrl = await proxyImageDownload(result.resultImageUrl);
     const cutoutBlob = dataUrlToBlob(cutoutDataUrl);
 
     return {

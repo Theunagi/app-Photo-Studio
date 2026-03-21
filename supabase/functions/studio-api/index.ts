@@ -907,6 +907,15 @@ Deno.serve(async (req: Request) => {
           body as { action: string; images: string[]; count: number }
         );
 
+      case "proxy-image": {
+        // Download image server-side (bypasses browser CORS) and return as data URL
+        const imgUrl = body.imageUrl as string;
+        if (!imgUrl) return errorResponse("Missing imageUrl for proxy", 400);
+        console.log(`[Edge] Proxy-image: ${imgUrl.slice(0, 80)}`);
+        const dataUrl = await urlToDataUrl(imgUrl);
+        return jsonResponse({ dataUrl });
+      }
+
       default:
         return errorResponse(`Unknown action: ${action}`, 400);
     }

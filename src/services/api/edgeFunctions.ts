@@ -90,3 +90,17 @@ export async function fetchImageAsDataUrl(url: string): Promise<string> {
     reader.readAsDataURL(blob);
   });
 }
+
+/**
+ * Download an image via the edge function proxy (server-side fetch).
+ * Bypasses browser CORS restrictions — works for any URL.
+ * Use this for external CDN URLs (fal.media, cdn.pixelcut.ai, etc.)
+ */
+export async function proxyImageDownload(imageUrl: string): Promise<string> {
+  const result = await invokeEdgeFunction<{ dataUrl: string }>('studio-api', {
+    action: 'proxy-image',
+    imageUrl,
+  });
+  if (!result.dataUrl) throw new Error('Proxy returned no image data');
+  return result.dataUrl;
+}
