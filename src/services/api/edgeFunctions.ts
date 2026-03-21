@@ -68,27 +68,52 @@ export async function invokeEdgeFunction<T>(
     throw new Error(`Edge function "${functionName}" failed (${resp.status}): ${errorDetail}`);
   }
 
-  const data = await resp.json();
-
-  if (data?.error) {
-    throw new Error(`Edge function "${functionName}": ${data.error}`);
+  let data: T;
+  try {
+    const text = await resp.text();
+    data = JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Edge function "${functionName}": invalid JSON response`);
   }
 
-  return data as T;
+  if ((data as Record<string, unknown>)?.error) {
+    throw new Error(`Edge function "${functionName}": ${(data as Record<string, unknown>).error}`);
+  }
+
+  return data;
 }
 
 /**
  * Fetch an image from a URL and return it as a data URL.
  * Used to pull Storage URLs into client-side canvas operations.
+ * Includes a 60s timeout to prevent hanging on slow/dead URLs.
  */
-export async function fetchImageAsDataUrl(url: string): Promise<string> {
-  const resp = await fetch(url);
+export async function fetchImageAsDataUrl(url: string, timeoutMs = 60_000): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let resp: Response;
+  try {
+    resp = await fetch(url, { signal: controller.signal });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Image download timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  }
+  clearTimeout(timer);
   if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
   const blob = await resp.blob();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('FileReader returned non-string result'));
+      }
+    };
+    reader.onerror = () => reject(new Error('FileReader failed to read image blob'));
     reader.readAsDataURL(blob);
   });
 }

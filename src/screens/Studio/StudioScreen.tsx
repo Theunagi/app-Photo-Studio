@@ -19,6 +19,25 @@ import './StudioScreen.css';
 
 const MAX_IMAGES = 5;
 
+/** Clean up raw edge function error messages for user display */
+function friendlyError(raw: string): string {
+  // Strip nested JSON from edge function errors
+  // e.g. 'Edge function "studio-api" failed (502): {"error":"Fal.ai Pixelcut error 500: ..."}'
+  if (raw.includes('Background removal unavailable')) return 'Background removal is temporarily unavailable. Please try again in a few minutes.';
+  if (raw.includes('timed out')) return 'The request timed out. Please try again.';
+  if (raw.includes('No image generation API')) return 'Image generation service is unavailable. Please try again later.';
+  // Generic edge function errors — extract the human-readable part
+  const edgeMatch = raw.match(/Edge function "[^"]+".+?:\s*(.+)/);
+  if (edgeMatch) {
+    try {
+      const parsed = JSON.parse(edgeMatch[1]);
+      if (parsed.error) return `Generation failed: ${parsed.error.split(':')[0]}. Please try again.`;
+    } catch { /* not JSON, use as-is */ }
+    return `Generation failed. Please try again.`;
+  }
+  return raw;
+}
+
 /** Unique ID generator for lifestyle/edit image entries */
 const genEntryId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -290,10 +309,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // --- File Upload (multi-image) ---
   const addFiles = useCallback((files: FileList | File[]) => {
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
     const newFiles: File[] = [];
     const readers: Promise<string>[] = [];
 
-    const filesToAdd = Array.from(files).filter(f => f.type.startsWith('image/'));
+    const filesToAdd = Array.from(files).filter(f => {
+      if (!f.type.startsWith('image/')) return false;
+      if (f.size > MAX_FILE_SIZE) {
+        console.warn(`[Upload] Rejected ${f.name}: ${Math.round(f.size / 1024 / 1024)}MB exceeds 10MB limit`);
+        return false;
+      }
+      return true;
+    });
     const available = MAX_IMAGES - inputPreviews.length;
     const toProcess = filesToAdd.slice(0, available);
 
@@ -380,7 +407,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       }
     } catch (err) {
       console.error('Pipeline failed:', err);
-      setPipelineError(err instanceof Error ? err.message : 'Pipeline failed. Please try again.');
+      setPipelineError(friendlyError(err instanceof Error ? err.message : 'Pipeline failed. Please try again.'));
     } finally {
       setIsRunning(false);
       await autoSave();
@@ -549,7 +576,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } catch (err) {
       console.error('Style analysis failed:', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      setStyleError(`Style analysis failed: ${msg}`);
+      setStyleError(`Style analysis failed: ${friendlyError(msg)}`);
       setStyleDescription(null);
       styleDescriptionRef.current = null;
     } finally {
@@ -610,7 +637,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } catch (err) {
       console.error('Lifestyle generation failed:', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      setLifestyleError(`Generation failed: ${msg}`);
+      setLifestyleError(friendlyError(msg));
     } finally {
       setIsGeneratingLifestyle(false);
     }
@@ -673,7 +700,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } catch (err) {
       console.error('Edit generation failed:', err);
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      setEditError(`Edit failed: ${msg}`);
+      setEditError(friendlyError(msg));
     } finally {
       setIsGeneratingEdit(false);
     }
@@ -1061,6 +1088,62 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Mobile action toolbar — visible only on small screens where sidebar is hidden */}
+            <div className="mobile-toolbar">
+              <button
+                className="mobile-toolbar-btn"
+                onClick={onBack}
+                title="Back"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M12.5 15l-5-5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>Back</span>
+              </button>
+              <button
+                className={`mobile-toolbar-btn ${showLifestyle ? 'active' : ''}`}
+                onClick={() => { setShowLifestyle(prev => !prev); setShowEdit(false); }}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M3 7a4 4 0 014-4h6a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4V7z" stroke="currentColor" strokeWidth="1.4"/>
+                  <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/>
+                  <path d="M3 13l4-3.5 3 2.5 3-4 4 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>Lifestyle</span>
+              </button>
+              <button
+                className={`mobile-toolbar-btn ${showEdit ? 'active' : ''}`}
+                onClick={() => { setShowEdit(prev => !prev); setShowLifestyle(false); }}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+                <span>Edit</span>
+              </button>
+              <button
+                className="mobile-toolbar-btn"
+                onClick={() => downloadImage(currentVariant.image, downloadSuffix)}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 3v9.5M6 9.5L10 13l4-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 15.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
+                <span>Download</span>
+              </button>
+              <button
+                className="mobile-toolbar-btn"
+                onClick={handleRunPipeline}
+                disabled={isRunning || !hasImage}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M3.5 3.5v5h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5.5 12.5a6 6 0 105-7.5H3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>Redo</span>
+              </button>
             </div>
 
             {/* Lifestyle prompt panel */}

@@ -1,21 +1,24 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, lazy, Suspense } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { Project } from './models/project';
 import { getProject } from './services/db/projectDB';
 import { testSupabaseConnection, onAuthStateChange, getCurrentUser, signOut, type SupabaseDiagnostic } from './services/db/supabase';
 import { getOrCreateProfile, refreshProfile as refreshProfileFromServer, type UserProfile } from './services/db/points';
-import HomeScreen from './screens/Home/HomeScreen';
-import StudioScreen from './screens/Studio/StudioScreen';
-import PricingScreen from './screens/Pricing/PricingScreen';
-import LoginScreen from './screens/Login/LoginScreen';
-import UploadScreen from './screens/Upload/UploadScreen';
-import LandingScreen from './screens/Landing/LandingScreen';
-import MentionsLegales from './screens/Legal/MentionsLegales';
-import CGV from './screens/Legal/CGV';
-import Confidentialite from './screens/Legal/Confidentialite';
-import CookiesPage from './screens/Legal/Cookies';
-import CGU from './screens/Legal/CGU';
 import CookieBanner from './components/CookieBanner';
-import SettingsScreen from './screens/Settings/SettingsScreen';
+
+// Lazy-loaded screens — code splitting reduces initial bundle size
+const HomeScreen = lazy(() => import('./screens/Home/HomeScreen'));
+const StudioScreen = lazy(() => import('./screens/Studio/StudioScreen'));
+const PricingScreen = lazy(() => import('./screens/Pricing/PricingScreen'));
+const LoginScreen = lazy(() => import('./screens/Login/LoginScreen'));
+const UploadScreen = lazy(() => import('./screens/Upload/UploadScreen'));
+const LandingScreen = lazy(() => import('./screens/Landing/LandingScreen'));
+const MentionsLegales = lazy(() => import('./screens/Legal/MentionsLegales'));
+const CGV = lazy(() => import('./screens/Legal/CGV'));
+const Confidentialite = lazy(() => import('./screens/Legal/Confidentialite'));
+const CookiesPage = lazy(() => import('./screens/Legal/Cookies'));
+const CGU = lazy(() => import('./screens/Legal/CGU'));
+const SettingsScreen = lazy(() => import('./screens/Settings/SettingsScreen'));
 
 type View =
   | { screen: 'home'; collectionFilter?: string }
@@ -33,10 +36,40 @@ interface AppUser {
   avatar?: string;
 }
 
+/** Shared loading fallback for lazy-loaded screens */
+const ScreenLoader = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--color-text-muted, #888)', fontSize: '14px' }}>
+    Loading...
+  </div>
+);
+
+/** Map URL path to initial view state */
+function pathToView(pathname: string): View | 'login' | 'landing' {
+  switch (pathname) {
+    case '/pricing': return { screen: 'pricing' };
+    case '/upload': return { screen: 'upload' };
+    case '/settings': return { screen: 'settings' };
+    case '/login': return 'login';
+    case '/mentions-legales': return { screen: 'legal', page: 'mentions-legales' };
+    case '/cgv': return { screen: 'legal', page: 'cgv' };
+    case '/confidentialite': return { screen: 'legal', page: 'confidentialite' };
+    case '/cookies': return { screen: 'legal', page: 'cookies' };
+    case '/cgu': return { screen: 'legal', page: 'cgu' };
+    default: return { screen: 'home' };
+  }
+}
+
 function App() {
-  const [view, setView] = useState<View>({ screen: 'home' });
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Derive initial view from URL path
+  const initialView = pathToView(location.pathname);
+  const [view, setView] = useState<View>(
+    typeof initialView === 'string' ? { screen: 'home' } : initialView
+  );
   const [user, setUser] = useState<AppUser | null | undefined>(undefined); // undefined = loading
-  const [showLogin, setShowLogin] = useState(false);
+  const [showLogin, setShowLogin] = useState(initialView === 'login');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [diag, setDiag] = useState<SupabaseDiagnostic | null>(null);
   const [showDiag, setShowDiag] = useState(false);
@@ -59,7 +92,8 @@ function App() {
       getOrCreateProfile().then(p => setProfile(p)).catch(console.error);
       testSupabaseConnection().then(d => {
         setDiag(d);
-        if (d.configured && (!d.dbConnected || !d.dbWritable || !d.storageConnected || !d.storageWritable)) {
+        // Only show diagnostic banner in development — never in production
+        if (import.meta.env.DEV && d.configured && (!d.dbConnected || !d.dbWritable || !d.storageConnected || !d.storageWritable)) {
           setShowDiag(true);
         }
       });
@@ -85,54 +119,80 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       // Clean URL
-      window.history.replaceState({}, '', window.location.pathname);
+      navigate('/', { replace: true });
       // Refresh profile to pick up new credits (webhook may have fired)
       refreshProfile();
     }
-  }, [refreshProfile]);
+  }, [refreshProfile, navigate]);
+
+  // Sync browser back/forward navigation to view state
+  useEffect(() => {
+    const result = pathToView(location.pathname);
+    if (result === 'login') {
+      setShowLogin(true);
+    } else if (result === 'landing') {
+      setShowLogin(false);
+      setView({ screen: 'home' });
+    } else {
+      setShowLogin(false);
+      // Only sync non-studio views (studio needs project data)
+      if (result.screen !== 'home' || view.screen !== 'studio') {
+        setView(result);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const openStudio = useCallback(async (project: Project | null) => {
     if (!project) {
       setView({ screen: 'studio', project: null });
+      navigate('/studio', { replace: true });
       return;
     }
     setView({ screen: 'loading' });
     try {
       const full = await getProject(project.id);
       setView({ screen: 'studio', project: full ?? project });
+      navigate(`/studio/${project.id}`, { replace: true });
     } catch (err) {
       console.error('Failed to load project:', err);
       setView({ screen: 'studio', project });
+      navigate(`/studio/${project.id}`, { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
-  const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); }, [refreshProfile]);
-  const goPricing = useCallback(() => { setView({ screen: 'pricing' }); }, []);
-  const goUpload = useCallback(() => { setView({ screen: 'upload' }); }, []);
-  const goSettings = useCallback(() => { setView({ screen: 'settings' }); }, []);
+  const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); navigate('/'); }, [refreshProfile, navigate]);
+  const goPricing = useCallback(() => { setView({ screen: 'pricing' }); navigate('/pricing'); }, [navigate]);
+  const goUpload = useCallback(() => { setView({ screen: 'upload' }); navigate('/upload'); }, [navigate]);
+  const goSettings = useCallback(() => { setView({ screen: 'settings' }); navigate('/settings'); }, [navigate]);
   const goLegal = useCallback((page: 'mentions-legales' | 'cgv' | 'confidentialite' | 'cookies' | 'cgu') => {
     setView({ screen: 'legal', page });
-  }, []);
-  const goLanding = useCallback(() => { setView({ screen: 'home' }); setShowLogin(false); }, []);
+    navigate(`/${page}`);
+  }, [navigate]);
+  const goLanding = useCallback(() => { setView({ screen: 'home' }); setShowLogin(false); navigate('/'); }, [navigate]);
 
   const goHomeWithCollection = useCallback((collectionId: string) => {
     refreshProfile();
     setView({ screen: 'home', collectionFilter: collectionId });
-  }, [refreshProfile]);
+    navigate('/');
+  }, [refreshProfile, navigate]);
 
   const handleSignOut = useCallback(async () => {
     await signOut();
     setView({ screen: 'home' });
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
-  // Dev bypass login
+  // Dev bypass login — only available in development mode
   const handleDevLogin = useCallback(() => {
+    if (!import.meta.env.DEV) return; // Block in production
     setUser({
       id: 'dev-user-00000000',
       email: 'dev@localhost',
       name: 'Dev User',
     });
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   // Loading auth state
   if (user === undefined) {
@@ -147,20 +207,20 @@ function App() {
   if (view.screen === 'legal') {
     const backFn = user ? goHome : goLanding;
     switch (view.page) {
-      case 'mentions-legales': return <><MentionsLegales onBack={backFn} onLegalPage={goLegal} /><CookieBanner /></>;
-      case 'cgv': return <><CGV onBack={backFn} /><CookieBanner /></>;
-      case 'confidentialite': return <><Confidentialite onBack={backFn} /><CookieBanner /></>;
-      case 'cookies': return <><CookiesPage onBack={backFn} /><CookieBanner /></>;
-      case 'cgu': return <><CGU onBack={backFn} /><CookieBanner /></>;
+      case 'mentions-legales': return <Suspense fallback={<ScreenLoader />}><MentionsLegales onBack={backFn} onLegalPage={goLegal} /><CookieBanner /></Suspense>;
+      case 'cgv': return <Suspense fallback={<ScreenLoader />}><CGV onBack={backFn} /><CookieBanner /></Suspense>;
+      case 'confidentialite': return <Suspense fallback={<ScreenLoader />}><Confidentialite onBack={backFn} /><CookieBanner /></Suspense>;
+      case 'cookies': return <Suspense fallback={<ScreenLoader />}><CookiesPage onBack={backFn} /><CookieBanner /></Suspense>;
+      case 'cgu': return <Suspense fallback={<ScreenLoader />}><CGU onBack={backFn} /><CookieBanner /></Suspense>;
     }
   }
 
   // Not logged in
   if (!user) {
     if (showLogin) {
-      return <LoginScreen onDevLogin={handleDevLogin} onBack={() => setShowLogin(false)} />;
+      return <Suspense fallback={<ScreenLoader />}><LoginScreen onDevLogin={import.meta.env.DEV ? handleDevLogin : undefined} onBack={() => { setShowLogin(false); navigate('/'); }} /></Suspense>;
     }
-    return <><LandingScreen onLogin={() => setShowLogin(true)} onDevLogin={handleDevLogin} onLegalPage={goLegal} /><CookieBanner /></>;
+    return <Suspense fallback={<ScreenLoader />}><LandingScreen onLogin={() => { setShowLogin(true); navigate('/login'); }} onLegalPage={goLegal} /><CookieBanner /></Suspense>;
   }
 
   // Loading project
@@ -258,11 +318,11 @@ function App() {
   };
 
   return (
-    <>
+    <Suspense fallback={<ScreenLoader />}>
       {renderScreen()}
       {diagBanner}
       <CookieBanner />
-    </>
+    </Suspense>
   );
 }
 

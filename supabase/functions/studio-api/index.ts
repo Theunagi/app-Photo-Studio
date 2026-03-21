@@ -108,24 +108,113 @@ function errorResponse(message: string, status = 400): Response {
   return jsonResponse({ error: message }, status);
 }
 
-/** Download a URL and convert to base64 data URL */
-async function urlToDataUrl(url: string): Promise<string> {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Failed to download image: ${resp.status}`);
-  const blob = await resp.blob();
-  const buffer = await blob.arrayBuffer();
-  const base64 = btoa(
-    new Uint8Array(buffer).reduce((s, b) => s + String.fromCharCode(b), "")
-  );
-  const mime = blob.type || "image/png";
-  return `data:${mime};base64,${base64}`;
-}
-
 /** Extract base64 + mimeType from a data URL */
 function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } {
   const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) throw new Error("Invalid data URL format");
   return { mimeType: match[1], base64: match[2] };
+}
+
+/** Safe JSON parse from fetch response — never crashes the edge function */
+async function safeJson(resp: Response): Promise<unknown> {
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid JSON response: ${text.slice(0, 200)}`);
+  }
+}
+
+/** Fetch with timeout — prevents hanging on external API calls */
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 60_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { ...options, signal: controller.signal });
+    return resp;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Request to ${new URL(url).hostname} timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ─── Rate Limiting (in-memory, per edge function instance) ──────────────────
+
+/** Per-user rate limiter — limits expensive actions to prevent API cost abuse */
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute window
+const RATE_LIMITS: Record<string, number> = {
+  "generate":          3,   // 3 generations per minute
+  "generate-submit":   3,
+  "edit":              5,
+  "lifestyle":         3,
+  "lifestyle-submit":  3,
+  "analyze":           10,
+  "luminance":         10,
+  "bg-remove":         5,
+  "analyze-style":     5,
+  "group-images":      3,
+  "generate-poll":     60,  // polling is cheap, allow more
+  "lifestyle-poll":    60,
+};
+
+function checkRateLimit(userId: string, action: string): boolean {
+  const limit = RATE_LIMITS[action] ?? 10;
+  const key = `${userId}:${action}`;
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(key, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (entry.count >= limit) {
+    return false; // Rate limited
+  }
+
+  entry.count++;
+  return true;
+}
+
+// Cleanup stale entries every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitMap) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 300_000);
+
+// ─── Input Validation ───────────────────────────────────────────────────────
+
+const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB max request body
+const ALLOWED_IMAGE_HOSTS = [
+  "lbyayuonwesmxvzvvavx.supabase.co",  // our Supabase storage
+  "fal.media",                          // Fal.ai result images
+  "v3.fal.media",                       // Fal.ai CDN
+  "storage.googleapis.com",             // GCS (used by some APIs)
+  "cdn.pixelcut.ai",                    // Pixelcut results
+];
+
+function validateImageUrl(url: string): boolean {
+  // Allow data URLs (base64 images from client)
+  if (url.startsWith("data:image/")) return true;
+
+  try {
+    const parsed = new URL(url);
+    // Must be HTTPS
+    if (parsed.protocol !== "https:") return false;
+    // Must be from an allowed host
+    return ALLOWED_IMAGE_HOSTS.some(host => parsed.hostname === host || parsed.hostname.endsWith(`.${host}`));
+  } catch {
+    return false;
+  }
 }
 
 // ─── Auth verification ───────────────────────────────────────────────────────
@@ -195,7 +284,7 @@ async function handleAnalyze(body: {
     }
   }
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -211,22 +300,24 @@ async function handleAnalyze(body: {
         { role: "user", content: imageContent },
       ],
     }),
-  });
+  }, 30_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const text = data.choices?.[0]?.message?.content;
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const choices = data.choices as Array<Record<string, unknown>> | undefined;
+  const text = (choices?.[0]?.message as Record<string, unknown>)?.content as string | undefined;
   if (!text) return errorResponse("OpenAI returned empty response", 502);
 
+  const usage = data.usage as Record<string, number> | undefined;
   return jsonResponse({
     text,
     usage: {
-      promptTokens: data.usage?.prompt_tokens ?? 0,
-      completionTokens: data.usage?.completion_tokens ?? 0,
+      promptTokens: usage?.prompt_tokens ?? 0,
+      completionTokens: usage?.completion_tokens ?? 0,
     },
   });
 }
@@ -238,7 +329,7 @@ async function handleLuminance(body: { imageUrl: string }): Promise<Response> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -266,24 +357,26 @@ async function handleLuminance(body: { imageUrl: string }): Promise<Response> {
         },
       ],
     }),
-  });
+  }, 30_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const text = data.choices?.[0]?.message?.content?.trim()?.toLowerCase() ?? "";
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const lChoices = data.choices as Array<Record<string, unknown>> | undefined;
+  const lMsg = lChoices?.[0]?.message as Record<string, unknown> | undefined;
+  const text = ((lMsg?.content as string) ?? "").trim().toLowerCase();
   const classification = text.includes("dark") ? "Dark" : "Light";
 
   return jsonResponse({ classification });
 }
 
 /**
- * Step 2: Studio Generation — Submit to Fal.ai queue (non-blocking).
- * Returns a request_id + provider for client-side polling via generate-poll.
- * Falls back to NanoBanana if Fal.ai submit fails.
+ * Step 2: Studio Generation — Synchronous call to fal.run (no queue).
+ * Returns { imageUrl } directly on success.
+ * Falls back to NanoBanana queue if Fal.ai fails (returns request_id for polling).
  */
 async function handleGenerateSubmit(body: {
   imageUrl: string;
@@ -299,13 +392,13 @@ async function handleGenerateSubmit(body: {
   const outputFormat = resolution === "4K" ? "jpeg" : "png";
   const fullPrompt = `${STUDIO_RENDER_PROMPT}\n\n${body.productDescription}`;
 
-  // 1) Try Fal.ai queue submit
+  // 1) Try Fal.ai SYNCHRONOUS endpoint (fal.run, NOT queue.fal.run)
   if (falKey) {
     try {
-      console.log(`[Edge] Generate-submit: Fal.ai queue nano-banana-2/edit (${resolution}, ${outputFormat})`);
+      console.log(`[Edge] Generate: Fal.ai SYNC fal.run/nano-banana-2/edit (${resolution}, ${outputFormat})`);
 
-      const submitResp = await fetch(
-        "https://queue.fal.run/fal-ai/nano-banana-2/edit",
+      const resp = await fetchWithTimeout(
+        "https://fal.run/fal-ai/nano-banana-2/edit",
         {
           method: "POST",
           headers: {
@@ -320,33 +413,37 @@ async function handleGenerateSubmit(body: {
             output_format: outputFormat,
             num_images: 1,
           }),
-        }
+        },
+        120_000 // 120s — same as handleEdit
       );
 
-      if (!submitResp.ok) {
-        const errText = await submitResp.text().catch(() => "");
-        console.warn(`[Edge] Fal.ai queue submit HTTP ${submitResp.status}: ${errText.slice(0, 300)}`);
-        throw new Error(`Fal.ai queue submit HTTP ${submitResp.status}`);
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        console.warn(`[Edge] Fal.ai sync HTTP ${resp.status}: ${errText.slice(0, 300)}`);
+        throw new Error(`Fal.ai sync HTTP ${resp.status}`);
       }
 
-      const submitData = await submitResp.json();
-      const requestId = submitData.request_id;
-      if (!requestId) throw new Error("Fal.ai queue: no request_id");
+      const data = await safeJson(resp) as Record<string, unknown>;
+      const images = data.images as Array<Record<string, unknown>> | undefined;
+      const image = data.image as Record<string, unknown> | string | undefined;
+      const resultUrl = images?.[0]?.url ?? (typeof image === 'object' ? image?.url : image);
+      if (!resultUrl) throw new Error("Fal.ai: no result image");
 
-      console.log(`[Edge] Fal.ai queue request_id: ${requestId}`);
-      return jsonResponse({ request_id: requestId, provider: "fal" });
+      console.log(`[Edge] Generate: Fal.ai sync success`);
+      // Return direct result — client skips polling
+      return jsonResponse({ imageUrl: resultUrl, direct: true });
     } catch (falErr) {
-      console.warn("[Edge] Fal.ai submit failed, trying NanoBanana:", falErr);
+      console.warn("[Edge] Fal.ai sync failed, trying NanoBanana:", falErr);
     }
   }
 
-  // 2) NanoBanana fallback submit
+  // 2) NanoBanana fallback submit (still queue-based)
   if (!nbKey) {
     return errorResponse("No image generation API available", 500);
   }
 
   console.log("[Edge] Generate-submit: NanoBanana (fallback)");
-  const createResp = await fetch("https://api.kie.ai/api/v1/jobs/createTask", {
+  const createResp = await fetchWithTimeout("https://api.kie.ai/api/v1/jobs/createTask", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -362,20 +459,21 @@ async function handleGenerateSubmit(body: {
         output_format: "png",
       },
     }),
-  });
+  }, 30_000);
 
   if (!createResp.ok) {
     const errText = await createResp.text().catch(() => "");
     return errorResponse(`NanoBanana createTask HTTP ${createResp.status}: ${errText.slice(0, 500)}`, 502);
   }
 
-  const createData = await createResp.json();
+  const createData = await safeJson(createResp) as Record<string, unknown>;
   if (createData.code !== 200 && createData.code !== 0) {
-    return errorResponse(`NanoBanana: ${createData.message ?? createData.msg ?? JSON.stringify(createData)}`, 502);
+    return errorResponse(`NanoBanana: ${(createData.message ?? createData.msg ?? JSON.stringify(createData)) as string}`, 502);
   }
 
+  const cdData = createData.data as Record<string, unknown> | undefined;
   const taskId =
-    createData.data?.taskId ?? createData.data?.task_id ?? createData.taskId;
+    cdData?.taskId ?? cdData?.task_id ?? createData.taskId;
   if (!taskId) return errorResponse("NanoBanana: no taskId returned", 502);
 
   return jsonResponse({ request_id: taskId, provider: "nanobanana" });
@@ -388,6 +486,8 @@ async function handleGenerateSubmit(body: {
 async function handleGeneratePoll(body: {
   request_id: string;
   provider: string;
+  status_url?: string;
+  response_url?: string;
 }): Promise<Response> {
   if (!body.request_id) return errorResponse("Missing request_id", 400);
 
@@ -397,28 +497,38 @@ async function handleGeneratePoll(body: {
     const falKey = Deno.env.get("FAL_API_KEY");
     if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-    // Use full model path (with /edit) for queue status — matches submit URL
+    // Use URLs from submit response if available, otherwise construct them
     const queueBase = "https://queue.fal.run/fal-ai/nano-banana-2/edit";
-    const statusResp = await fetch(
-      `${queueBase}/requests/${body.request_id}/status`,
-      { headers: { Authorization: `Key ${falKey}` } }
+    const statusUrl = body.status_url ?? `${queueBase}/requests/${body.request_id}/status`;
+    const responseUrl = body.response_url ?? `${queueBase}/requests/${body.request_id}`;
+
+    console.log(`[Edge] Generate-poll: checking ${statusUrl.slice(0, 100)}`);
+    const statusResp = await fetchWithTimeout(
+      statusUrl,
+      { method: "GET", headers: { Authorization: `Key ${falKey}` } },
+      15_000
     );
 
     if (!statusResp.ok) {
       const err = await statusResp.text().catch(() => "");
-      console.warn(`[Edge] Fal.ai status HTTP ${statusResp.status}: ${err.slice(0, 300)}`);
-      // Return IN_PROGRESS so client retries (transient status fetch failure)
-      return jsonResponse({ status: "IN_PROGRESS" });
+      console.error(`[Edge] Generate-poll: Fal.ai status HTTP ${statusResp.status}: ${err.slice(0, 300)}`);
+      // 5xx = transient (Fal.ai overloaded) → let client retry
+      // 4xx = permanent (bad request_id, auth, model gone) → return error
+      if (statusResp.status >= 500) {
+        return jsonResponse({ status: "IN_PROGRESS" });
+      }
+      return jsonResponse({ status: "FAILED", error: `Fal.ai status ${statusResp.status}: ${err.slice(0, 200)}` });
     }
 
-    const statusData = await statusResp.json();
-    console.log(`[Edge] Generate-poll (fal): ${statusData.status}`);
+    const statusData = await safeJson(statusResp) as Record<string, unknown>;
+    console.log(`[Edge] Generate-poll (fal): status=${statusData.status}, keys=${Object.keys(statusData).join(",")}`);
 
     if (statusData.status === "COMPLETED") {
-      // Fetch actual result
-      const resultResp = await fetch(
-        `${queueBase}/requests/${body.request_id}`,
-        { headers: { Authorization: `Key ${falKey}` } }
+      // Fetch actual result using response_url from submit
+      const resultResp = await fetchWithTimeout(
+        responseUrl,
+        { method: "GET", headers: { Authorization: `Key ${falKey}` } },
+        30_000
       );
 
       if (!resultResp.ok) {
@@ -426,8 +536,10 @@ async function handleGeneratePoll(body: {
         return errorResponse(`Fal.ai result fetch HTTP ${resultResp.status}: ${err.slice(0, 300)}`, 502);
       }
 
-      const resultData = await resultResp.json();
-      const resultUrl = resultData.images?.[0]?.url ?? resultData.image?.url ?? resultData.image;
+      const resultData = await safeJson(resultResp) as Record<string, unknown>;
+      const rdImages = resultData.images as Array<Record<string, unknown>> | undefined;
+      const rdImage = resultData.image as Record<string, unknown> | string | undefined;
+      const resultUrl = rdImages?.[0]?.url ?? (typeof rdImage === 'object' ? rdImage?.url : rdImage);
       if (!resultUrl) return errorResponse("Fal.ai: no result image in completed response", 502);
 
       return jsonResponse({ status: "COMPLETED", imageUrl: resultUrl });
@@ -445,24 +557,35 @@ async function handleGeneratePoll(body: {
     const nbKey = Deno.env.get("NANOBANANA_API_KEY");
     if (!nbKey) return errorResponse("NanoBanana API key not configured", 500);
 
-    const pollResp = await fetch(
+    const pollResp = await fetchWithTimeout(
       `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${body.request_id}`,
-      { headers: { Authorization: `Bearer ${nbKey}` } }
+      { headers: { Authorization: `Bearer ${nbKey}` } },
+      15_000
     );
 
     if (!pollResp.ok) {
-      return jsonResponse({ status: "IN_PROGRESS" });
+      const nbErr = await pollResp.text().catch(() => "");
+      console.error(`[Edge] NanoBanana poll HTTP ${pollResp.status}: ${nbErr.slice(0, 200)}`);
+      if (pollResp.status >= 500) {
+        return jsonResponse({ status: "IN_PROGRESS" });
+      }
+      return jsonResponse({ status: "FAILED", error: `NanoBanana poll ${pollResp.status}: ${nbErr.slice(0, 200)}` });
     }
 
-    const pollData = await pollResp.json();
-    const taskData = pollData.data ?? pollData;
+    const pollData = await safeJson(pollResp) as Record<string, unknown>;
+    const taskData = (pollData.data ?? pollData) as Record<string, unknown>;
     const state = taskData.state ?? taskData.status;
+    console.log(`[Edge] Generate-poll (nanobanana): state=${state}`);
 
     if (state === "success" || state === "completed") {
-      const resultJson =
-        typeof taskData.resultJson === "string"
+      let resultJson: Record<string, unknown>;
+      try {
+        resultJson = typeof taskData.resultJson === "string"
           ? JSON.parse(taskData.resultJson)
-          : taskData.resultJson ?? taskData;
+          : (taskData.resultJson ?? taskData) as Record<string, unknown>;
+      } catch {
+        return errorResponse("NanoBanana: invalid resultJson format", 502);
+      }
       const urls =
         resultJson.resultUrls ?? resultJson.result_urls ?? resultJson.output;
       const resultUrls = Array.isArray(urls) ? urls : [urls];
@@ -507,7 +630,7 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
     });
   }
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -521,52 +644,108 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
         { role: "user", content: imageContent },
       ],
     }),
-  });
+  }, 30_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const styleDescription = data.choices?.[0]?.message?.content ?? "";
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const asChoices = data.choices as Array<Record<string, unknown>> | undefined;
+  const asMsg = asChoices?.[0]?.message as Record<string, unknown> | undefined;
+  const styleDescription = (asMsg?.content as string) ?? "";
   return jsonResponse({ styleDescription });
 }
 
 /**
- * Step 5: Background Removal — Fal.ai Pixelcut
+ * Step 5: Background Removal — Fal.ai Pixelcut → Bria RMBG v2 fallback
+ * Retries Pixelcut up to 2 times, then falls back to Bria RMBG v2.
  */
 async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const resp = await fetch("https://fal.run/pixelcut/background-removal", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Key ${falKey}`,
-    },
-    body: JSON.stringify({
-      image_url: body.imageUrl,
-      output_format: "rgba",
-    }),
-  });
+  // --- Try Pixelcut (primary) with retries ---
+  const PIXELCUT_RETRIES = 2;
+  let pixelcutError = "";
 
-  if (!resp.ok) {
-    const err = await resp.text().catch(() => "");
-    return errorResponse(`Fal.ai Pixelcut error ${resp.status}: ${err.slice(0, 500)}`, 502);
+  for (let attempt = 0; attempt < PIXELCUT_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = 2000 * Math.pow(2, attempt - 1);
+      console.log(`[Edge] Pixelcut retry ${attempt}/${PIXELCUT_RETRIES} after ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+
+    try {
+      const resp = await fetchWithTimeout("https://fal.run/pixelcut/background-removal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Key ${falKey}`,
+        },
+        body: JSON.stringify({
+          image_url: body.imageUrl,
+          output_format: "rgba",
+        }),
+      }, 60_000);
+
+      if (!resp.ok) {
+        pixelcutError = await resp.text().catch(() => `HTTP ${resp.status}`);
+        console.warn(`[Edge] Pixelcut attempt ${attempt + 1} failed: ${resp.status} ${pixelcutError.slice(0, 200)}`);
+        if (resp.status >= 500 && attempt < PIXELCUT_RETRIES - 1) continue;
+        break; // Fall through to Bria fallback
+      }
+
+      const data = await safeJson(resp) as Record<string, unknown>;
+      const pxImage = data.image as Record<string, unknown> | string | undefined;
+      const resultUrl = typeof pxImage === 'object' ? pxImage?.url : pxImage;
+      if (!resultUrl) { pixelcutError = "no result image"; break; }
+
+      console.log("[Edge] BG removal: Pixelcut success");
+      return jsonResponse({ imageUrl: resultUrl });
+    } catch (err) {
+      pixelcutError = err instanceof Error ? err.message : String(err);
+      console.warn(`[Edge] Pixelcut attempt ${attempt + 1} exception: ${pixelcutError}`);
+      if (attempt < PIXELCUT_RETRIES - 1) continue;
+      break;
+    }
   }
 
-  const data = await resp.json();
-  const resultUrl = data.image?.url ?? data.image;
-  if (!resultUrl) return errorResponse("Fal.ai Pixelcut: no result image", 502);
+  // --- Fallback: Bria RMBG v2 ---
+  console.log(`[Edge] Pixelcut failed (${pixelcutError.slice(0, 100)}), falling back to Bria RMBG v2`);
+  try {
+    const resp = await fetchWithTimeout("https://fal.run/fal-ai/rmbg-v2", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Key ${falKey}`,
+      },
+      body: JSON.stringify({ image_url: body.imageUrl }),
+    }, 60_000);
 
-  return jsonResponse({ imageUrl: resultUrl });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => `HTTP ${resp.status}`);
+      console.error(`[Edge] Bria RMBG v2 also failed: ${resp.status} ${errText.slice(0, 200)}`);
+      return errorResponse(`Background removal unavailable. Please try again in a few minutes.`, 502);
+    }
+
+    const data = await safeJson(resp) as Record<string, unknown>;
+    const brImage = data.image as Record<string, unknown> | string | undefined;
+    const resultUrl = typeof brImage === 'object' ? brImage?.url : brImage;
+    if (!resultUrl) return errorResponse("Background removal returned no result. Please retry.", 502);
+
+    console.log("[Edge] BG removal: Bria RMBG v2 fallback success");
+    return jsonResponse({ imageUrl: resultUrl });
+  } catch (briaErr) {
+    console.error("[Edge] Bria RMBG v2 exception:", briaErr);
+    return errorResponse(`Background removal unavailable. Please try again in a few minutes.`, 502);
+  }
 }
 
 /**
- * Lifestyle Generation — Submit to Fal.ai Queue (non-blocking)
- * Returns a request_id for polling via lifestyle-poll.
+ * Lifestyle Generation — Synchronous call to fal.run (no queue).
+ * Returns { imageUrl, direct: true } on success.
  */
 async function handleLifestyleSubmit(body: {
   imageUrl: string;
@@ -595,8 +774,9 @@ High-end product photography style, natural lighting, shallow depth of field whe
     prompt += `\n\nApply this visual style: ${body.styleDescription}`;
   }
 
-  // Submit to fal.ai QUEUE (returns immediately with request_id)
-  const resp = await fetch("https://queue.fal.run/fal-ai/nano-banana-2/edit", {
+  // Synchronous call to fal.run (NOT queue.fal.run)
+  console.log(`[Edge] Lifestyle-submit: Fal.ai SYNC fal.run/nano-banana-2/edit (${resolution})`);
+  const resp = await fetchWithTimeout("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -610,18 +790,21 @@ High-end product photography style, natural lighting, shallow depth of field whe
       output_format: "png",
       num_images: 1,
     }),
-  });
+  }, 120_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`Fal.ai queue submit error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`Fal.ai lifestyle error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const requestId = data.request_id;
-  if (!requestId) return errorResponse("Fal.ai queue: no request_id returned", 502);
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const images = data.images as Array<Record<string, unknown>> | undefined;
+  const image = data.image as Record<string, unknown> | string | undefined;
+  const resultUrl = images?.[0]?.url ?? (typeof image === 'object' ? image?.url : image);
+  if (!resultUrl) return errorResponse("Fal.ai lifestyle: no result image", 502);
 
-  return jsonResponse({ request_id: requestId });
+  console.log("[Edge] Lifestyle-submit: Fal.ai sync success");
+  return jsonResponse({ imageUrl: resultUrl, direct: true });
 }
 
 /**
@@ -630,31 +813,43 @@ High-end product photography style, natural lighting, shallow depth of field whe
  */
 async function handleLifestylePoll(body: {
   request_id: string;
+  status_url?: string;
+  response_url?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
   if (!body.request_id) return errorResponse("Missing request_id", 400);
 
-  // Check status — use full model path (with /edit) matching submit URL
+  // Use URLs from submit response if available, otherwise construct them
   const queueBase = "https://queue.fal.run/fal-ai/nano-banana-2/edit";
-  const statusResp = await fetch(
-    `${queueBase}/requests/${body.request_id}/status`,
-    { headers: { Authorization: `Key ${falKey}` } }
+  const statusUrl = body.status_url ?? `${queueBase}/requests/${body.request_id}/status`;
+  const responseUrl = body.response_url ?? `${queueBase}/requests/${body.request_id}`;
+
+  const statusResp = await fetchWithTimeout(
+    statusUrl,
+    { method: "GET", headers: { Authorization: `Key ${falKey}` } },
+    15_000
   );
 
   if (!statusResp.ok) {
     const err = await statusResp.text().catch(() => "");
-    return errorResponse(`Fal.ai status error ${statusResp.status}: ${err.slice(0, 500)}`, 502);
+    console.error(`[Edge] Lifestyle-poll: Fal.ai status HTTP ${statusResp.status}: ${err.slice(0, 300)}`);
+    if (statusResp.status >= 500) {
+      return jsonResponse({ status: "IN_PROGRESS" });
+    }
+    return jsonResponse({ status: "FAILED", error: `Fal.ai status ${statusResp.status}: ${err.slice(0, 200)}` });
   }
 
-  const statusData = await statusResp.json();
+  const statusData = await safeJson(statusResp) as Record<string, unknown>;
+  console.log(`[Edge] Lifestyle-poll: status=${statusData.status}, keys=${Object.keys(statusData).join(",")}`);
 
-  // Queue status: IN_QUEUE, IN_PROGRESS, COMPLETED
+  // Queue status: IN_QUEUE, IN_PROGRESS, COMPLETED, FAILED
   if (statusData.status === "COMPLETED") {
-    // Fetch the actual result
-    const resultResp = await fetch(
-      `${queueBase}/requests/${body.request_id}`,
-      { headers: { Authorization: `Key ${falKey}` } }
+    // Fetch the actual result using response_url from submit
+    const resultResp = await fetchWithTimeout(
+      responseUrl,
+      { method: "GET", headers: { Authorization: `Key ${falKey}` } },
+      30_000
     );
 
     if (!resultResp.ok) {
@@ -662,15 +857,22 @@ async function handleLifestylePoll(body: {
       return errorResponse(`Fal.ai result error ${resultResp.status}: ${err.slice(0, 500)}`, 502);
     }
 
-    const resultData = await resultResp.json();
-    const resultUrl = resultData.images?.[0]?.url ?? resultData.image?.url ?? resultData.image;
+    const resultData = await safeJson(resultResp) as Record<string, unknown>;
+    const lpImages = resultData.images as Array<Record<string, unknown>> | undefined;
+    const lpImage = resultData.image as Record<string, unknown> | string | undefined;
+    const resultUrl = lpImages?.[0]?.url ?? (typeof lpImage === 'object' ? lpImage?.url : lpImage);
     if (!resultUrl) return errorResponse("Fal.ai lifestyle: no result image", 502);
 
     return jsonResponse({ status: "COMPLETED", imageUrl: resultUrl });
   }
 
-  // Still processing
-  return jsonResponse({ status: statusData.status ?? "IN_PROGRESS" });
+  // Failed — return error details
+  if (statusData.status === "FAILED") {
+    return jsonResponse({ status: "FAILED", error: JSON.stringify(statusData).slice(0, 300) });
+  }
+
+  // Still processing (IN_QUEUE or IN_PROGRESS)
+  return jsonResponse({ status: (statusData.status as string) ?? "IN_PROGRESS" });
 }
 
 /**
@@ -703,7 +905,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
     prompt += `\n\nApply this visual style: ${body.styleDescription}`;
   }
 
-  const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
+  const resp = await fetchWithTimeout("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -717,15 +919,17 @@ High-end product photography style, natural lighting, shallow depth of field whe
       output_format: "png",
       num_images: 1,
     }),
-  });
+  }, 120_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     return errorResponse(`Fal.ai lifestyle error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const resultUrl = data.images?.[0]?.url ?? data.image?.url ?? data.image;
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const lsImages = data.images as Array<Record<string, unknown>> | undefined;
+  const lsImage = data.image as Record<string, unknown> | string | undefined;
+  const resultUrl = lsImages?.[0]?.url ?? (typeof lsImage === 'object' ? lsImage?.url : lsImage);
   if (!resultUrl) return errorResponse("Fal.ai lifestyle: no result image", 502);
 
   return jsonResponse({ imageUrl: resultUrl });
@@ -764,7 +968,7 @@ Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composi
 Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${productContext}`;
 
   console.log(`[Edge] Edit: Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat})`);
-  const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
+  const resp = await fetchWithTimeout("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -778,15 +982,17 @@ Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${
       output_format: outputFormat,
       num_images: 1,
     }),
-  });
+  }, 120_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     return errorResponse(`Fal.ai edit error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const resultUrl = data.images?.[0]?.url ?? data.image?.url ?? data.image;
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const edImages = data.images as Array<Record<string, unknown>> | undefined;
+  const edImage = data.image as Record<string, unknown> | string | undefined;
+  const resultUrl = edImages?.[0]?.url ?? (typeof edImage === 'object' ? edImage?.url : edImage);
   if (!resultUrl) return errorResponse("Fal.ai edit: no result image", 502);
 
   return jsonResponse({ imageUrl: resultUrl });
@@ -828,7 +1034,7 @@ Rules:
     });
   }
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  const resp = await fetchWithTimeout("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -844,15 +1050,17 @@ Rules:
         { role: "user", content: imageContent },
       ],
     }),
-  });
+  }, 30_000);
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
-  const data = await resp.json();
-  const text = data.choices?.[0]?.message?.content?.trim() ?? "";
+  const data = await safeJson(resp) as Record<string, unknown>;
+  const giChoices = data.choices as Array<Record<string, unknown>> | undefined;
+  const giMsg = giChoices?.[0]?.message as Record<string, unknown> | undefined;
+  const text = ((giMsg?.content as string) ?? "").trim();
 
   // Parse JSON from response (handle markdown code blocks)
   let parsed: { groups: Array<{ name: string; indices: number[]; primary: number }>; ungrouped: number[] };
@@ -885,9 +1093,16 @@ Deno.serve(async (req: Request) => {
     return errorResponse("Method not allowed", 405);
   }
 
+  // Check Content-Length before reading body
+  const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+  if (contentLength > MAX_BODY_SIZE) {
+    return errorResponse(`Request too large (${Math.round(contentLength / 1024 / 1024)}MB). Max 10MB.`, 413);
+  }
+
   // Verify auth
+  let userId: string;
   try {
-    await verifyAuth(req);
+    userId = await verifyAuth(req);
   } catch (err) {
     return errorResponse(
       `Auth failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -906,7 +1121,27 @@ Deno.serve(async (req: Request) => {
   const { action } = body;
   if (!action) return errorResponse("Missing action field", 400);
 
-  console.log(`[Edge] Action: ${action}`);
+  // Rate limit check
+  if (!checkRateLimit(userId, action)) {
+    console.warn(`[Edge] Rate limited: user=${userId.slice(0, 8)}, action=${action}`);
+    return errorResponse("Too many requests. Please wait a moment before trying again.", 429);
+  }
+
+  // Validate image URLs if present
+  const imageUrl = body.imageUrl as string | undefined;
+  if (imageUrl && !validateImageUrl(imageUrl)) {
+    return errorResponse("Invalid image URL. Images must be from an allowed source.", 400);
+  }
+  const additionalUrls = body.additionalImageUrls as string[] | undefined;
+  if (additionalUrls?.length) {
+    for (const url of additionalUrls) {
+      if (!validateImageUrl(url)) {
+        return errorResponse("Invalid additional image URL. Images must be from an allowed source.", 400);
+      }
+    }
+  }
+
+  console.log(`[Edge] Action: ${action}, user: ${userId.slice(0, 8)}...`);
 
   try {
     switch (action) {
@@ -933,7 +1168,7 @@ Deno.serve(async (req: Request) => {
 
       case "generate-poll":
         return await handleGeneratePoll(
-          body as { action: string; request_id: string; provider: string }
+          body as { action: string; request_id: string; provider: string; status_url?: string; response_url?: string }
         );
 
       case "analyze-style":
@@ -970,7 +1205,7 @@ Deno.serve(async (req: Request) => {
 
       case "lifestyle-poll":
         return await handleLifestylePoll(
-          body as { action: string; request_id: string }
+          body as { action: string; request_id: string; status_url?: string; response_url?: string }
         );
 
       case "edit":

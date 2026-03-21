@@ -1,0 +1,37 @@
+# FrameFlow — AI Product Photography
+> Turn smartphone photos into studio-quality product images in 30 seconds.
+
+## What is FrameFlow?
+FrameFlow is an AI-powered product photography tool for e-commerce sellers. It transforms simple smartphone photos into professional studio-quality images with white backgrounds, lifestyle scenes, and 4K resolution. Designed for Amazon, Shopify, and marketplace sellers who need cost-effective product photography.
+
+## Key Features
+- AI background removal with realistic drop shadows
+- Amazon-compliant pure white backgrounds
+- AI-generated lifestyle scenes
+- 4K resolution export
+- Batch processing for large catalogs
+- Starting from 0.20 EUR per photo
+
+## Pricing Plans
+- Free Trial: 3 free photos to test
+- Starter: 35 photos/month
+- Pro: 90 photos/month
+- Business: 210 photos/month
+
+## Target Users
+- Amazon FBA sellers
+- Shopify store owners
+- E-commerce brands
+- Product photographers
+- Marketing agencies
+
+## Technical Details
+- Web application (no download needed)
+- Works with any smartphone photo
+- AI-powered by state-of-the-art models
+- Supabase backend for secure storage
+- Available at: https://frameflow.design
+
+## Contact
+- Website: https://frameflow.design
+- Support: Available through the app

@@ -38,7 +38,6 @@ function useCountUp(end: number, duration = 1800, decimals = 0) {
 }
 import './landing.css';
 
-const SUPABASE_IMG_BASE = 'https://lbyayuonwesmxvzvvavx.supabase.co/storage/v1/object/public/project-images/landing-page';
 
 export interface LandingScreenProps {
   onLogin: () => void;
@@ -178,6 +177,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               className="text-center max-w-3xl mx-auto mb-10"
             >
               <h1 className="text-4xl md:text-[56px] font-bold tracking-tighter text-[#111111] mb-5 leading-[1.08]">
+                <span className="block text-base md:text-lg font-semibold text-humble-orange mb-3 tracking-normal">AI Product Photography for E-Commerce</span>
                 Turn Product Photos<br />Into Profit.
               </h1>
               <p className="text-base md:text-lg text-humble-text font-medium tracking-tight mb-8">
@@ -305,7 +305,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   <div className="relative aspect-square overflow-hidden bg-[#F5F4F0]">
                     <img
                       src={step.image}
-                      alt=""
+                      alt={`Step ${step.step}: ${step.title} — ${step.description}`}
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                     />
                     {/* Step badge */}
@@ -707,6 +708,17 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                 <div className="flex flex-col gap-3">
                   <a href="mailto:contact@frameflow.design" className="text-sm text-humble-gray hover:text-humble-text transition-colors">contact@frameflow.design</a>
                   <a href="#contact" className="text-sm text-humble-gray hover:text-humble-text transition-colors">Get in touch</a>
+                  <div className="flex items-center gap-3 mt-2">
+                    <a href="https://x.com/frameflow_ai" target="_blank" rel="noopener noreferrer" aria-label="Follow FrameFlow on X (Twitter)" className="text-humble-gray hover:text-humble-text transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    </a>
+                    <a href="https://www.instagram.com/frameflow.design" target="_blank" rel="noopener noreferrer" aria-label="Follow FrameFlow on Instagram" className="text-humble-gray hover:text-humble-text transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="5"/><circle cx="17.5" cy="6.5" r="1.5"/></svg>
+                    </a>
+                    <a href="https://www.linkedin.com/company/frameflow" target="_blank" rel="noopener noreferrer" aria-label="Follow FrameFlow on LinkedIn" className="text-humble-gray hover:text-humble-text transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                    </a>
+                  </div>
                 </div>
               </div>
               <div>
@@ -752,7 +764,7 @@ const HOW_IT_WORKS_STEPS = [
     step: 1,
     title: 'Upload your photo',
     description: 'One phone photo is all you need. No studio, no lighting, no photographer — FrameFlow handles everything.',
-    image: `${SUPABASE_IMG_BASE}/inputImage.jpg`,
+    image: '/inputImage-step.webp',
     badge: 'Smartphone',
     badgeIcon: <Smartphone size={12} />,
   },
@@ -760,7 +772,7 @@ const HOW_IT_WORKS_STEPS = [
     step: 2,
     title: 'Instant studio quality',
     description: 'In seconds, your phone photo becomes a professional white-background image with perfect lighting and realistic shadows.',
-    image: `${SUPABASE_IMG_BASE}/step2.png`,
+    image: '/step2.webp',
     badge: 'AI Processing',
     badgeIcon: <Sparkles size={12} />,
   },
@@ -768,7 +780,7 @@ const HOW_IT_WORKS_STEPS = [
     step: 3,
     title: 'Infinite lifestyles',
     description: 'Type a scene — kitchen counter, bedside table, gym bag — and get magazine-quality lifestyle images in seconds.',
-    image: `${SUPABASE_IMG_BASE}/step3.png`,
+    image: '/step3.webp',
     badge: 'AI Prompt',
     badgeIcon: <Zap size={12} />,
   },
@@ -783,7 +795,7 @@ const METRICS = [
     title: 'More Sales',
     subtitle: 'Bad photos kill your listing. Great ones print money.',
     description: 'Amazon shoppers decide in 0.3 seconds. Blurry phone pics lose the click — and the sale. Sellers who switch to studio-grade visuals see an average 56% jump in sell-through rate.',
-    image: `${SUPABASE_IMG_BASE}/lifestyle-0.png?v=3`,
+    image: '/lifestyle-0.webp',
     badgeText: 'Revenue Impact',
   },
   {
@@ -795,7 +807,7 @@ const METRICS = [
     title: 'Per Photo',
     subtitle: 'Kill your 500€ studio bill. Keep the quality.',
     description: 'A single product shoot costs 25–50€ per image. Multiply that by your catalog and you\'re burning thousands. Get the same result from your phone for 100x less.',
-    image: `${SUPABASE_IMG_BASE}/shadowComposite.png`,
+    image: '/shadowComposite.webp',
     badgeText: 'Cost Killer',
   },
   {
@@ -806,7 +818,7 @@ const METRICS = [
     title: 'To Go Live',
     subtitle: 'Launch products while your competitors wait for their photographer.',
     description: 'From phone snap to Amazon-ready listing in under a minute. No booking, no back-and-forth, no editing. Shoot → Upload → Sell. That\'s it.',
-    image: `${SUPABASE_IMG_BASE}/edit-0.png`,
+    image: '/edit-0.webp',
     badgeText: 'Speed to Market',
   },
   {
@@ -817,7 +829,7 @@ const METRICS = [
     title: 'Studio Resolution',
     subtitle: 'Zoom-proof quality with accurate text and logos.',
     description: 'Pure white backgrounds, realistic shadows, pin-sharp details at 4K. Unlike other AI tools, your product text and logos stay crisp and readable — no distortion, no artifacts. Passes Amazon, Shopify, and eBay compliance on the first try.',
-    image: `${SUPABASE_IMG_BASE}/edit-1.jpg?v=3`,
+    image: '/edit-1.webp',
     badgeText: 'Pro Quality',
   },
 ];
@@ -825,16 +837,16 @@ const METRICS = [
 const SHOWCASE_TABS = ['Main Image', 'Lifestyle', 'All Results'] as const;
 
 const SHOWCASE_IMAGES = [
-  { url: '/cat-tree-lifestyle.png', category: 'Lifestyle' as const },
-  { url: '/portfolio-lifestyle.png', category: 'Lifestyle' as const },
-  { url: '/cosmetic-lifestyle.png', category: 'Lifestyle' as const },
-  { url: '/cosmetic-lifestyle-2.png', category: 'Lifestyle' as const },
-  { url: '/razorback-lifestyle.jpg', category: 'Lifestyle' as const },
-  { url: '/cosmetic-lifestyle-3.png', category: 'Lifestyle' as const },
-  { url: '/cosmetic-detail.jpg', category: 'Lifestyle' as const, fit: 'object-top scale-[1.65] origin-top group-hover:!scale-[1.73]' as const },
-  { url: '/studio-render.jpg', category: 'Main Image' as const },
-  { url: '/bottle-studio.jpg', category: 'Main Image' as const },
-  { url: '/wurth-studio.jpg', category: 'Main Image' as const },
+  { url: '/cat-tree-lifestyle.webp', category: 'Lifestyle' as const },
+  { url: '/portfolio-lifestyle.webp', category: 'Lifestyle' as const },
+  { url: '/cosmetic-lifestyle.webp', category: 'Lifestyle' as const },
+  { url: '/cosmetic-lifestyle-2.webp', category: 'Lifestyle' as const },
+  { url: '/razorback-lifestyle.webp', category: 'Lifestyle' as const },
+  { url: '/cosmetic-lifestyle-3.webp', category: 'Lifestyle' as const },
+  { url: '/cosmetic-detail.webp', category: 'Lifestyle' as const, fit: 'object-top scale-[1.65] origin-top group-hover:!scale-[1.73]' as const },
+  { url: '/studio-render.webp', category: 'Main Image' as const },
+  { url: '/bottle-studio.webp', category: 'Main Image' as const },
+  { url: '/wurth-studio.webp', category: 'Main Image' as const },
 ];
 
 const COMPARISON_ROWS = [
@@ -926,7 +938,8 @@ function MetricRow({ metric, index: _i, isReversed, appleTransition }: {
         >
           <img
             src={metric.image}
-            alt=""
+            alt={`${metric.title} — FrameFlow AI product photography`}
+            loading="lazy"
             style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: '1/1', objectFit: 'cover', objectPosition: 'center' }}
             className="group-hover:scale-[1.03] transition-transform duration-700"
           />
@@ -1030,6 +1043,7 @@ function ShowcaseGallery({ appleTransition }: { appleTransition: { duration: num
                 <img
                   src={img.url}
                   alt={`AI product photography - ${img.category.toLowerCase()} - FrameFlow`}
+                  loading="lazy"
                   className={`w-full h-full group-hover:scale-[1.05] transition-transform duration-700 ${(img as any).fit?.includes('object-contain') ? '' : 'object-cover'} ${(img as any).fit ?? ''}`}
                 />
               </motion.div>
@@ -1113,13 +1127,12 @@ function PricingCard({
 
 /* ─── Hero Mockup with Cycling Images ─── */
 
-const SUPABASE_IMG = SUPABASE_IMG_BASE; // All landing images now in dedicated /landing-page/ folder
 
 const DEMO_SLIDES = [
-  { label: 'ORIGINAL',  url: `${SUPABASE_IMG}/inputImage.png`, scene: false },
-  { label: 'FINAL',     url: `${SUPABASE_IMG}/autoCrop.png`, scene: false },
-  { label: 'EDIT',      url: `${SUPABASE_IMG}/edit-0.png`,      scene: true },
-  { label: 'EDIT 2',    url: `${SUPABASE_IMG}/edit-2.png`,      scene: true },
+  { label: 'ORIGINAL',  url: '/inputImage.webp', scene: false },
+  { label: 'FINAL',     url: '/autoCrop.webp', scene: false },
+  { label: 'EDIT',      url: '/edit-0.webp',      scene: true },
+  { label: 'EDIT 2',    url: '/edit-2.webp',      scene: true },
 ];
 
 function HeroMockup(_props: { appleTransition: { duration: number; ease: readonly [number, number, number, number] } }) {
@@ -1200,7 +1213,7 @@ function HeroMockup(_props: { appleTransition: { duration: number; ease: readonl
                   <img
                     key={i}
                     src={slide.url}
-                    alt=""
+                    alt={`FrameFlow ${slide.label} — AI product photo editing`}
                     className={`hero-cycling-img${slide.scene ? ' scene' : ''}`}
                     style={{ opacity: i === activeIdx ? 1 : 0 }}
                   />
@@ -1220,7 +1233,7 @@ function HeroMockup(_props: { appleTransition: { duration: number; ease: readonl
                       }}
                       className={`hero-thumb-item ${i === activeIdx ? 'active' : ''}`}
                     >
-                      <img src={slide.url} alt="" />
+                      <img src={slide.url} alt={`${slide.label} thumbnail`} />
                       <span className={`hero-thumb-label ${i === activeIdx ? 'active' : ''}`}>
                         {slide.label}
                       </span>

@@ -5,7 +5,7 @@
 
 ## Overview
 
-Mass upload system with AI-powered auto-grouping, auto-naming, and collection/folder organization for Photo Studio. Allows users to upload up to 50 product images at once, have them automatically grouped by product similarity using Vision AI, named descriptively, and batch-processed through the existing 8-step pipeline.
+Mass upload system with AI-powered auto-grouping, auto-naming, and collection/folder organization for FrameFlow. Allows users to upload up to 50 product images at once, have them automatically grouped by product similarity using Vision AI, named descriptively, and batch-processed through the existing 8-step pipeline.
 
 ## Architecture
 

@@ -11,4 +11,17 @@ export default defineConfig({
     strictPort: true,
     open: false, // Don't try to open browser in headless env
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split heavy vendor libraries into separate chunks
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-revenuecat': ['@revenuecat/purchases-js'],
+          'vendor-motion': ['motion'],
+        },
+      },
+    },
+  },
 })

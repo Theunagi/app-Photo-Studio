@@ -122,9 +122,12 @@ export async function testSupabaseConnection(): Promise<SupabaseDiagnostic> {
   if (result.dbConnected) {
     try {
       const testId = '00000000-0000-0000-0000-000000000000';
+      const { data: userData } = await _supabase.auth.getUser();
+      const userId = userData?.user?.id;
       const { error } = await _supabase.from('projects').upsert({
         id: testId, name: '_test', created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(), config: {}, results: {},
+        ...(userId ? { user_id: userId } : {}),
       }, { onConflict: 'id' });
       if (error) { result.dbWriteError = error.message; }
       else { result.dbWritable = true; await _supabase.from('projects').delete().eq('id', testId); }

@@ -1,0 +1,23 @@
+# FrameFlow — robots.txt
+# https://frameflow.design
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+
+# Sitemap
+Sitemap: https://frameflow.design/sitemap.xml
+
+# AI crawlers — allow for citation and discovery
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /

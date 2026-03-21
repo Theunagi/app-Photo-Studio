@@ -33,7 +33,6 @@ import {
 
 // API Services (Edge Function proxies)
 import { analyzeProduct, checkLuminance } from '../api/openai';
-import { callNanoBananaImageGen } from '../api/nanobanana';
 import { generateStudioImage } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
 
@@ -87,9 +86,22 @@ async function uploadToStorage(
   return data.publicUrl;
 }
 
-/** Download image from URL back to a data URL (for client-side DSP steps) */
-async function urlToDataUrl(url: string): Promise<string> {
-  const response = await fetch(url);
+/** Download image from URL back to a data URL (for client-side DSP steps).
+ * Includes a 60s timeout to prevent hanging on slow/dead URLs. */
+async function urlToDataUrl(url: string, timeoutMs = 60_000): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: controller.signal });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error(`Image download timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw err;
+  }
+  clearTimeout(timer);
   if (!response.ok) throw new Error(`Failed to download image: ${response.status}`);
   const blob = await response.blob();
   return blobToDataUrl(blob);
@@ -179,32 +191,14 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   // STEP 2: STUDIO GENERATION (Fal.ai → NanoBanana via Edge Functions)
   // =========================================================================
   const studioGen = await executeStep<StudioGeneration>(state, 'studioGeneration', onStateChange, async () => {
-    // --- Fallback chain: Fal.ai → NanoBanana ---
-
-    // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
-    try {
-      const response = await generateStudioImage(inputStorageUrl, analysis.description, {
-        resolution: config.imageSize ?? '2K',
-        aspectRatio: config.aspectRatio ?? '1:1',
-        sessionId,
-      });
-      // Download result for DSP steps
-      const imageDataUrl = await urlToDataUrl(response.resultImageUrl);
-      return {
-        imageBlob: dataUrlToBlob(imageDataUrl),
-        imageDataUrl,
-      };
-    } catch (falErr) {
-      import.meta.env.DEV && console.warn('[Pipeline] Fal.ai failed, trying NanoBanana:', falErr);
-    }
-
-    // 2) NanoBanana Pro — fallback
-    const response = await callNanoBananaImageGen(inputStorageUrl, analysis.description, {
-      referenceImageUrls: additionalStorageUrls,
+    // The server-side edge function handles the full Fal.ai → NanoBanana fallback chain internally.
+    // No client-side retry needed (both functions call the same server endpoint).
+    const response = await generateStudioImage(inputStorageUrl, analysis.description, {
       resolution: config.imageSize ?? '2K',
       aspectRatio: config.aspectRatio ?? '1:1',
       sessionId,
     });
+    // Download result for DSP steps
     const imageDataUrl = await urlToDataUrl(response.resultImageUrl);
     return {
       imageBlob: dataUrlToBlob(imageDataUrl),

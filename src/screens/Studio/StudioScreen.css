@@ -1195,39 +1195,167 @@
   transform: scale(0.97);
 }
 
+/* ===== Mobile Action Toolbar ===== */
+.mobile-toolbar {
+  display: none; /* Hidden on desktop */
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
-  .result-layout {
-    flex-direction: column;
-  }
-
   .result-sidebar {
     display: none;
   }
 
-  .result-canvas-img {
-    max-height: 60vh;
+  /* Full-viewport layout — NO scroll, everything fits in one screen */
+  .studio-main {
+    height: 100vh;
+    height: 100dvh; /* dynamic viewport height — accounts for mobile browser chrome */
+    overflow: hidden;
+    padding: 8px;
+    gap: 8px;
   }
 
+  .result-viewer {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: 8px;
+  }
+
+  .result-layout {
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+
+  .result-card {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .result-canvas {
+    height: 100%;
+  }
+
+  .result-canvas-img {
+    max-height: 100%;
+  }
+
+  /* Thumbnails inside the canvas — compact on mobile */
   .result-thumbs {
-    position: relative;
-    bottom: auto;
-    left: auto;
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
     justify-content: center;
-    margin-top: -8px;
+    padding: 4px 6px;
+    border-radius: 10px;
+    gap: 4px;
+  }
+
+  .result-thumb {
+    width: 48px;
+    padding: 3px;
+    border-radius: 8px;
+  }
+
+  .result-thumb img {
+    height: 30px;
+    border-radius: 4px;
+  }
+
+  .thumb-label {
+    font-size: 7px;
+  }
+
+  /* Show mobile toolbar — always visible at bottom */
+  .mobile-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px 8px;
+    background: #FFFFFF;
+    border: 1px solid #E8E8E4;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    flex-shrink: 0; /* Never shrink — always visible */
+  }
+
+  .mobile-toolbar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: #6B6B6B;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 200ms ease;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-toolbar-btn svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  .mobile-toolbar-btn:hover,
+  .mobile-toolbar-btn:active {
+    background: #F5F4F0;
+    color: #1D1D1F;
+  }
+
+  .mobile-toolbar-btn.active {
+    background: rgba(255, 64, 0, 0.08);
+    color: #ff4000;
+  }
+
+  .mobile-toolbar-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .mobile-toolbar-btn span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  /* Prompt panels (lifestyle/edit) — compact on mobile */
+  .prompt-panel {
+    flex-shrink: 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+  }
+
+  .prompt-panel-header {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .prompt-panel-hint {
+    font-size: 12px;
     margin-bottom: 8px;
+  }
+
+  .prompt-panel-input {
+    height: 38px;
+    font-size: 14px;
   }
 }
 
 @media (max-width: 768px) {
   .studio .sidebar {
     display: none;
-  }
-
-  .studio-main {
-    padding: 24px 16px;
-    height: auto;
-    min-height: 100vh;
   }
 
   .studio-title-bar h1 {
