@@ -264,6 +264,50 @@ function sanitizeForPrompt(input: string, maxLength: number): string {
   return clean.trim();
 }
 
+// ─── Image Proxy (re-upload to Supabase Storage for CORS) ───────────────────
+
+/**
+ * Download an image from an external CDN (server-side, no CORS issue)
+ * and re-upload it to Supabase Storage so the browser can access it.
+ * This fixes CORS issues with CDNs like cdn.pixelcut.ai that don't allow
+ * cross-origin downloads from frameflow.design.
+ */
+async function proxyImageToStorage(imageUrl: string, label: string): Promise<string> {
+  // If already a Supabase URL or data URL, no need to proxy
+  if (imageUrl.includes("supabase.co") || imageUrl.startsWith("data:")) {
+    return imageUrl;
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  // Download image server-side (no CORS restrictions)
+  const imgResp = await fetchWithTimeout(imageUrl, {}, 30_000);
+  if (!imgResp.ok) {
+    console.warn(`[Edge] Proxy download failed: ${imgResp.status}`);
+    return imageUrl; // Fall back to original URL
+  }
+
+  const imgBlob = await imgResp.arrayBuffer();
+  const contentType = imgResp.headers.get("content-type") ?? "image/png";
+  const ext = contentType.includes("jpeg") || contentType.includes("jpg") ? "jpg" : "png";
+  const path = `temp-proxy/${label}-${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("project-images")
+    .upload(path, new Uint8Array(imgBlob), { contentType, upsert: true });
+
+  if (error) {
+    console.warn(`[Edge] Proxy upload failed: ${error.message}`);
+    return imageUrl; // Fall back to original URL
+  }
+
+  const { data } = supabase.storage.from("project-images").getPublicUrl(path);
+  console.log(`[Edge] Proxied image: ${imageUrl.slice(0, 60)} → ${data.publicUrl.slice(0, 80)}`);
+  return data.publicUrl;
+}
+
 // ─── Auth verification ───────────────────────────────────────────────────────
 
 async function verifyAuth(req: Request): Promise<string> {
@@ -752,7 +796,9 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
       if (!resultUrl) { pixelcutError = "no result image"; break; }
 
       console.log("[Edge] BG removal: Pixelcut success");
-      return jsonResponse({ imageUrl: resultUrl });
+      // Proxy through Supabase storage (Pixelcut CDN has no CORS for frameflow.design)
+      const proxiedUrl = await proxyImageToStorage(resultUrl as string, 'bg-pixelcut');
+      return jsonResponse({ imageUrl: proxiedUrl });
     } catch (err) {
       pixelcutError = err instanceof Error ? err.message : String(err);
       console.warn(`[Edge] Pixelcut attempt ${attempt + 1} exception: ${pixelcutError}`);
@@ -785,7 +831,9 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
     if (!resultUrl) return errorResponse("Background removal returned no result. Please retry.", 502);
 
     console.log("[Edge] BG removal: Bria RMBG v2 fallback success");
-    return jsonResponse({ imageUrl: resultUrl });
+    // Proxy through Supabase storage (external CDNs may not have CORS for frameflow.design)
+    const proxiedUrl = await proxyImageToStorage(resultUrl as string, 'bg-bria');
+    return jsonResponse({ imageUrl: proxiedUrl });
   } catch (briaErr) {
     console.error("[Edge] Bria RMBG v2 exception:", briaErr);
     return errorResponse(`Background removal unavailable. Please try again in a few minutes.`, 502);
