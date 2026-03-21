@@ -5,6 +5,7 @@ import { getProject } from './services/db/projectDB';
 import { testSupabaseConnection, onAuthStateChange, getCurrentUser, signOut, type SupabaseDiagnostic } from './services/db/supabase';
 import { getOrCreateProfile, refreshProfile as refreshProfileFromServer, type UserProfile } from './services/db/points';
 import CookieBanner from './components/CookieBanner';
+import { trackSignUp, trackPurchase, trackPageView } from './services/analytics';
 
 // Lazy-loaded screens — code splitting reduces initial bundle size
 const HomeScreen = lazy(() => import('./screens/Home/HomeScreen'));
@@ -86,6 +87,17 @@ function App() {
     };
   }, []);
 
+  // Track sign_up for first-time users
+  useEffect(() => {
+    if (user) {
+      const signUpTracked = sessionStorage.getItem('ff_signup_tracked');
+      if (!signUpTracked) {
+        trackSignUp('google');
+        sessionStorage.setItem('ff_signup_tracked', '1');
+      }
+    }
+  }, [user]);
+
   // Load profile + run diagnostics after login
   useEffect(() => {
     if (user) {
@@ -118,6 +130,10 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
+      // Track purchase conversion
+      const plan = params.get('plan') ?? 'unknown';
+      const priceMap: Record<string, number> = { starter: 9.90, pro: 19.90, business: 39.90 };
+      trackPurchase(priceMap[plan] ?? 19.90, plan);
       // Clean URL
       navigate('/', { replace: true });
       // Refresh profile to pick up new credits (webhook may have fired)
@@ -140,6 +156,8 @@ function App() {
         setView(result);
       }
     }
+    // Track SPA page views for GA4
+    trackPageView(location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 

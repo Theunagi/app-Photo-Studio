@@ -15,6 +15,7 @@ import { supabase } from '../../services/db/supabase';
 import { getPublicUrl } from '../../services/db/storage';
 import { saveProject, getAllProjects, patchProjectVariants } from '../../services/db/projectDB';
 import { deductPoints, GENERATION_COST } from '../../services/db/points';
+import { trackGenerateImage, trackGenerateLifestyle } from '../../services/analytics';
 import './StudioScreen.css';
 
 const MAX_IMAGES = 5;
@@ -398,6 +399,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       });
       pipelineStateRef.current = result;
 
+      // Track successful generation
+      trackGenerateImage(config.imageSize ?? '2K', cost);
+
       // Deduct credits only after successful pipeline completion
       try {
         await deductPoints(cost);
@@ -627,6 +631,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
+      trackGenerateLifestyle();
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: lifestylePrompt.trim() };
       const updated = [...lifestyleImages, newEntry];
       setLifestyleImages(updated);

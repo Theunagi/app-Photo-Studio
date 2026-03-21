@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { PLANS, refreshProfile, provisionCredits } from '../../services/db/points';
+import { trackBeginCheckout } from '../../services/analytics';
 import {
   isRevenueCatConfigured,
   initRevenueCat,
@@ -229,6 +230,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
       setError('Payment link not configured. Add VITE_STRIPE_LINK_* to .env.');
       return;
     }
+    trackBeginCheckout(planId);
     setLoading(planId);
     const url = new URL(link);
     if (userId) url.searchParams.set('client_reference_id', userId);
