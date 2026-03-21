@@ -52,7 +52,11 @@ export async function invokeEdgeFunction<T>(
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error(`Edge function "${functionName}" timed out after ${timeoutMs / 1000}s`);
     }
-    throw err;
+    // Enhanced error for debugging prod vs dev differences
+    const action = (body as Record<string, unknown>)?.action ?? 'unknown';
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[EdgeFn] ${functionName}/${action} fetch error:`, errMsg);
+    throw new Error(`Edge function "${functionName}" (${action}): ${errMsg}`);
   }
   clearTimeout(timeout);
 
