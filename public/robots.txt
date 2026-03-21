@@ -9,8 +9,11 @@ Disallow: /auth/
 # Sitemap
 Sitemap: https://frameflow.design/sitemap.xml
 
-# AI crawlers — allow for citation and discovery
+# AI search crawlers — allow for citation and discovery
 User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
 Allow: /
 
 User-agent: ClaudeBot
@@ -21,3 +24,16 @@ Allow: /
 
 User-agent: Google-Extended
 Allow: /
+
+# Block training-only crawlers (no citation benefit)
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /

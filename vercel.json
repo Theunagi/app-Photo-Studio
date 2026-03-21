@@ -3,6 +3,9 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "redirects": [
+    { "source": "/:path(.*)", "has": [{ "type": "host", "value": "www.frameflow.design" }], "destination": "https://frameflow.design/:path", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/pricing", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
