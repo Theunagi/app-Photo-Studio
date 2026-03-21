@@ -93,14 +93,27 @@ export async function fetchImageAsDataUrl(url: string): Promise<string> {
 
 /**
  * Download an image via the edge function proxy (server-side fetch).
- * Bypasses browser CORS restrictions — works for any URL.
- * Use this for external CDN URLs (fal.media, cdn.pixelcut.ai, etc.)
+ * The edge function downloads the image, uploads to Supabase Storage,
+ * and returns a public URL (which has CORS * headers).
+ * Then we fetch the image from Supabase Storage → data URL.
  */
 export async function proxyImageDownload(imageUrl: string): Promise<string> {
-  const result = await invokeEdgeFunction<{ dataUrl: string }>('studio-api', {
+  // If already a data URL, return as-is
+  if (imageUrl.startsWith('data:')) return imageUrl;
+  // If already a Supabase URL, fetch directly (CORS OK)
+  if (imageUrl.includes('supabase.co')) return fetchImageAsDataUrl(imageUrl);
+
+  // Proxy through edge function → Supabase Storage
+  const result = await invokeEdgeFunction<{ publicUrl?: string; dataUrl?: string }>('studio-api', {
     action: 'proxy-image',
     imageUrl,
   });
-  if (!result.dataUrl) throw new Error('Proxy returned no image data');
-  return result.dataUrl;
+
+  const url = result.publicUrl ?? result.dataUrl;
+  if (!url) throw new Error('Proxy returned no image data');
+
+  // If it's a public URL, fetch it from browser (Supabase Storage has CORS *)
+  if (url.startsWith('http')) return fetchImageAsDataUrl(url);
+  // If it's a data URL (fallback), return as-is
+  return url;
 }

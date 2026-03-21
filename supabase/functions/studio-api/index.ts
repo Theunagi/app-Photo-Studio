@@ -908,12 +908,43 @@ Deno.serve(async (req: Request) => {
         );
 
       case "proxy-image": {
-        // Download image server-side (bypasses browser CORS) and return as data URL
+        // Download image server-side (bypasses browser CORS)
+        // Upload to Supabase Storage and return public URL (instead of huge base64 data URL)
         const imgUrl = body.imageUrl as string;
         if (!imgUrl) return errorResponse("Missing imageUrl for proxy", 400);
         console.log(`[Edge] Proxy-image: ${imgUrl.slice(0, 80)}`);
-        const dataUrl = await urlToDataUrl(imgUrl);
-        return jsonResponse({ dataUrl });
+
+        // If already a Supabase URL or data URL, return as-is
+        if (imgUrl.includes("supabase.co") || imgUrl.startsWith("data:")) {
+          return jsonResponse({ publicUrl: imgUrl });
+        }
+
+        // Download server-side
+        const proxyResp = await fetch(imgUrl);
+        if (!proxyResp.ok) return errorResponse(`Proxy download failed: ${proxyResp.status}`, 502);
+        const proxyBuffer = await proxyResp.arrayBuffer();
+        const proxyMime = proxyResp.headers.get("content-type") ?? "image/png";
+        const proxyExt = proxyMime.includes("jpeg") || proxyMime.includes("jpg") ? "jpg" : "png";
+
+        // Upload to Supabase Storage
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const sb = createClient(supabaseUrl, serviceKey);
+        const proxyPath = `temp-proxy/proxy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${proxyExt}`;
+
+        const { error: uploadErr } = await sb.storage
+          .from("project-images")
+          .upload(proxyPath, new Uint8Array(proxyBuffer), { contentType: proxyMime, upsert: true });
+
+        if (uploadErr) {
+          console.warn(`[Edge] Proxy upload failed: ${uploadErr.message}, falling back to data URL`);
+          const dataUrl = await urlToDataUrl(imgUrl);
+          return jsonResponse({ publicUrl: dataUrl });
+        }
+
+        const { data: pubData } = sb.storage.from("project-images").getPublicUrl(proxyPath);
+        console.log(`[Edge] Proxied: ${imgUrl.slice(0, 50)} → ${pubData.publicUrl.slice(0, 60)}`);
+        return jsonResponse({ publicUrl: pubData.publicUrl });
       }
 
       default:
