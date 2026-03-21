@@ -18,6 +18,99 @@ import { deductPoints, GENERATION_COST } from '../../services/db/points';
 import { trackGenerateImage, trackGenerateLifestyle } from '../../services/analytics';
 import './StudioScreen.css';
 
+// ─── Debug Panel ──────────────────────────────────────────────
+// Visible when URL contains ?debug=1
+// Shows build ID, fetch log, and errors to diagnose prod issues
+const BUILD_ID = '__BUILD_' + new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14) + '__';
+
+interface FetchLogEntry {
+  time: string;
+  url: string;
+  method: string;
+  status: number | string;
+  error?: string;
+  body?: string;
+}
+
+// Global fetch interceptor — logs every fetch call
+const fetchLog: FetchLogEntry[] = [];
+if (typeof window !== 'undefined' && !(window as any).__fetchIntercepted) {
+  (window as any).__fetchIntercepted = true;
+  const originalFetch = window.fetch;
+  window.fetch = async function (...args: Parameters<typeof fetch>) {
+    const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request)?.url || 'unknown';
+    const method = (args[1] as RequestInit)?.method || 'GET';
+    const entry: FetchLogEntry = {
+      time: new Date().toLocaleTimeString(),
+      url: url.slice(0, 150),
+      method,
+      status: 'pending',
+    };
+    fetchLog.push(entry);
+    if (fetchLog.length > 50) fetchLog.shift();
+    try {
+      const resp = await originalFetch.apply(this, args);
+      entry.status = resp.status;
+      if (!resp.ok) {
+        const clone = resp.clone();
+        entry.body = (await clone.text().catch(() => '')).slice(0, 200);
+      }
+      return resp;
+    } catch (err) {
+      entry.status = 'ERROR';
+      entry.error = err instanceof Error ? err.message : String(err);
+      throw err;
+    }
+  };
+}
+
+function DebugPanel() {
+  const [, forceUpdate] = React.useState(0);
+  const isDebug = typeof window !== 'undefined' && window.location.search.includes('debug=1');
+
+  React.useEffect(() => {
+    if (!isDebug) return;
+    const interval = setInterval(() => forceUpdate((n) => n + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isDebug]);
+
+  if (!isDebug) return null;
+
+  const errors = fetchLog.filter((e) => e.status === 'ERROR' || (typeof e.status === 'number' && e.status >= 400));
+  const recent = fetchLog.slice(-15);
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999,
+      background: '#1a1a2e', color: '#0f0', fontFamily: 'monospace', fontSize: '11px',
+      padding: '8px 12px', maxHeight: '250px', overflowY: 'auto', borderTop: '2px solid #e94560',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <strong style={{ color: '#e94560' }}>🔧 DEBUG PANEL — {BUILD_ID}</strong>
+        <span>{fetchLog.length} requests | {errors.length} errors</span>
+      </div>
+      {errors.length > 0 && (
+        <div style={{ background: '#2d0000', padding: '4px 8px', marginBottom: '4px', borderRadius: '4px' }}>
+          <strong style={{ color: '#ff4444' }}>❌ ERRORS:</strong>
+          {errors.map((e, i) => (
+            <div key={i} style={{ color: '#ff6666' }}>
+              [{e.time}] {e.method} {e.url} → {e.status} {e.error || ''} {e.body || ''}
+            </div>
+          ))}
+        </div>
+      )}
+      <div>
+        <strong>Recent requests:</strong>
+        {recent.map((e, i) => (
+          <div key={i} style={{ color: e.status === 'ERROR' ? '#ff4444' : typeof e.status === 'number' && e.status >= 400 ? '#ffaa00' : '#0f0' }}>
+            [{e.time}] {e.method} {e.url.slice(0, 80)} → {e.status}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const MAX_IMAGES = 5;
 
 /** Clean up raw edge function error messages for user display */
@@ -766,6 +859,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   // --- Render ---
   return (
     <div className="studio">
+      <DebugPanel />
       {/* ===== Sidebar ===== */}
       <aside className="sidebar">
         {/* Logo */}
