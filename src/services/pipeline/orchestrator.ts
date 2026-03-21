@@ -201,6 +201,8 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
       sessionId,
     });
     // Download result for DSP steps
+    console.log('[Pipeline] Generate result URL:', response.resultImageUrl?.slice(0, 80) ?? 'EMPTY/UNDEFINED');
+    if (!response.resultImageUrl) throw new Error('Studio generation returned no image URL');
     const imageDataUrl = await urlToDataUrl(response.resultImageUrl);
     return {
       imageBlob: dataUrlToBlob(imageDataUrl),

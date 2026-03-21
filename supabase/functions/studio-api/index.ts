@@ -521,9 +521,9 @@ async function handleGenerateSubmit(body: {
       const resultUrl = images?.[0]?.url ?? (typeof image === 'object' ? image?.url : image);
       if (!resultUrl) throw new Error("Fal.ai: no result image");
 
-      console.log(`[Edge] Generate: Fal.ai sync success`);
+      console.log(`[Edge] Generate: Fal.ai sync success, resultUrl type=${typeof resultUrl}, value=${String(resultUrl).slice(0, 100)}`);
       // Return direct result — client skips polling
-      return jsonResponse({ imageUrl: resultUrl, direct: true });
+      return jsonResponse({ imageUrl: String(resultUrl), direct: true });
     } catch (falErr) {
       console.warn("[Edge] Fal.ai sync failed, trying NanoBanana:", falErr);
     }
@@ -795,10 +795,11 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
       const resultUrl = typeof pxImage === 'object' ? pxImage?.url : pxImage;
       if (!resultUrl) { pixelcutError = "no result image"; break; }
 
-      console.log("[Edge] BG removal: Pixelcut success");
+      console.log(`[Edge] BG removal: Pixelcut success, resultUrl=${String(resultUrl).slice(0, 80)}`);
       // Proxy through Supabase storage (Pixelcut CDN has no CORS for frameflow.design)
       const proxiedUrl = await proxyImageToStorage(resultUrl as string, 'bg-pixelcut');
-      return jsonResponse({ imageUrl: proxiedUrl });
+      console.log(`[Edge] BG removal: proxied to ${proxiedUrl.slice(0, 80)}`);
+      return jsonResponse({ imageUrl: String(proxiedUrl) });
     } catch (err) {
       pixelcutError = err instanceof Error ? err.message : String(err);
       console.warn(`[Edge] Pixelcut attempt ${attempt + 1} exception: ${pixelcutError}`);
