@@ -714,8 +714,9 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  // --- Try Pixelcut (primary) with retries ---
-  const PIXELCUT_RETRIES = 2;
+  // --- Try Pixelcut (primary) — single attempt, 45s timeout ---
+  // Total bg-remove must stay under 150s (Supabase Pro wall clock)
+  const PIXELCUT_RETRIES = 1;
   let pixelcutError = "";
 
   for (let attempt = 0; attempt < PIXELCUT_RETRIES; attempt++) {
@@ -736,7 +737,7 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
           image_url: body.imageUrl,
           output_format: "rgba",
         }),
-      }, 60_000);
+      }, 45_000);
 
       if (!resp.ok) {
         pixelcutError = await resp.text().catch(() => `HTTP ${resp.status}`);
@@ -770,7 +771,7 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
         Authorization: `Key ${falKey}`,
       },
       body: JSON.stringify({ image_url: body.imageUrl }),
-    }, 60_000);
+    }, 45_000);
 
     if (!resp.ok) {
       const errText = await resp.text().catch(() => `HTTP ${resp.status}`);
