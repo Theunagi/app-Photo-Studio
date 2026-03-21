@@ -466,6 +466,85 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
 }
 
 /**
+ * Analyze Style for Replication — GPT-4o Vision (Art Director Prompt)
+ * Returns a detailed, production-ready image generation prompt that
+ * replicates the exact visual style of the reference image(s).
+ */
+async function handleAnalyzeStyleReplicate(body: { imageUrls: string[] }): Promise<Response> {
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
+
+  const systemPrompt = `Role
+You are a senior advertising art director and visual analyst specializing in premium commercial imagery. Your task is to analyze the visual style of a reference image and translate it into a production-ready image generation prompt for a generative image model.
+
+Critical Rule
+Do NOT describe the product itself. Only reference it as "referenced product" in the prompt, because it will be used for new generation. Assume the product will be replaced. Focus exclusively on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.
+
+Step 1 — Style Deconstruction (Internal Analysis)
+Analyze the reference image across these dimensions:
+- Overall Visual Intent: Commercial goal, emotional tone, perceived budget level and brand positioning
+- Composition & Framing: Camera distance, perspective, negative space, balance
+- Lighting Design: Light type, key/fill/rim behavior, shadow softness, reflections, specular control
+- Color & Material Language: Color palette, background treatment, surface qualities, color grading style
+- Camera & Optics: Lens feel, depth of field, sharpness vs softness, grain or ultra-clean finish
+- Post-Production & Finish: Retouching level, contrast curve, bloom, glow, micro-contrast, CGI vs photographic realism
+- Physical Scene Interaction & Material Dynamics: Degree of occlusion, environmental material type, interaction mode, particle behavior, visual hierarchy, tactile implication
+
+Step 2 — Prompt Synthesis
+Transform the analysis into a single cohesive prompt optimized for an image generation model. The prompt must:
+- Be product-agnostic (use placeholders like "the referenced product")
+- Sound like a luxury advertising brief
+- Be precise, visual, and unambiguous
+- Avoid storytelling unrelated to visuals
+- Avoid brand names unless explicitly requested
+
+Optional: Add a short negative prompt section if relevant (e.g. "no clutter, no text, no logos").
+
+STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "image generation prompt" in the beginning.`;
+
+  const imageContent: unknown[] = [
+    {
+      type: "text",
+      text: "Analyze the visual style of this reference image and create a production-ready prompt to replicate it exactly with a different product.",
+    },
+  ];
+
+  for (const url of body.imageUrls) {
+    imageContent.push({
+      type: "image_url",
+      image_url: { url, detail: "high" },
+    });
+  }
+
+  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      max_tokens: 1500,
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: imageContent },
+      ],
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text().catch(() => "");
+    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+  }
+
+  const data = await resp.json();
+  const stylePrompt = data.choices?.[0]?.message?.content ?? "";
+  console.log(`[Edge] Style Replicate: ${stylePrompt.slice(0, 100)}...`);
+  return jsonResponse({ styleDescription: stylePrompt });
+}
+
+/**
  * Step 5: Background Removal — Fal.ai Pixelcut
  */
 async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
@@ -856,6 +935,9 @@ Deno.serve(async (req: Request) => {
 
       case "analyze-style":
         return await handleAnalyzeStyle(body as { action: string; imageUrls: string[] });
+
+      case "analyze-style-replicate":
+        return await handleAnalyzeStyleReplicate(body as { action: string; imageUrls: string[] });
 
       case "bg-remove":
         return await handleBgRemove(body as { action: string; imageUrl: string });

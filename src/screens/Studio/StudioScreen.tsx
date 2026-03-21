@@ -9,7 +9,7 @@ import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } f
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import { editImage } from '../../services/api/falImageGen';
-import { generateLifestyleImage, analyzeStyleReferences } from '../../services/api/gemini';
+import { generateLifestyleImage, analyzeStyleReferences, analyzeStyleReplicate } from '../../services/api/gemini';
 import { fetchImageAsDataUrl } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
 import { getPublicUrl } from '../../services/db/storage';
@@ -276,6 +276,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [deleteConfirmKey, setDeleteConfirmKey] = useState<string | null>(null);
   // Style reference images state
+  const [styleMode, setStyleMode] = useState<'inspire' | 'replicate'>('inspire');
   const [styleRefImages, setStyleRefImages] = useState<string[]>(project?.results.styleReferenceImages ?? []);
   const [styleDescription, setStyleDescription] = useState<string | null>(project?.results.styleDescription ?? null);
   const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
@@ -664,8 +665,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         combined.map((du, i) => uploadForEdgeFunction(du, `style-ref-${i}`))
       );
 
-      // Analyze style via GPT-4o Vision
-      const result = await analyzeStyleReferences(uploadedUrls);
+      // Analyze style via GPT-4o Vision — use art director prompt in replicate mode
+      const result = styleMode === 'replicate'
+        ? await analyzeStyleReplicate(uploadedUrls)
+        : await analyzeStyleReferences(uploadedUrls);
       setStyleDescription(result.styleDescription);
       styleDescriptionRef.current = result.styleDescription;
       setShowStyleDescription(true);
@@ -679,7 +682,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } finally {
       setIsAnalyzingStyle(false);
     }
-  }, [styleRefImages, uploadForEdgeFunction, autoSave]);
+  }, [styleRefImages, styleMode, uploadForEdgeFunction, autoSave]);
 
   const removeStyleRef = useCallback((index: number) => {
     const updated = styleRefImages.filter((_, i) => i !== index);
@@ -695,7 +698,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   // --- Lifestyle Generation ---
   const handleGenerateLifestyle = useCallback(async () => {
     const sourceImage = getStepImage('autoCrop');
-    if (!sourceImage || !lifestylePrompt.trim()) return;
+    // In replicate mode, prompt is optional (style description IS the scene)
+    const hasPrompt = lifestylePrompt.trim().length > 0;
+    const hasStyle = !!styleDescriptionRef.current;
+    if (!sourceImage || (!hasPrompt && !hasStyle)) return;
 
     setIsGeneratingLifestyle(true);
     setLifestyleError(null);
@@ -713,7 +719,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         ? (pipelineState.analysis.data as { rawResponse?: string }).rawResponse
         : project?.results.analysis;
 
-      const response = await generateLifestyleImage(imageUrl, lifestylePrompt.trim(), {
+      // In replicate mode, the style description IS the main prompt if no user prompt given
+      const effectivePrompt = lifestylePrompt.trim() || (styleMode === 'replicate' && styleDescriptionRef.current ? 'Generate using the style description' : '');
+      const response = await generateLifestyleImage(imageUrl, effectivePrompt, {
         imageSize: config.imageSize ?? '2K',
         aspectRatio: config.aspectRatio ?? '1:1',
         styleDescription: styleDescriptionRef.current ?? undefined,
@@ -1258,12 +1266,34 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                     <button className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '4K')} disabled={isGeneratingLifestyle}>4K</button>
                   </div>
                 </div>
-                <p className="prompt-panel-hint">Describe the scene for your product (e.g. "on a marble kitchen counter with soft morning light")</p>
+                {/* Style Mode Tabs */}
+                <div className="style-mode-tabs">
+                  <button
+                    className={`style-mode-tab ${styleMode === 'inspire' ? 'active' : ''}`}
+                    onClick={() => { setStyleMode('inspire'); setStyleDescription(null); styleDescriptionRef.current = null; setStyleRefImages([]); styleRefImagesRef.current = []; }}
+                    disabled={isAnalyzingStyle || isGeneratingLifestyle}
+                  >
+                    ✨ Inspire
+                  </button>
+                  <button
+                    className={`style-mode-tab ${styleMode === 'replicate' ? 'active' : ''}`}
+                    onClick={() => { setStyleMode('replicate'); setStyleDescription(null); styleDescriptionRef.current = null; setStyleRefImages([]); styleRefImagesRef.current = []; }}
+                    disabled={isAnalyzingStyle || isGeneratingLifestyle}
+                  >
+                    🎯 Replicate
+                  </button>
+                </div>
+
+                <p className="prompt-panel-hint">
+                  {styleMode === 'inspire'
+                    ? 'Describe the scene for your product (e.g. "on a marble kitchen counter with soft morning light")'
+                    : 'Upload a reference image — the exact visual style will be replicated with your product'}
+                </p>
 
                 {/* Style Reference Images */}
                 <div className="style-ref-section">
                   <div className="style-ref-header">
-                    <span className="style-ref-label">Style references</span>
+                    <span className="style-ref-label">{styleMode === 'inspire' ? 'Style references' : 'Reference image'}</span>
                     {styleRefImages.length < 4 && (
                       <button
                         className="style-ref-add-btn"
@@ -1316,7 +1346,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                         className="style-description-btn"
                         onClick={() => setShowStyleDescription(v => !v)}
                       >
-                        ✓ Style detected
+                        {styleMode === 'replicate' ? '🎯 Style ready to replicate' : '✓ Style detected'}
                         <span className="style-description-chevron">{showStyleDescription ? '▲' : '▼'}</span>
                       </button>
                       {showStyleDescription && (
@@ -1330,7 +1360,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <input
                     type="text"
                     className="prompt-panel-input"
-                    placeholder="on a wooden table in a cozy café..."
+                    placeholder={styleMode === 'replicate' ? '(optional) adjust the scene...' : 'on a wooden table in a cozy café...'}
                     value={lifestylePrompt}
                     onChange={e => setLifestylePrompt(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !isGeneratingLifestyle) handleGenerateLifestyle(); }}

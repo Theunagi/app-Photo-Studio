@@ -106,12 +106,28 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Analyze style reference images via GPT-4o Vision (Edge Function).
+ * Mode "S'inspirer" — returns a short mood/palette/lighting description.
  */
 export async function analyzeStyleReferences(
   imageUrls: string[],
 ): Promise<{ styleDescription: string }> {
   const result = await invokeEdgeFunction<{ styleDescription: string }>('studio-api', {
     action: 'analyze-style',
+    imageUrls,
+  });
+  return { styleDescription: result.styleDescription ?? '' };
+}
+
+/**
+ * Analyze style for exact replication via GPT-4o Vision (Edge Function).
+ * Mode "Répliquer" — uses the full art director prompt to generate a
+ * detailed, production-ready prompt that replicates the exact scene.
+ */
+export async function analyzeStyleReplicate(
+  imageUrls: string[],
+): Promise<{ styleDescription: string }> {
+  const result = await invokeEdgeFunction<{ styleDescription: string }>('studio-api', {
+    action: 'analyze-style-replicate',
     imageUrls,
   });
   return { styleDescription: result.styleDescription ?? '' };
