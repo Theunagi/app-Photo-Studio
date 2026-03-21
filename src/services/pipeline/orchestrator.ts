@@ -221,11 +221,18 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   // STEP 4: BACKGROUND REMOVAL (Pixelcut via Edge Function)
   // Run BEFORE color grading so Pixelcut gets the clean studio image.
   // =========================================================================
-  // Upload raw studio image for BG removal (not retouched — preserves whites)
-  const studioStorageUrl = await uploadToStorage(studioGen.imageDataUrl, sessionId, 'studio-for-bg');
+  // Upload raw studio image for BG removal
+  // Try storage upload, fall back to using the Fal.ai URL directly if upload fails
+  let studioUrlForBg: string;
+  try {
+    studioUrlForBg = await uploadToStorage(studioGen.imageDataUrl, sessionId, 'studio-for-bg');
+  } catch (uploadErr) {
+    console.warn('[Pipeline] Storage upload failed, using data URL for bg-remove:', uploadErr);
+    studioUrlForBg = studioGen.imageDataUrl; // Pass data URL directly
+  }
 
   const cutout = await executeStep<CutoutResult>(state, 'cutout', onStateChange, async () => {
-    const result = await removeBackground(studioStorageUrl, sessionId, false);
+    const result = await removeBackground(studioUrlForBg, sessionId, false);
     // Download result for DSP steps (Pixelcut returns clean cutout with correct colors)
     const cutoutDataUrl = await urlToDataUrl(result.resultImageUrl);
     const cutoutBlob = dataUrlToBlob(cutoutDataUrl);
