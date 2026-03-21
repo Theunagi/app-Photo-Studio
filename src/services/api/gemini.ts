@@ -7,10 +7,15 @@
 
 import { invokeEdgeFunction } from './edgeFunctions';
 
+/** Polling interval for queue-based generation (ms) */
+const POLL_INTERVAL = 3000;
+/** Max polling time before giving up (ms) — 3 minutes */
+const POLL_TIMEOUT = 180_000;
+
 /**
  * Generate a lifestyle image.
  * - 2K: uses synchronous endpoint (fast enough)
- * - 4K: also uses synchronous endpoint now (edge function handles long call)
+ * - 4K: uses queue-based async flow to avoid worker timeout
  */
 export async function generateLifestyleImage(
   imageUrl: string,
@@ -27,7 +32,12 @@ export async function generateLifestyleImage(
 ): Promise<{ resultImageUrl: string }> {
   const resolution = options?.imageSize ?? '2K';
 
-  // Both 2K and 4K use synchronous call now — edge function handles long-running Fal.ai call
+  // 4K uses queue to avoid WORKER_LIMIT on Supabase Edge Functions
+  if (resolution === '4K') {
+    return generateLifestyleQueued(imageUrl, lifestylePrompt, options);
+  }
+
+  // 2K uses synchronous call (fast enough)
   const result = await invokeEdgeFunction<{ imageUrl?: string; imageDataUrl?: string }>('studio-api', {
     action: 'lifestyle',
     imageUrl,
@@ -38,6 +48,60 @@ export async function generateLifestyleImage(
     productDescription: options?.productDescription,
   });
   return { resultImageUrl: result.imageUrl ?? result.imageDataUrl ?? '' };
+}
+
+/**
+ * Queue-based lifestyle generation (for 4K or heavy workloads).
+ * Submits job → polls for result → returns image URL.
+ */
+async function generateLifestyleQueued(
+  imageUrl: string,
+  lifestylePrompt: string,
+  options?: {
+    imageSize?: string;
+    aspectRatio?: string;
+    styleDescription?: string;
+    productDescription?: string;
+  },
+): Promise<{ resultImageUrl: string }> {
+  // Step 1: Submit to queue
+  const submitResult = await invokeEdgeFunction<{ request_id: string }>('studio-api', {
+    action: 'lifestyle-submit',
+    imageUrl,
+    userPrompt: lifestylePrompt,
+    resolution: options?.imageSize,
+    aspectRatio: options?.aspectRatio,
+    styleDescription: options?.styleDescription,
+    productDescription: options?.productDescription,
+  });
+
+  const requestId = submitResult.request_id;
+  if (!requestId) throw new Error('No request_id returned from queue submit');
+
+  // Step 2: Poll for completion
+  const startTime = Date.now();
+  while (Date.now() - startTime < POLL_TIMEOUT) {
+    await sleep(POLL_INTERVAL);
+
+    const pollResult = await invokeEdgeFunction<{ status: string; imageUrl?: string }>('studio-api', {
+      action: 'lifestyle-poll',
+      request_id: requestId,
+    });
+
+    if (pollResult.status === 'COMPLETED' && pollResult.imageUrl) {
+      return { resultImageUrl: pollResult.imageUrl };
+    }
+
+    if (pollResult.status !== 'IN_QUEUE' && pollResult.status !== 'IN_PROGRESS' && pollResult.status !== 'COMPLETED') {
+      throw new Error(`Generation failed with status: ${pollResult.status}`);
+    }
+  }
+
+  throw new Error('Generation timed out after 3 minutes');
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**

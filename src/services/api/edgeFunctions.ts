@@ -12,7 +12,6 @@ import { supabase, isSupabaseConfigured } from '../db/supabase';
 export async function invokeEdgeFunction<T>(
   functionName: string,
   body: Record<string, unknown>,
-  options?: { timeoutMs?: number },
 ): Promise<T> {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase is not configured. Cannot call edge functions.');
@@ -32,8 +31,7 @@ export async function invokeEdgeFunction<T>(
   const url = `${supabaseUrl}/functions/v1/${functionName}`;
 
   const controller = new AbortController();
-  const timeoutMs = options?.timeoutMs ?? 300_000;
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
 
   let resp: Response;
   try {
@@ -50,13 +48,9 @@ export async function invokeEdgeFunction<T>(
   } catch (err) {
     clearTimeout(timeout);
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`Edge function "${functionName}" timed out after ${timeoutMs / 1000}s`);
+      throw new Error(`Edge function "${functionName}" timed out after 120s`);
     }
-    // Enhanced error for debugging prod vs dev differences
-    const action = (body as Record<string, unknown>)?.action ?? 'unknown';
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error(`[EdgeFn] ${functionName}/${action} fetch error:`, errMsg);
-    throw new Error(`Edge function "${functionName}" (${action}): ${errMsg}`);
+    throw err;
   }
   clearTimeout(timeout);
 
@@ -72,52 +66,27 @@ export async function invokeEdgeFunction<T>(
     throw new Error(`Edge function "${functionName}" failed (${resp.status}): ${errorDetail}`);
   }
 
-  let data: T;
-  try {
-    const text = await resp.text();
-    data = JSON.parse(text) as T;
-  } catch {
-    throw new Error(`Edge function "${functionName}": invalid JSON response`);
+  const data = await resp.json();
+
+  if (data?.error) {
+    throw new Error(`Edge function "${functionName}": ${data.error}`);
   }
 
-  if ((data as Record<string, unknown>)?.error) {
-    throw new Error(`Edge function "${functionName}": ${(data as Record<string, unknown>).error}`);
-  }
-
-  return data;
+  return data as T;
 }
 
 /**
  * Fetch an image from a URL and return it as a data URL.
  * Used to pull Storage URLs into client-side canvas operations.
- * Includes a 60s timeout to prevent hanging on slow/dead URLs.
  */
-export async function fetchImageAsDataUrl(url: string, timeoutMs = 60_000): Promise<string> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let resp: Response;
-  try {
-    resp = await fetch(url, { signal: controller.signal });
-  } catch (err) {
-    clearTimeout(timer);
-    if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new Error(`Image download timed out after ${Math.round(timeoutMs / 1000)}s`);
-    }
-    throw err;
-  }
-  clearTimeout(timer);
+export async function fetchImageAsDataUrl(url: string): Promise<string> {
+  const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status}`);
   const blob = await resp.blob();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-      } else {
-        reject(new Error('FileReader returned non-string result'));
-      }
-    };
-    reader.onerror = () => reject(new Error('FileReader failed to read image blob'));
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
 }
