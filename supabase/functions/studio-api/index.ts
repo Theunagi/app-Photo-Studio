@@ -492,13 +492,49 @@ Do NOT describe the product itself. Only reference it as "referenced product" in
 
 Step 1 — Style Deconstruction (Internal Analysis)
 Analyze the reference image across these dimensions:
-- Overall Visual Intent: Commercial goal, emotional tone, perceived budget level and brand positioning
-- Composition & Framing: Camera distance, perspective, negative space, balance
-- Lighting Design: Light type, key/fill/rim behavior, shadow softness, reflections, specular control
-- Color & Material Language: Color palette, background treatment, surface qualities, color grading style
-- Camera & Optics: Lens feel, depth of field, sharpness vs softness, grain or ultra-clean finish
-- Post-Production & Finish: Retouching level, contrast curve, bloom, glow, micro-contrast, CGI vs photographic realism
-- Physical Scene Interaction & Material Dynamics: Degree of occlusion, environmental material type, interaction mode, particle behavior, visual hierarchy, tactile implication
+
+Overall Visual Intent
+- Commercial goal (luxury, lifestyle, tech, fashion, FMCG, experimental, etc.)
+- Emotional tone (aspirational, calm, bold, playful, mysterious, clinical, sensual)
+- Perceived budget level and brand positioning
+
+Composition & Framing
+- Camera distance (macro, close-up, mid-shot, wide)
+- Perspective (eye-level, low-angle, top-down, hero angle)
+- Use of negative space
+- Rule of thirds vs centered vs asymmetric balance
+
+Lighting Design
+- Light type (soft studio, hard directional, natural daylight, cinematic contrast)
+- Key/fill/rim behavior
+- Shadow softness and contrast ratio
+- Reflections, highlights, specular control
+
+Color & Material Language
+- Color palette (dominant, accent, saturation level)
+- Background treatment (gradient, solid, textured, environmental)
+- Surface qualities (matte, glossy, metallic, translucent)
+- Color grading style (neutral, warm, cool, cinematic LUT)
+
+Camera & Optics
+- Lens feel (macro, 35mm, 50mm, telephoto)
+- Depth of field (shallow, deep, selective focus)
+- Sharpness vs softness
+- Grain or ultra-clean finish
+
+Post-Production & Finish
+- Retouching level (natural, high-end beauty, hyper-real)
+- Contrast curve
+- Bloom, glow, micro-contrast
+- CGI realism vs photographic realism
+
+Physical Scene Interaction & Material Dynamics
+- Degree of occlusion (fully visible, partially obscured, emerging, buried)
+- Environmental material type (granular, liquid, fabric, smoke, dust, particles)
+- Interaction mode: resting on, embedded in, emerging from, covered by, intersecting through
+- Particle behavior (if applicable): static vs suspended, fine vs coarse, settled vs in motion
+- Visual hierarchy: what parts are revealed vs concealed, intentional masking for mystery / luxury
+- Tactile implication: softness, weight, resistance, density
 
 Step 2 — Prompt Synthesis
 Transform the analysis into a single cohesive prompt optimized for an image generation model. The prompt must:
@@ -508,7 +544,13 @@ Transform the analysis into a single cohesive prompt optimized for an image gene
 - Avoid storytelling unrelated to visuals
 - Avoid brand names unless explicitly requested
 
-Optional: Add a short negative prompt section if relevant (e.g. "no clutter, no text, no logos").
+Optional Enhancements (Only If Relevant)
+- Add a short negative prompt section (e.g. "no clutter, no text, no logos")
+- Add render realism hints if CGI-like qualities are detected
+- Add aspect ratio or framing bias if strongly implied
+
+Quality Bar
+This prompt should be suitable for: Global brand campaigns, E-commerce hero visuals, Print and digital ads, Award-level commercial visuals. If the result wouldn't pass a senior art director review, refine it.
 
 STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "image generation prompt" in the beginning.`;
 
