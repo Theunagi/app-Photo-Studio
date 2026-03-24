@@ -21,6 +21,7 @@ interface HomeScreenProps {
   onGoPricing?: () => void;
   onGoSettings?: () => void;
   collectionFilter?: string;
+  showNewProject?: boolean;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -33,10 +34,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   onGoPricing,
   onGoSettings,
   collectionFilter,
+  showNewProject,
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNewModal, setShowNewModal] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(showNewProject ?? false);
   const [newName, setNewName] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState<'large' | 'medium' | 'small'>('medium');

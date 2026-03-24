@@ -180,6 +180,7 @@ const PROGRESS_MESSAGES = [
 export interface StudioScreenProps {
   project: Project | null;
   onBack: () => void;
+  onNewProject?: () => void;
   onOpenStudio: (project: Project | null) => void;
   pointsBalance: number;
   onPointsChanged: () => void;
@@ -193,7 +194,7 @@ export interface StudioScreenProps {
 }
 
 const StudioScreen: React.FC<StudioScreenProps> = ({
-  project, onBack, onOpenStudio, pointsBalance, onPointsChanged,
+  project, onBack, onNewProject, onOpenStudio, pointsBalance, onPointsChanged,
   userName = 'User', userAvatar, credits, onSignOut, onGoPricing, onGoSettings, onMassImport,
 }) => {
   // --- State ---
@@ -882,7 +883,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
         {/* Actions */}
         <div className="sidebar-actions">
-          <button className="sidebar-btn-primary" onClick={onBack}>
+          <button className="sidebar-btn-primary" onClick={onNewProject ?? onBack}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/>
               <path d="M6 8h4M8 6v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>

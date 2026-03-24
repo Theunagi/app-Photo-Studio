@@ -22,7 +22,7 @@ const CGU = lazy(() => import('./screens/Legal/CGU'));
 const SettingsScreen = lazy(() => import('./screens/Settings/SettingsScreen'));
 
 type View =
-  | { screen: 'home'; collectionFilter?: string }
+  | { screen: 'home'; collectionFilter?: string; showNewProject?: boolean }
   | { screen: 'studio'; project: Project | null }
   | { screen: 'pricing' }
   | { screen: 'upload' }
@@ -180,6 +180,7 @@ function App() {
   }, [navigate]);
 
   const goHome = useCallback(() => { refreshProfile(); setView({ screen: 'home' }); navigate('/'); }, [refreshProfile, navigate]);
+  const goHomeNewProject = useCallback(() => { refreshProfile(); setView({ screen: 'home', showNewProject: true }); navigate('/'); }, [refreshProfile, navigate]);
   const goPricing = useCallback(() => { setView({ screen: 'pricing' }); navigate('/pricing'); }, [navigate]);
   const goUpload = useCallback(() => { setView({ screen: 'upload' }); navigate('/upload'); }, [navigate]);
   const goSettings = useCallback(() => { setView({ screen: 'settings' }); navigate('/settings'); }, [navigate]);
@@ -284,6 +285,7 @@ function App() {
             key={view.project?.id ?? '__fast__'}
             project={view.project}
             onBack={goHome}
+            onNewProject={goHomeNewProject}
             onOpenStudio={openStudio}
             pointsBalance={profile?.points_balance ?? 0}
             onPointsChanged={refreshProfile}
@@ -330,6 +332,7 @@ function App() {
             onGoPricing={goPricing}
             onGoSettings={goSettings}
             collectionFilter={(view as { collectionFilter?: string }).collectionFilter}
+            showNewProject={(view as { showNewProject?: boolean }).showNewProject}
           />
         );
     }
