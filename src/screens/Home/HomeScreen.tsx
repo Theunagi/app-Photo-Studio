@@ -42,6 +42,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [gridSize, setGridSize] = useState<'large' | 'medium' | 'small'>('medium');
   const [collections, setCollections] = useState<Collection[]>([]);
   const [activeCollection, setActiveCollection] = useState<string | null>(collectionFilter ?? null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -100,6 +101,89 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <div className="home">
+      {/* ===== Mobile Header (visible < 768px) ===== */}
+      <header className="mobile-header">
+        <div className="mobile-header-logo">
+          <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="currentColor" strokeWidth="1.5"/>
+            <circle cx="14" cy="14" r="5" stroke="currentColor" strokeWidth="1.5"/>
+            <circle cx="20" cy="8" r="2" fill="currentColor"/>
+          </svg>
+          <span>FrameFlow</span>
+        </div>
+        <button className="mobile-header-avatar" onClick={() => setMobileMenuOpen(v => !v)}>
+          {userAvatar ? (
+            <img src={userAvatar} alt="" />
+          ) : (
+            <span>{(userName || 'U')[0].toUpperCase()}</span>
+          )}
+        </button>
+      </header>
+
+      {/* ===== Mobile Menu Drawer ===== */}
+      {mobileMenuOpen && (
+        <div className="mobile-menu-overlay" onClick={() => setMobileMenuOpen(false)}>
+          <nav className="mobile-menu" onClick={e => e.stopPropagation()}>
+            {/* User info */}
+            <div className="mobile-menu-user" onClick={() => { setMobileMenuOpen(false); onGoPricing?.(); }}>
+              <div className="sidebar-avatar">
+                {userAvatar ? (
+                  <img src={userAvatar} alt="" />
+                ) : (
+                  <span>{(userName || 'U')[0].toUpperCase()}</span>
+                )}
+              </div>
+              <span className="mobile-menu-username">{userName}</span>
+              {credits !== undefined && (
+                <span className="sidebar-credits">{credits} credits</span>
+              )}
+            </div>
+
+            <div className="mobile-menu-divider" />
+
+            {/* Actions */}
+            <button className="mobile-menu-item" onClick={() => { setMobileMenuOpen(false); setShowNewModal(true); }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M6 8h4M8 6v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              New Project
+            </button>
+            <button className="mobile-menu-item" onClick={() => { setMobileMenuOpen(false); onOpenStudio(null); }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M9.5 3L5 9h4l-1 4L13 7H9l.5-4z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Fast Generation
+            </button>
+            {onMassImport && (
+              <button className="mobile-menu-item" onClick={() => { setMobileMenuOpen(false); onMassImport(); }}>
+                <svg width="16" height="16" viewBox="0 0 14 14" fill="none">
+                  <path d="M1 8.5v3a1 1 0 001 1h10a1 1 0 001-1v-3M7 1.5v7M4.5 4L7 1.5 9.5 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Mass Import
+              </button>
+            )}
+
+            <div className="mobile-menu-divider" />
+
+            {/* Navigation */}
+            <button className="mobile-menu-item" onClick={() => { setMobileMenuOpen(false); onGoSettings?.(); }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6.5 1.5h3l.4 1.6a5.5 5.5 0 011.3.7l1.5-.6 1.5 2.6-1.2 1a5.5 5.5 0 010 1.4l1.2 1-1.5 2.6-1.5-.6a5.5 5.5 0 01-1.3.7l-.4 1.6h-3l-.4-1.6a5.5 5.5 0 01-1.3-.7l-1.5.6-1.5-2.6 1.2-1a5.5 5.5 0 010-1.4l-1.2-1 1.5-2.6 1.5.6a5.5 5.5 0 011.3-.7l.4-1.6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" fill="none"/>
+                <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/>
+              </svg>
+              Settings
+            </button>
+            <button className="mobile-menu-item mobile-menu-item--danger" onClick={() => { setMobileMenuOpen(false); onSignOut?.(); }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 13H3.5A1.5 1.5 0 012 11.5v-7A1.5 1.5 0 013.5 3H6M10.5 11L14 8l-3.5-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Sign out
+            </button>
+          </nav>
+        </div>
+      )}
+
       {/* ===== Sidebar ===== */}
       <aside className="sidebar">
         {/* Logo */}
