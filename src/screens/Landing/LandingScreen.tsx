@@ -9,7 +9,7 @@ import { motion, AnimatePresence, useInView } from 'motion/react';
 import {
   Camera, ArrowRight, Sparkles, Menu, X,
   MessageSquarePlus, Image, Pencil, RotateCcw, Download,
-  Smartphone, Zap, Plus,
+  Smartphone, Zap, Plus, Send,
 } from 'lucide-react';
 
 /** Animated counter that counts from 0 to `end` when element scrolls into view */
@@ -52,7 +52,7 @@ const TESTIMONIALS = [
     role: "Amazon FBA Seller — $2M+ revenue",
   },
   {
-    quote: "I was spending €150 per product on photography. Now it's under €1 and the quality is honestly better. The lifestyle scenes are incredible — my click-through rate jumped 34% in the first month.",
+    quote: "I was spending $150 per product on photography. Now it's under $1 and the quality is honestly better. The lifestyle scenes are incredible — my click-through rate jumped 34% in the first month.",
     name: "Sarah Dubois",
     role: "Etsy Shop Owner — Handmade Cosmetics",
   },
@@ -72,7 +72,7 @@ const TESTIMONIALS = [
     role: "Dropshipper — 7-figure Store",
   },
   {
-    quote: "We replaced our entire product photography workflow. What used to take our team a full day now takes 20 minutes. The ROI is insane — we saved over €40K in the first quarter alone.",
+    quote: "We replaced our entire product photography workflow. What used to take our team a full day now takes 20 minutes. The ROI is insane — we saved over $40K in the first quarter alone.",
     name: "Emma Richter",
     role: "Head of E-commerce — ManoMano Seller",
   },
@@ -398,7 +398,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                 <span className="text-sm font-medium text-humble-orange">Compare</span>
               </div>
               <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
-                From 25€ to 0.20€<br />per photo.
+                From $25 to $0.25<br />per photo.
               </h2>
               <p className="text-humble-gray text-lg font-light tracking-tight">
                 The only AI that delivers marketplace-compliant white backgrounds with realistic shadows. No Photoshop needed.
@@ -504,7 +504,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   desc="For growing brands."
                   oldPrice="39.90"
                   price="19.90"
-                  photos={90}
+                  photos={75}
                   spots={5}
                   features={[
                     'Everything in Starter',
@@ -521,9 +521,9 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                 <PricingCard
                   name="Business"
                   desc="For high-volume needs."
-                  oldPrice="79.90"
-                  price="39.90"
-                  photos={210}
+                  oldPrice="99.90"
+                  price="49.90"
+                  photos={200}
                   spots={5}
                   features={[
                     'Everything in Pro',
@@ -656,12 +656,13 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
 
       {/* ===== Contact Section ===== */}
       <section id="contact" className="py-20 bg-white border-t border-humble-border">
-        <div className="max-w-2xl mx-auto px-6 text-center">
+        <div className="max-w-2xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-80px' }}
             transition={appleTransition}
+            className="text-center"
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-humble-border bg-humble-orange/5 mb-5">
               <span className="text-sm font-medium text-humble-orange">Get in touch</span>
@@ -669,17 +670,85 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
             <h2 className="text-3xl md:text-[44px] font-bold tracking-tighter text-humble-text mb-5 leading-[1.1]">
               Questions?<br />We&apos;re here to help.
             </h2>
-            <p className="text-humble-gray text-lg font-light tracking-tight mb-8 max-w-md mx-auto">
+            <p className="text-humble-gray text-lg font-light tracking-tight mb-10 max-w-md mx-auto">
               Whether you need help getting started, want a demo, or have a specific request — reach out anytime.
             </p>
-            <a
-              href="mailto:contact@frameflow.design"
-              className="humble-btn-primary py-3 px-8 text-base inline-flex items-center gap-2"
-            >
-              <MessageSquarePlus size={18} />
-              contact@frameflow.design
-            </a>
           </motion.div>
+
+          <motion.form
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-80px' }}
+            transition={{ ...appleTransition, delay: 0.15 }}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const data = new FormData(form);
+              const name = data.get('name') as string;
+              const email = data.get('email') as string;
+              const subject = data.get('subject') as string;
+              const message = data.get('message') as string;
+              // Send via mailto fallback (can be replaced with API endpoint)
+              window.location.href = `mailto:contact@frameflow.design?subject=${encodeURIComponent(subject || 'Contact from ' + name)}&body=${encodeURIComponent(`From: ${name} (${email})\n\n${message}`)}`;
+            }}
+            className="bg-[#FAFAF8] rounded-[2rem] p-8 md:p-10 border border-humble-border"
+          >
+            <div className="grid md:grid-cols-2 gap-5 mb-5">
+              <div>
+                <label htmlFor="contact-name" className="block text-sm font-semibold text-humble-text mb-2">Name</label>
+                <input
+                  id="contact-name"
+                  name="name"
+                  type="text"
+                  required
+                  placeholder="Your name"
+                  className="w-full px-4 py-3 rounded-xl border border-humble-border bg-white text-humble-text placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-humble-orange/30 focus:border-humble-orange transition-all text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="contact-email" className="block text-sm font-semibold text-humble-text mb-2">Email</label>
+                <input
+                  id="contact-email"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="you@company.com"
+                  className="w-full px-4 py-3 rounded-xl border border-humble-border bg-white text-humble-text placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-humble-orange/30 focus:border-humble-orange transition-all text-sm"
+                />
+              </div>
+            </div>
+            <div className="mb-5">
+              <label htmlFor="contact-subject" className="block text-sm font-semibold text-humble-text mb-2">Subject</label>
+              <input
+                id="contact-subject"
+                name="subject"
+                type="text"
+                placeholder="How can we help?"
+                className="w-full px-4 py-3 rounded-xl border border-humble-border bg-white text-humble-text placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-humble-orange/30 focus:border-humble-orange transition-all text-sm"
+              />
+            </div>
+            <div className="mb-8">
+              <label htmlFor="contact-message" className="block text-sm font-semibold text-humble-text mb-2">Message</label>
+              <textarea
+                id="contact-message"
+                name="message"
+                required
+                rows={5}
+                placeholder="Tell us about your project, questions, or anything else..."
+                className="w-full px-4 py-3 rounded-xl border border-humble-border bg-white text-humble-text placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-humble-orange/30 focus:border-humble-orange transition-all text-sm resize-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="bg-black text-white rounded-full py-4 px-8 font-bold shadow-lg w-full hover:bg-gray-900 transition-colors inline-flex items-center justify-center gap-2 text-base"
+            >
+              <Send size={18} />
+              Send Message
+            </button>
+            <p className="text-center text-xs text-gray-400 mt-4">
+              Or email us directly at <a href="mailto:contact@frameflow.design" className="text-humble-orange hover:underline">contact@frameflow.design</a>
+            </p>
+          </motion.form>
         </div>
       </section>
 
@@ -799,14 +868,14 @@ const METRICS = [
     badgeText: 'Revenue Impact',
   },
   {
-    stat: '0.20€',
-    statEnd: 0.20,
-    statPrefix: '',
-    statSuffix: '€',
+    stat: '$0.25',
+    statEnd: 0.25,
+    statPrefix: '$',
+    statSuffix: '',
     statDecimals: 2,
     title: 'Per Photo',
-    subtitle: 'Kill your 500€ studio bill. Keep the quality.',
-    description: 'A single product shoot costs 25–50€ per image. Multiply that by your catalog and you\'re burning thousands. Get the same result from your phone for 100x less.',
+    subtitle: 'Kill your $500 studio bill. Keep the quality.',
+    description: 'A single product shoot costs $25–50 per image. Multiply that by your catalog and you\'re burning thousands. Get the same result from your phone for 100x less.',
     image: '/shadowComposite.webp',
     badgeText: 'Cost Killer',
   },
@@ -850,7 +919,7 @@ const SHOWCASE_IMAGES = [
 ];
 
 const COMPARISON_ROWS = [
-  { label: 'Cost per Photo', studio: '25€ – 50€', genericAi: '0.05€ – 1€', photoStudio: '0.20€' },
+  { label: 'Cost per Photo', studio: '$25 – $50', genericAi: '$0.05 – $1', photoStudio: '$0.25' },
   { label: 'Speed', studio: '1–3 days', genericAi: 'Minutes', photoStudio: '30 seconds' },
   { label: 'White Background', studio: 'Yes', genericAi: 'Approximate', photoStudio: 'Pure white' },
   { label: 'Realistic Shadows', studio: 'Yes', genericAi: 'No', photoStudio: 'Yes' },
@@ -871,7 +940,7 @@ const FAQ_ITEMS = [
   },
   {
     question: 'How many photos can I process?',
-    answer: 'It depends on your plan. Starter gives you 35 photos/month, Pro gives you 90, and Business gives you 210 — all at 2K resolution (Amazon & Shopify ready). Want 4K? It counts as 1.5 photo credits. Need more? Contact us for custom volume.',
+    answer: 'It depends on your plan. Starter gives you 35 photos/month, Pro gives you 75, and Business gives you 200 — all at 2K resolution (Amazon & Shopify ready). Want 4K? It counts as 1.5 photo credits. Need more? Contact us for custom volume.',
   },
   {
     question: 'What if I\'m not happy with the results?',
@@ -1101,9 +1170,9 @@ function PricingCard({
       <p className="text-sm text-gray-500 mb-8 font-medium">{desc}</p>
       <div className="flex items-baseline gap-2 mb-2">
         <span className="text-lg font-semibold tracking-tight text-gray-400 line-through decoration-1">
-          &euro;{oldPrice}
+          ${oldPrice}
         </span>
-        <span className="text-4xl font-bold tracking-tighter text-gray-900">&euro;{price}</span>
+        <span className="text-4xl font-bold tracking-tighter text-gray-900">${price}</span>
       </div>
       <div className="mb-2">
         <span className="text-2xl font-bold text-gray-900">{photos}</span>
