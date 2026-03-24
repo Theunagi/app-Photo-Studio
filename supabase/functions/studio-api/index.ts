@@ -484,39 +484,25 @@ async function handleAnalyzeStyleReplicate(body: { imageUrls: string[]; productD
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
 
-  const productContext = body.productDescription
-    ? `\n\nPRODUCT CONTEXT (use this to adapt colors and props):\n${body.productDescription}\nUse this product's colors, materials, and category to choose complementary scene colors and relevant props.`
-    : '';
-
   const systemPrompt = `Role
 You are a senior advertising art director and visual analyst specializing in premium commercial imagery. Your task is to analyze the visual style of a reference image and translate it into a production-ready image generation prompt for a generative image model.
 
-Critical Rules
-1. Do NOT describe the product itself. Only reference it as "the referenced product" in the prompt, because a different product will be inserted. Assume the product will be replaced.
-2. ADAPT COLORS TO THE PRODUCT — This is critical. If product details are provided below, use the product's actual colors to pick complementary/contrasting scene colors. If no product details, describe colors as RELATIVE to the product:
-   - Choose background and surface colors that complement the product's dominant colors
-   - Choose prop colors that create visual harmony with the product's packaging
-   - Describe specific colors ONLY if they are derived from complementing the product
-   - Describe the SATURATION LEVEL and VIBRANCY (bold, muted, pastel) to match the reference style
-3. ADAPT PROPS TO THE PRODUCT CATEGORY — If the product is food, use food-related props. If it's cosmetics, use beauty props. Match the props to what makes sense for the product, while keeping the same ARRANGEMENT and COMPOSITION style from the reference.
-4. Focus on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.${productContext}
+Critical Rule
+Do NOT describe the product itself. Only reference it as "referenced product" in the prompt, because it will be used for new generation. Assume the product will be replaced. Focus exclusively on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.
 
 Step 1 — Style Deconstruction (Internal Analysis)
 Analyze the reference image across these dimensions:
 - Overall Visual Intent: Commercial goal, emotional tone, perceived budget level and brand positioning
-- Composition & Framing: Camera distance, perspective, negative space, balance, product placement (elevated, flat, angled)
+- Composition & Framing: Camera distance, perspective, negative space, balance
 - Lighting Design: Light type, key/fill/rim behavior, shadow softness, reflections, specular control
-- Color Strategy: Color RELATIONSHIPS (complementary, split-complementary, triadic), saturation level, vibrancy, contrast ratio — NOT the specific colors themselves
-- Props & Scene Elements: Types of props (food items, drinks, textures, geometric shapes) and their arrangement — describe them generically so they adapt to the product category
+- Color & Material Language: Color palette, background treatment, surface qualities, color grading style
 - Camera & Optics: Lens feel, depth of field, sharpness vs softness, grain or ultra-clean finish
 - Post-Production & Finish: Retouching level, contrast curve, bloom, glow, micro-contrast, CGI vs photographic realism
-- Physical Scene Interaction & Material Dynamics: Surface types (tiles, marble, wood, fabric), elevation, layering, visual hierarchy
+- Physical Scene Interaction & Material Dynamics: Degree of occlusion, environmental material type, interaction mode, particle behavior, visual hierarchy, tactile implication
 
 Step 2 — Prompt Synthesis
 Transform the analysis into a single cohesive prompt optimized for an image generation model. The prompt must:
 - Be product-agnostic (use placeholders like "the referenced product")
-- Use ADAPTIVE color language — colors should complement the product, not copy the reference
-- Describe prop TYPES that relate to the product's category (e.g. "ingredients or items related to the product" instead of "cheese cubes and almonds")
 - Sound like a luxury advertising brief
 - Be precise, visual, and unambiguous
 - Avoid storytelling unrelated to visuals
@@ -624,6 +610,7 @@ async function handleLifestyleSubmit(body: {
   aspectRatio?: string;
   styleDescription?: string;
   productDescription?: string;
+  styleMode?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
@@ -631,17 +618,31 @@ async function handleLifestyleSubmit(body: {
   const resolution = body.resolution ?? "2K";
   const aspectRatio = body.aspectRatio ?? "1:1";
 
-  let prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+  let prompt: string;
+
+  if (body.styleMode === 'replicate' && body.styleDescription) {
+    // Replicate mode: the style description IS the prompt (like pasting ChatGPT output directly into NanoBanana)
+    prompt = body.styleDescription;
+    if (body.userPrompt?.trim()) {
+      prompt += `\n\n${body.userPrompt.trim()}`;
+    }
+    if (body.productDescription) {
+      prompt += `\n\nProduct details (preserve exactly): ${body.productDescription}`;
+    }
+  } else {
+    // Inspire mode or no style: use the generic lifestyle prompt wrapper
+    prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
 
-  if (body.productDescription) {
-    prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
-  }
+    if (body.productDescription) {
+      prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
+    }
 
-  if (body.styleDescription) {
-    prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+    if (body.styleDescription) {
+      prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+    }
   }
 
   // Submit to fal.ai QUEUE (returns immediately with request_id)
@@ -732,6 +733,7 @@ async function handleLifestyle(body: {
   aspectRatio?: string;
   styleDescription?: string;
   productDescription?: string;
+  styleMode?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
@@ -739,17 +741,29 @@ async function handleLifestyle(body: {
   const resolution = body.resolution ?? "2K";
   const aspectRatio = body.aspectRatio ?? "1:1";
 
-  let prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+  let prompt: string;
+
+  if (body.styleMode === 'replicate' && body.styleDescription) {
+    prompt = body.styleDescription;
+    if (body.userPrompt?.trim()) {
+      prompt += `\n\n${body.userPrompt.trim()}`;
+    }
+    if (body.productDescription) {
+      prompt += `\n\nProduct details (preserve exactly): ${body.productDescription}`;
+    }
+  } else {
+    prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
 
-  if (body.productDescription) {
-    prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
-  }
+    if (body.productDescription) {
+      prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
+    }
 
-  if (body.styleDescription) {
-    prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+    if (body.styleDescription) {
+      prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+    }
   }
 
   const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {

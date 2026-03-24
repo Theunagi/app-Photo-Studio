@@ -731,6 +731,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         aspectRatio: config.aspectRatio ?? '1:1',
         styleDescription: styleDescriptionRef.current ?? undefined,
         productDescription: analysisData ?? undefined,
+        styleMode: styleMode as 'inspire' | 'replicate',
       });
 
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');

@@ -28,6 +28,8 @@ export async function generateLifestyleImage(
     styleDescription?: string;
     /** Product description from pipeline analysis (texts, colors, materials) */
     productDescription?: string;
+    /** Style mode: 'replicate' uses style as main prompt, 'inspire' appends it */
+    styleMode?: 'inspire' | 'replicate';
   },
 ): Promise<{ resultImageUrl: string }> {
   const resolution = options?.imageSize ?? '2K';
@@ -46,6 +48,7 @@ export async function generateLifestyleImage(
     aspectRatio: options?.aspectRatio,
     styleDescription: options?.styleDescription,
     productDescription: options?.productDescription,
+    styleMode: options?.styleMode,
   });
   return { resultImageUrl: result.imageUrl ?? result.imageDataUrl ?? '' };
 }
@@ -62,6 +65,7 @@ async function generateLifestyleQueued(
     aspectRatio?: string;
     styleDescription?: string;
     productDescription?: string;
+    styleMode?: 'inspire' | 'replicate';
   },
 ): Promise<{ resultImageUrl: string }> {
   // Step 1: Submit to queue
@@ -73,6 +77,7 @@ async function generateLifestyleQueued(
     aspectRatio: options?.aspectRatio,
     styleDescription: options?.styleDescription,
     productDescription: options?.productDescription,
+    styleMode: options?.styleMode,
   });
 
   const requestId = submitResult.request_id;
