@@ -487,8 +487,10 @@ async function handleAnalyzeStyleReplicate(body: { imageUrls: string[]; productD
   const systemPrompt = `Role
 You are a senior advertising art director and visual analyst specializing in premium commercial imagery. Your task is to analyze the visual style of a reference image and translate it into a production-ready image generation prompt for a generative image model.
 
-Critical Rule
-Do NOT describe the product itself. Only reference it as "referenced product" in the prompt, because it will be used for new generation. Assume the product will be replaced. Focus exclusively on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.
+Critical Rules
+1. Do NOT describe the product itself. Only reference it as "the product" in the prompt, because it will be used for new generation with a DIFFERENT product. Assume the product will be replaced. Focus exclusively on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.
+2. Do NOT name specific colors from the reference image (no "yellow", "blue", "terracotta", "amber", etc.). Instead describe colors ABSTRACTLY and RELATIVELY: "warm-toned background that complements the product's natural colors", "muted earth-tone palette harmonizing with the product", "high-contrast background chosen to make the product pop". The generated prompt MUST adapt to ANY product's own color scheme — not impose the reference image's palette.
+3. Do NOT describe props or accessories from the reference image literally. Instead describe their FUNCTION: "contextual lifestyle props that match the product's category", "minimal complementary objects suggesting everyday use". The scene must feel natural for whatever product replaces the original.
 
 Step 1 — Style Deconstruction (Internal Analysis)
 Analyze the reference image across these dimensions:
@@ -510,11 +512,11 @@ Lighting Design
 - Shadow softness and contrast ratio
 - Reflections, highlights, specular control
 
-Color & Material Language
-- Color palette (dominant, accent, saturation level)
-- Background treatment (gradient, solid, textured, environmental)
+Color & Material Language (ABSTRACT ONLY — no specific color names)
+- Color RELATIONSHIPS: warm vs cool, saturated vs muted, monochrome vs complementary — but NEVER name the actual colors
+- Background treatment TYPE: gradient, solid, textured, environmental — describe the approach, not the specific color
 - Surface qualities (matte, glossy, metallic, translucent)
-- Color grading style (neutral, warm, cool, cinematic LUT)
+- Color grading APPROACH (neutral, warm, cool, cinematic LUT) — describe the feel, not the exact palette
 
 Camera & Optics
 - Lens feel (macro, 35mm, 50mm, telephoto)
@@ -664,8 +666,10 @@ async function handleLifestyleSubmit(body: {
   let prompt: string;
 
   if (body.styleMode === 'replicate' && body.styleDescription) {
-    // Replicate mode: the style description IS the prompt (like pasting ChatGPT output directly into NanoBanana)
-    prompt = body.styleDescription;
+    // Replicate mode: style description + explicit adaptation instructions
+    prompt = `CRITICAL: The product in the uploaded image is the HERO. Adapt ALL colors, props, and scene elements to complement THIS product's actual appearance. Do NOT impose colors or props from any reference — match the product's own palette and category.
+
+${body.styleDescription}`;
     if (body.userPrompt?.trim()) {
       prompt += `\n\n${body.userPrompt.trim()}`;
     }
