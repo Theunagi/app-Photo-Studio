@@ -432,11 +432,21 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
     },
   ];
 
+  // Convert image URLs to base64 so OpenAI can always access them
   for (const url of body.imageUrls) {
-    imageContent.push({
-      type: "image_url",
-      image_url: { url, detail: "high" },
-    });
+    try {
+      const dataUrl = await urlToDataUrl(url);
+      const { mimeType, base64 } = parseDataUrl(dataUrl);
+      imageContent.push({
+        type: "image_url",
+        image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
+      });
+    } catch {
+      imageContent.push({
+        type: "image_url",
+        image_url: { url, detail: "high" },
+      });
+    }
   }
 
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -502,6 +512,8 @@ Optional: Add a short negative prompt section if relevant (e.g. "no clutter, no 
 
 STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "image generation prompt" in the beginning.`;
 
+  // Convert image URLs to base64 data URLs so OpenAI can always access them
+  // (Supabase Storage public URLs may not be reachable from OpenAI's servers)
   const imageContent: unknown[] = [
     {
       type: "text",
@@ -510,10 +522,21 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
   ];
 
   for (const url of body.imageUrls) {
-    imageContent.push({
-      type: "image_url",
-      image_url: { url, detail: "high" },
-    });
+    try {
+      const dataUrl = await urlToDataUrl(url);
+      const { mimeType, base64 } = parseDataUrl(dataUrl);
+      imageContent.push({
+        type: "image_url",
+        image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
+      });
+    } catch (dlErr) {
+      console.error(`[Edge] Failed to download style ref image: ${url}`, dlErr);
+      // Fallback: try the URL directly
+      imageContent.push({
+        type: "image_url",
+        image_url: { url, detail: "high" },
+      });
+    }
   }
 
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -535,6 +558,7 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
+    console.error(`[Edge] OpenAI style-replicate error ${resp.status}:`, err.slice(0, 1000));
     return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
   }
 
