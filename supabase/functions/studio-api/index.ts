@@ -487,10 +487,8 @@ async function handleAnalyzeStyleReplicate(body: { imageUrls: string[]; productD
   const systemPrompt = `Role
 You are a senior advertising art director and visual analyst specializing in premium commercial imagery. Your task is to analyze the visual style of a reference image and translate it into a production-ready image generation prompt for a generative image model.
 
-Critical Rules
-1. Do NOT describe the product itself. Only reference it as "referenced product" in the prompt, because it will be used for new generation. Assume the product will be replaced. Focus exclusively on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.
-2. Do NOT name specific colors from the reference image (no "yellow", "blue", "red", etc.). Instead describe colors abstractly: "saturated monochrome background", "bold contrasting surface color", "complementary accent tones". The generated prompt must work with ANY product color scheme.
-3. The output prompt must be LONG and HIGHLY DETAILED (minimum 200 words). Include specific technical parameters for lighting angles, lens mm, surface materials, shadow behavior, color grading approach, and post-production finish. Short generic descriptions are NOT acceptable.
+Critical Rule
+Do NOT describe the product itself. Only reference it as "referenced product" in the prompt, because it will be used for new generation. Assume the product will be replaced. Focus exclusively on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.
 
 Step 1 — Style Deconstruction (Internal Analysis)
 Analyze the reference image across these dimensions:
@@ -556,11 +554,11 @@ This prompt should be suitable for: Global brand campaigns, E-commerce hero visu
 
 STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "image generation prompt" in the beginning.`;
 
-  // Convert image URLs to base64 data URLs so OpenAI can always access them
-  // (Supabase Storage public URLs may not be reachable from OpenAI's servers)
-  const imageContent: unknown[] = [
+  // Build input content for Responses API (GPT-5 format)
+  // Convert image URLs to base64 so OpenAI can always access them
+  const inputContent: unknown[] = [
     {
-      type: "text",
+      type: "input_text",
       text: "Analyze the visual style of this reference image and create a production-ready prompt to replicate it exactly with a different product.",
     },
   ];
@@ -568,35 +566,36 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
   for (const url of body.imageUrls) {
     try {
       const dataUrl = await urlToDataUrl(url);
-      const { mimeType, base64 } = parseDataUrl(dataUrl);
-      imageContent.push({
-        type: "image_url",
-        image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
+      inputContent.push({
+        type: "input_image",
+        image_url: dataUrl,
+        detail: "high",
       });
     } catch (dlErr) {
       console.error(`[Edge] Failed to download style ref image: ${url}`, dlErr);
-      // Fallback: try the URL directly
-      imageContent.push({
-        type: "image_url",
-        image_url: { url, detail: "high" },
+      inputContent.push({
+        type: "input_image",
+        image_url: url,
+        detail: "high",
       });
     }
   }
 
-  const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+  // Use Responses API (required for GPT-5+ models)
+  const resp = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o",
-      max_tokens: 2000,
-      temperature: 0.4,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: imageContent },
+      model: "gpt-5",
+      instructions: systemPrompt,
+      input: [
+        { role: "user", content: inputContent },
       ],
+      temperature: 0.4,
+      max_output_tokens: 2000,
     }),
   });
 
@@ -607,8 +606,8 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
   }
 
   const data = await resp.json();
-  const stylePrompt = data.choices?.[0]?.message?.content ?? "";
-  console.log(`[Edge] Style Replicate: ${stylePrompt.slice(0, 100)}...`);
+  const stylePrompt = data.output_text ?? data.output?.[0]?.content?.[0]?.text ?? "";
+  console.log(`[Edge] Style Replicate (gpt-5): ${stylePrompt.slice(0, 100)}...`);
   return jsonResponse({ styleDescription: stylePrompt });
 }
 
