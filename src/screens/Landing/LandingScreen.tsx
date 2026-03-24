@@ -683,13 +683,36 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
             onSubmit={async (e) => {
               e.preventDefault();
               const form = e.currentTarget;
-              const data = new FormData(form);
-              const name = data.get('name') as string;
-              const email = data.get('email') as string;
-              const subject = data.get('subject') as string;
-              const message = data.get('message') as string;
-              // Send via mailto fallback (can be replaced with API endpoint)
-              window.location.href = `mailto:contact@frameflow.design?subject=${encodeURIComponent(subject || 'Contact from ' + name)}&body=${encodeURIComponent(`From: ${name} (${email})\n\n${message}`)}`;
+              const btn = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+              const fd = new FormData(form);
+              const payload = {
+                name: fd.get('name') as string,
+                email: fd.get('email') as string,
+                subject: fd.get('subject') as string,
+                message: fd.get('message') as string,
+              };
+              btn.disabled = true;
+              btn.textContent = 'Sending...';
+              try {
+                const supabaseUrl = (import.meta as Record<string, { env: Record<string, string> }>).env?.VITE_SUPABASE_URL ?? '';
+                const anonKey = (import.meta as Record<string, { env: Record<string, string> }>).env?.VITE_SUPABASE_ANON_KEY ?? '';
+                const resp = await fetch(`${supabaseUrl}/functions/v1/contact`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
+                  body: JSON.stringify(payload),
+                });
+                if (resp.ok) {
+                  form.reset();
+                  btn.textContent = '✓ Message Sent!';
+                  setTimeout(() => { btn.disabled = false; btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg> Send Message'; }, 3000);
+                } else {
+                  btn.textContent = 'Error — try again';
+                  btn.disabled = false;
+                }
+              } catch {
+                btn.textContent = 'Error — try again';
+                btn.disabled = false;
+              }
             }}
             className="bg-[#FAFAF8] rounded-[2rem] p-8 md:p-10 border border-humble-border"
           >
