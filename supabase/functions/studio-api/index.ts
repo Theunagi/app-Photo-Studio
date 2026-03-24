@@ -456,7 +456,7 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o",
+      model: "gpt-5.4-mini",
       max_tokens: 500,
       temperature: 0.3,
       messages: [
@@ -588,8 +588,8 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o",
-      max_tokens: 1500,
+      model: "gpt-5.4-mini",
+      max_tokens: 2000,
       temperature: 0.4,
       messages: [
         { role: "system", content: systemPrompt },
