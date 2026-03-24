@@ -125,10 +125,12 @@ export async function analyzeStyleReferences(
  */
 export async function analyzeStyleReplicate(
   imageUrls: string[],
+  productDescription?: string,
 ): Promise<{ styleDescription: string }> {
   const result = await invokeEdgeFunction<{ styleDescription: string }>('studio-api', {
     action: 'analyze-style-replicate',
     imageUrls,
+    productDescription,
   });
   return { styleDescription: result.styleDescription ?? '' };
 }

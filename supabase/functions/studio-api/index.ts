@@ -480,22 +480,26 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
  * Returns a detailed, production-ready image generation prompt that
  * replicates the exact visual style of the reference image(s).
  */
-async function handleAnalyzeStyleReplicate(body: { imageUrls: string[] }): Promise<Response> {
+async function handleAnalyzeStyleReplicate(body: { imageUrls: string[]; productDescription?: string }): Promise<Response> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
+
+  const productContext = body.productDescription
+    ? `\n\nPRODUCT CONTEXT (use this to adapt colors and props):\n${body.productDescription}\nUse this product's colors, materials, and category to choose complementary scene colors and relevant props.`
+    : '';
 
   const systemPrompt = `Role
 You are a senior advertising art director and visual analyst specializing in premium commercial imagery. Your task is to analyze the visual style of a reference image and translate it into a production-ready image generation prompt for a generative image model.
 
 Critical Rules
 1. Do NOT describe the product itself. Only reference it as "the referenced product" in the prompt, because a different product will be inserted. Assume the product will be replaced.
-2. ADAPT COLORS TO THE PRODUCT — This is critical. Do NOT hardcode the exact colors from the reference image (e.g. do NOT say "yellow tiles" or "blue surface"). Instead, describe colors as RELATIVE to the product:
-   - Say "colors that complement and contrast with the referenced product's packaging colors"
-   - Say "background tones that harmonize with the product's dominant color palette"
-   - Say "props and surfaces in colors that enhance the product's visual identity"
-   - Describe the COLOR RELATIONSHIPS (complementary, analogous, contrasting) rather than exact hues
-   - Describe the SATURATION LEVEL and VIBRANCY (bold, muted, pastel) rather than specific colors
-3. Focus on style, mood, composition, lighting, camera language, materials, props TYPES (not colors), and post-production aesthetics.
+2. ADAPT COLORS TO THE PRODUCT — This is critical. If product details are provided below, use the product's actual colors to pick complementary/contrasting scene colors. If no product details, describe colors as RELATIVE to the product:
+   - Choose background and surface colors that complement the product's dominant colors
+   - Choose prop colors that create visual harmony with the product's packaging
+   - Describe specific colors ONLY if they are derived from complementing the product
+   - Describe the SATURATION LEVEL and VIBRANCY (bold, muted, pastel) to match the reference style
+3. ADAPT PROPS TO THE PRODUCT CATEGORY — If the product is food, use food-related props. If it's cosmetics, use beauty props. Match the props to what makes sense for the product, while keeping the same ARRANGEMENT and COMPOSITION style from the reference.
+4. Focus on style, mood, composition, lighting, camera language, materials, and post-production aesthetics.${productContext}
 
 Step 1 — Style Deconstruction (Internal Analysis)
 Analyze the reference image across these dimensions:

@@ -667,8 +667,12 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       );
 
       // Analyze style via GPT-4o Vision — use art director prompt in replicate mode
+      // Pass product description so colors/props adapt to the actual product
+      const productDesc = pipelineState.analysis.status === 'completed' && pipelineState.analysis.data
+        ? (pipelineState.analysis.data as { rawResponse?: string }).rawResponse
+        : undefined;
       const result = styleMode === 'replicate'
-        ? await analyzeStyleReplicate(uploadedUrls)
+        ? await analyzeStyleReplicate(uploadedUrls, productDesc ?? undefined)
         : await analyzeStyleReferences(uploadedUrls);
       setStyleDescription(result.styleDescription);
       styleDescriptionRef.current = result.styleDescription;
