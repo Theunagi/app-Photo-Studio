@@ -1,0 +1,67 @@
+.resize-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: crosshair;
+}
+
+.resize-overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.resize-overlay-toolbar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  padding: 8px 16px;
+  white-space: nowrap;
+}
+
+.resize-overlay-hint {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+
+.resize-overlay-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.resize-overlay-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.resize-overlay-apply {
+  background: #22c55e;
+  color: #fff;
+}
+
+.resize-overlay-apply:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.resize-overlay-cancel {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.resize-overlay-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+}
