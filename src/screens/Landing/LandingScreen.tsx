@@ -973,6 +973,14 @@ const FAQ_ITEMS = [
     question: 'Can I use my own lifestyle scenes or just the AI ones?',
     answer: 'Both. You can use our AI-generated scenes or upload your own custom backgrounds. The editor gives you full control over placement, shadows, and lighting for each scene.',
   },
+  {
+    question: 'Do I need any design skills?',
+    answer: 'Zero. Upload your product photo, pick a scene, download. The AI handles lighting, shadows, reconstruction and background automatically.',
+  },
+  {
+    question: 'Why not just use Nanobanana or ChatGPT to generate product images?',
+    answer: 'Generic AI generates — FrameFlow reconstructs. Standard AI tools hallucinate details, distort text on packaging, and can\'t guarantee a pure white background or consistent lighting. FrameFlow delivers a high-end studio render every single time — perfect lighting, 100% exact white background, and your product\'s text and details pixel-accurate. It\'s not generation, it\'s precision.',
+  },
 ];
 
 /* ─── Sub-components ─── */
