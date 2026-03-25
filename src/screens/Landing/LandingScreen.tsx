@@ -958,8 +958,8 @@ const FAQ_ITEMS = [
     answer: 'No. FrameFlow goes far beyond background removal. We automatically add realistic drop shadows, adjust lighting, and generate AI lifestyle scenes — everything you need for marketplace-ready product photos in one tool.',
   },
   {
-    question: 'Will the results pass Amazon / Shopify image requirements?',
-    answer: 'Yes. Our output is optimized for major marketplace standards including Amazon (pure white background, proper dimensions) and Shopify. Images are exported at up to 4K resolution.',
+    question: 'Will the results pass Amazon image requirements?',
+    answer: 'Yes. Our output is optimized for Amazon marketplace standards — pure white background, proper dimensions, and images exported at up to 4K resolution.',
   },
   {
     question: 'How many photos can I process?',
