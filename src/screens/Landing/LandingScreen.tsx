@@ -694,8 +694,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
               btn.disabled = true;
               btn.textContent = 'Sending...';
               try {
-                const supabaseUrl = (import.meta as Record<string, { env: Record<string, string> }>).env?.VITE_SUPABASE_URL ?? '';
-                const anonKey = (import.meta as Record<string, { env: Record<string, string> }>).env?.VITE_SUPABASE_ANON_KEY ?? '';
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? '';
+                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
                 const resp = await fetch(`${supabaseUrl}/functions/v1/contact`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
