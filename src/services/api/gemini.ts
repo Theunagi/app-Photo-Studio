@@ -153,3 +153,36 @@ export async function callGeminiVision(
     imageUrl,
   });
 }
+
+/**
+ * Resize / reposition a product in a lifestyle scene.
+ *
+ * Takes a lifestyle image with a bright-green rectangle overlay indicating
+ * where the product should be placed, plus the product cutout as a reference
+ * image. Gemini replaces the green rectangle with the product at the correct
+ * size and position while keeping the rest of the scene intact.
+ */
+export async function resizeLifestyleImage(
+  annotatedImageUrl: string,
+  productCutoutUrl: string,
+  options?: {
+    imageSize?: string;
+    aspectRatio?: string;
+    productDescription?: string;
+  },
+): Promise<{ resultImageUrl: string }> {
+  const resolution = options?.imageSize ?? '2K';
+
+  const result = await invokeEdgeFunction<{ imageUrl?: string; imageDataUrl?: string }>('studio-api', {
+    action: 'lifestyle',
+    imageUrl: annotatedImageUrl,
+    referenceImageUrl: productCutoutUrl,
+    userPrompt:
+      'This image has a bright green rectangle overlay. The green rectangle indicates EXACTLY where the product should be placed and at what size. Replace the green rectangle area with the product shown in the reference image. The product must fit precisely within the green rectangle boundaries. Remove the green overlay completely. Keep the rest of the scene identical — same background, lighting, shadows, and perspective. Generate realistic shadows and reflections for the product at its new position.',
+    resolution,
+    aspectRatio: options?.aspectRatio,
+    productDescription: options?.productDescription,
+  });
+
+  return { resultImageUrl: result.imageUrl ?? result.imageDataUrl ?? '' };
+}
