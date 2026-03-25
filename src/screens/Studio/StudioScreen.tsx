@@ -9,7 +9,8 @@ import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } f
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import { editImage } from '../../services/api/falImageGen';
-import { generateLifestyleImage, analyzeStyleReferences, analyzeStyleReplicate } from '../../services/api/gemini';
+import { generateLifestyleImage, analyzeStyleReferences, analyzeStyleReplicate, resizeLifestyleImage } from '../../services/api/gemini';
+import ResizeOverlay from '../../components/ResizeOverlay';
 import { fetchImageAsDataUrl } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
 import { getPublicUrl } from '../../services/db/storage';
@@ -270,6 +271,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [isGeneratingLifestyle, setIsGeneratingLifestyle] = useState(false);
   const [lifestyleError, setLifestyleError] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [showResize, setShowResize] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
   const [editImages, setEditImages] = useState<{ id: string; image: string; prompt: string }[]>(ensureIds(project?.results.edits ?? []));
   const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
@@ -302,6 +305,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   useEffect(() => { editImagesRef.current = editImages; }, [editImages]);
   useEffect(() => { styleRefImagesRef.current = styleRefImages; }, [styleRefImages]);
   useEffect(() => { styleDescriptionRef.current = styleDescription; }, [styleDescription]);
+  useEffect(() => { setShowResize(false); }, [activeVariant]);
 
   // Reinitialize lifestyle/edit state when project changes (e.g. navigating between projects)
   useEffect(() => {
@@ -819,6 +823,45 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction]);
 
+  // --- Lifestyle Resize (green rectangle) ---
+  const handleResize = useCallback(async (annotatedImageDataUrl: string, rect: { x: number; y: number; w: number; h: number }) => {
+    setIsResizing(true);
+    try {
+      const annotatedUrl = await uploadForEdgeFunction(annotatedImageDataUrl, 'resize-annotated');
+      const cutoutImage = getStepImage('autoCrop');
+      if (!cutoutImage) throw new Error('No product cutout available');
+      let cutoutUrl: string;
+      if (cutoutImage.startsWith('data:')) {
+        cutoutUrl = await uploadForEdgeFunction(cutoutImage, 'resize-cutout');
+      } else {
+        cutoutUrl = toUsableImageUrl(cutoutImage);
+      }
+      const analysisData = pipelineState.analysis.status === 'completed' && pipelineState.analysis.data
+        ? (pipelineState.analysis.data as { rawResponse?: string }).rawResponse
+        : project?.results.analysis;
+
+      const response = await resizeLifestyleImage(annotatedUrl, cutoutUrl, {
+        imageSize: config.imageSize ?? '2K',
+        aspectRatio: config.aspectRatio ?? '1:1',
+        productDescription: analysisData ?? undefined,
+      });
+      if (!response.resultImageUrl) throw new Error('No image URL returned');
+      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+      const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: '[Resized]' };
+      const updated = [...lifestyleImages, newEntry];
+      setLifestyleImages(updated);
+      lifestyleImagesRef.current = updated;
+      setActiveVariant(`lifestyle-${newEntry.id}`);
+      setShowResize(false);
+      await autoSave();
+    } catch (err) {
+      console.error('Resize failed:', err);
+      setLifestyleError(err instanceof Error ? err.message : 'Resize failed');
+    } finally {
+      setIsResizing(false);
+    }
+  }, [lifestyleImages, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction]);
+
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;
   const canRun = hasImage && !isRunning;
@@ -1168,6 +1211,15 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <div className={`result-canvas ${['cutout', 'debug-retouch', 'debug-shadow'].includes(activeVariant) ? 'result-canvas--checkerboard' : ''}`}>
                   <img src={currentVariant.image} alt={currentVariant.label} className="result-canvas-img" />
 
+                  {showResize && currentVariant.key.startsWith('lifestyle-') && (
+                    <ResizeOverlay
+                      imageSrc={currentVariant.image}
+                      onApply={handleResize}
+                      onCancel={() => setShowResize(false)}
+                      isProcessing={isResizing}
+                    />
+                  )}
+
                   {/* Prompt now shown in right sidebar instead of overlay */}
 
                   {/* Thumbnail strip - bottom center */}
@@ -1219,7 +1271,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               </button>
               <button
                 className={`mobile-toolbar-btn ${showLifestyle ? 'active' : ''}`}
-                onClick={() => { setShowLifestyle(prev => !prev); setShowEdit(false); }}
+                onClick={() => { setShowLifestyle(prev => !prev); setShowEdit(false); setShowResize(false); }}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M3 7a4 4 0 014-4h6a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4V7z" stroke="currentColor" strokeWidth="1.4"/>
@@ -1230,7 +1282,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               </button>
               <button
                 className={`mobile-toolbar-btn ${showEdit ? 'active' : ''}`}
-                onClick={() => { setShowEdit(prev => !prev); setShowLifestyle(false); }}
+                onClick={() => { setShowEdit(prev => !prev); setShowLifestyle(false); setShowResize(false); }}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                   <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1238,6 +1290,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 </svg>
                 <span>Edit</span>
               </button>
+              {currentVariant.key.startsWith('lifestyle-') && (
+                <button
+                  className={`mobile-toolbar-btn ${showResize ? 'active' : ''}`}
+                  onClick={() => { setShowResize(prev => !prev); setShowLifestyle(false); setShowEdit(false); }}
+                >
+                  Resize
+                </button>
+              )}
               <button
                 className="mobile-toolbar-btn"
                 onClick={() => downloadImage(currentVariant.image, downloadSuffix)}
@@ -1469,7 +1529,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
           <div className="result-sidebar-tools">
             <button
               className={`sidebar-tool-btn ${showLifestyle ? 'active' : ''}`}
-              onClick={() => { setShowLifestyle(prev => !prev); setShowEdit(false); }}
+              onClick={() => { setShowLifestyle(prev => !prev); setShowEdit(false); setShowResize(false); }}
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                 <path d="M3 7a4 4 0 014-4h6a4 4 0 014 4v6a4 4 0 01-4 4H7a4 4 0 01-4-4V7z" stroke="currentColor" strokeWidth="1.4"/>
@@ -1480,7 +1540,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
             </button>
             <button
               className={`sidebar-tool-btn ${showEdit ? 'active' : ''}`}
-              onClick={() => { setShowEdit(prev => !prev); setShowLifestyle(false); }}
+              onClick={() => { setShowEdit(prev => !prev); setShowLifestyle(false); setShowResize(false); }}
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
                 <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1488,6 +1548,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               </svg>
               Edit
             </button>
+            {currentVariant.key.startsWith('lifestyle-') && (
+              <button
+                className={`sidebar-tool-btn ${showResize ? 'active' : ''}`}
+                onClick={() => { setShowResize(prev => !prev); setShowLifestyle(false); setShowEdit(false); }}
+                title="Resize product position"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2"/><path d="M1 1h4M1 1v4M17 17h-4M17 17v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                Resize
+              </button>
+            )}
             <button
               className="sidebar-tool-btn"
               onClick={handleRunPipeline}
