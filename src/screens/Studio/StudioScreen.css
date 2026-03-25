@@ -914,6 +914,49 @@
   flex-shrink: 0;
 }
 
+/* Prompt section in sidebar */
+.result-sidebar-prompt {
+  padding: 16px;
+  border-top: 1px solid #E8E8E4;
+}
+.result-sidebar-prompt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.result-sidebar-prompt-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #999;
+}
+.result-sidebar-prompt-copy {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary, #c45a2d);
+  background: none;
+  border: 1px solid var(--color-primary, #c45a2d);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.result-sidebar-prompt-copy:hover {
+  background: var(--color-primary, #c45a2d);
+  color: #fff;
+}
+.result-sidebar-prompt-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #444;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
 .result-sidebar-spacer {
   flex: 1;
 }

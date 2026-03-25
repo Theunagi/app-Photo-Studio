@@ -1168,49 +1168,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <div className={`result-canvas ${['cutout', 'debug-retouch', 'debug-shadow'].includes(activeVariant) ? 'result-canvas--checkerboard' : ''}`}>
                   <img src={currentVariant.image} alt={currentVariant.label} className="result-canvas-img" />
 
-                  {/* Prompt badge for lifestyle/edit variants */}
-                  {currentVariant.prompt && (
-                    <div
-                      className="result-prompt-badge"
-                      onClick={() => {
-                        const el = document.querySelector('.result-prompt-expanded') as HTMLElement | null;
-                        if (el) {
-                          el.classList.toggle('visible');
-                        }
-                      }}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <span className="result-prompt-badge-label">Prompt</span>
-                      <span className="result-prompt-badge-text">{currentVariant.prompt}</span>
-                      <button
-                        className="result-prompt-copy-btn"
-                        title="Copy prompt"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(currentVariant.prompt || '');
-                          const btn = e.currentTarget;
-                          btn.textContent = '✓';
-                          setTimeout(() => { btn.textContent = '⧉'; }, 1500);
-                        }}
-                      >⧉</button>
-                    </div>
-                  )}
-                  {currentVariant.prompt && (
-                    <div className="result-prompt-expanded">
-                      <div className="result-prompt-expanded-header">
-                        <span>Full Prompt</span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(currentVariant.prompt || '');
-                            const btn = document.querySelector('.result-prompt-expanded .result-prompt-copy-btn') as HTMLElement;
-                            if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); }
-                          }}
-                          className="result-prompt-copy-btn result-prompt-copy-btn--text"
-                        >Copy</button>
-                      </div>
-                      <p className="result-prompt-expanded-text">{currentVariant.prompt}</p>
-                    </div>
-                  )}
+                  {/* Prompt now shown in right sidebar instead of overlay */}
 
                   {/* Thumbnail strip - bottom center */}
                   {resultVariants.length > 1 && (
@@ -1542,6 +1500,24 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               Redo
             </button>
           </div>
+
+          {/* Prompt used for this variant */}
+          {currentVariant.prompt && (
+            <div className="result-sidebar-prompt">
+              <div className="result-sidebar-prompt-header">
+                <span className="result-sidebar-prompt-label">Prompt</span>
+                <button
+                  className="result-sidebar-prompt-copy"
+                  onClick={() => {
+                    navigator.clipboard.writeText(currentVariant.prompt || '');
+                    const btn = document.querySelector('.result-sidebar-prompt-copy') as HTMLElement;
+                    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); }
+                  }}
+                >Copy</button>
+              </div>
+              <p className="result-sidebar-prompt-text">{currentVariant.prompt}</p>
+            </div>
+          )}
 
           {/* Spacer */}
           <div className="result-sidebar-spacer" />
