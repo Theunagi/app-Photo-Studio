@@ -955,7 +955,7 @@ const COMPARISON_ROWS = [
 const FAQ_ITEMS = [
   {
     question: 'Is this just another background remover?',
-    answer: 'No. FrameFlow goes far beyond background removal. We automatically add realistic drop shadows, adjust lighting, and generate AI lifestyle scenes — everything you need for marketplace-ready product photos in one tool.',
+    answer: 'No. FrameFlow is a high-end 3D product reconstruction engine optimized for conversion. We don\'t just remove backgrounds — we rebuild your product with studio-grade lighting, realistic shadows, and pixel-perfect details. The result is a premium visual designed to sell, not just a cutout.',
   },
   {
     question: 'Will the results pass Amazon image requirements?',
