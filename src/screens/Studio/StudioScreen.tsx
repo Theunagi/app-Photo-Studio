@@ -1170,9 +1170,45 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
                   {/* Prompt badge for lifestyle/edit variants */}
                   {currentVariant.prompt && (
-                    <div className="result-prompt-badge">
+                    <div
+                      className="result-prompt-badge"
+                      onClick={() => {
+                        const el = document.querySelector('.result-prompt-expanded') as HTMLElement | null;
+                        if (el) {
+                          el.classList.toggle('visible');
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <span className="result-prompt-badge-label">Prompt</span>
                       <span className="result-prompt-badge-text">{currentVariant.prompt}</span>
+                      <button
+                        className="result-prompt-copy-btn"
+                        title="Copy prompt"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(currentVariant.prompt || '');
+                          const btn = e.currentTarget;
+                          btn.textContent = '✓';
+                          setTimeout(() => { btn.textContent = '⧉'; }, 1500);
+                        }}
+                      >⧉</button>
+                    </div>
+                  )}
+                  {currentVariant.prompt && (
+                    <div className="result-prompt-expanded">
+                      <div className="result-prompt-expanded-header">
+                        <span>Full Prompt</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentVariant.prompt || '');
+                            const btn = document.querySelector('.result-prompt-expanded .result-prompt-copy-btn') as HTMLElement;
+                            if (btn) { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500); }
+                          }}
+                          className="result-prompt-copy-btn result-prompt-copy-btn--text"
+                        >Copy</button>
+                      </div>
+                      <p className="result-prompt-expanded-text">{currentVariant.prompt}</p>
                     </div>
                   )}
 
