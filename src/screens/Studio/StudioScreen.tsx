@@ -852,7 +852,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const hasImages = inputPreviews.length > 0;
 
   // --- Variant list (computed at component level for both canvas + sidebar) ---
-  type Variant = { key: string; label: string; image: string };
+  type Variant = { key: string; label: string; image: string; prompt?: string };
   const resultVariants: Variant[] = pipelineComplete ? (() => {
     const base: Variant[] = [
       ...(inputPreview ? [{ key: 'original', label: 'Original', image: inputPreview }] : []),
@@ -863,8 +863,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       ...(getStepImage('retouch') ? [{ key: 'debug-retouch', label: 'Step 5: Retouch', image: getStepImage('retouch')! }] : []),
       ...(getStepImage('shadowComposite') ? [{ key: 'debug-shadow', label: 'Step 6: Shadow', image: getStepImage('shadowComposite')! }] : []),
     ].filter(v => v.image != null);
-    const lifeV: Variant[] = lifestyleImages.map((li, i) => ({ key: `lifestyle-${li.id}`, label: `Lifestyle ${i + 1}`, image: li.image }));
-    const editV: Variant[] = editImages.map((ei, i) => ({ key: `edit-${ei.id}`, label: `Edit ${i + 1}`, image: ei.image }));
+    const lifeV: Variant[] = lifestyleImages.map((li, i) => ({ key: `lifestyle-${li.id}`, label: `Lifestyle ${i + 1}`, image: li.image, prompt: li.prompt }));
+    const editV: Variant[] = editImages.map((ei, i) => ({ key: `edit-${ei.id}`, label: `Edit ${i + 1}`, image: ei.image, prompt: ei.prompt }));
     return [...base, ...lifeV, ...editV];
   })() : [];
   const currentVariant = resultVariants.find(v => v.key === activeVariant) ?? resultVariants.find(v => v.key === 'final') ?? resultVariants[0];
@@ -1167,6 +1167,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               <div className="result-card">
                 <div className={`result-canvas ${['cutout', 'debug-retouch', 'debug-shadow'].includes(activeVariant) ? 'result-canvas--checkerboard' : ''}`}>
                   <img src={currentVariant.image} alt={currentVariant.label} className="result-canvas-img" />
+
+                  {/* Prompt badge for lifestyle/edit variants */}
+                  {currentVariant.prompt && (
+                    <div className="result-prompt-badge">
+                      <span className="result-prompt-badge-label">Prompt</span>
+                      <span className="result-prompt-badge-text">{currentVariant.prompt}</span>
+                    </div>
+                  )}
 
                   {/* Thumbnail strip - bottom center */}
                   {resultVariants.length > 1 && (
