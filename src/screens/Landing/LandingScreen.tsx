@@ -487,7 +487,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   oldPrice="19.90"
                   price="9.90"
                   photos={35}
-                  spots={10}
+
                   features={[
                     'AI Background Removal',
                     'Realistic Shadows',
@@ -505,7 +505,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   oldPrice="39.90"
                   price="19.90"
                   photos={75}
-                  spots={5}
+
                   features={[
                     'Everything in Starter',
                     '4K Resolution Export',
@@ -524,7 +524,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onLogin, onLegalPage }) =
                   oldPrice="99.90"
                   price="49.90"
                   photos={200}
-                  spots={5}
+
                   features={[
                     'Everything in Pro',
                     'Custom Branding',
@@ -1160,7 +1160,6 @@ interface PricingCardProps {
   oldPrice: string;
   price: string;
   photos: number;
-  spots: number;
   features: string[];
   ctaText: string;
   onCta: () => void;
@@ -1174,7 +1173,6 @@ function PricingCard({
   oldPrice,
   price,
   photos,
-  spots,
   features,
   ctaText,
   onCta,
@@ -1201,10 +1199,7 @@ function PricingCard({
         <span className="text-2xl font-bold text-gray-900">{photos}</span>
         <span className="text-sm text-gray-500 font-medium ml-1">photos / month</span>
       </div>
-      <p className="text-xs text-gray-400 mb-2 font-medium">2K · Amazon &amp; Shopify ready</p>
-      <p className="text-sm text-humble-orange font-medium mb-8">
-        Join as founding customer ({spots} spots).
-      </p>
+      <p className="text-xs text-gray-400 mb-8 font-medium">2K · Amazon &amp; Shopify ready</p>
       <button onClick={onCta} className="bg-black text-white rounded-full py-4 px-6 font-bold shadow-lg w-full mb-8 hover:bg-gray-900 transition-colors">
         {ctaText}
       </button>
