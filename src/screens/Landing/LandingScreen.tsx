@@ -966,14 +966,6 @@ const FAQ_ITEMS = [
     answer: 'It depends on your plan. Starter gives you 35 photos/month, Pro gives you 75, and Business gives you 200 — all at 2K resolution (Amazon & Shopify ready). Want 4K? It counts as 1.5 photo credits. Need more? Contact us for custom volume.',
   },
   {
-    question: 'What if I\'m not happy with the results?',
-    answer: 'You can regenerate any image with different settings at no extra cost. Our AI learns from your preferences to deliver better results over time. Plus, you get a 14-day free trial to test everything.',
-  },
-  {
-    question: 'Can I use my own lifestyle scenes or just the AI ones?',
-    answer: 'Both. You can use our AI-generated scenes or upload your own custom backgrounds. The editor gives you full control over placement, shadows, and lighting for each scene.',
-  },
-  {
     question: 'Do I need any design skills?',
     answer: 'Zero. Upload your product photo, pick a scene, download. The AI handles lighting, shadows, reconstruction and background automatically.',
   },
