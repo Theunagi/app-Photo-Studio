@@ -11,7 +11,7 @@ serve(async (req: Request) => {
   try {
     await verifyAuth(req);
 
-    const { action, imageUrl, referenceImageUrls, lifestylePrompt, visionPrompt, imageSize, aspectRatio, sessionId } = await req.json();
+    const { action, imageUrl, referenceImageUrls, referenceImageUrl, lifestylePrompt, visionPrompt, imageSize, aspectRatio, sessionId } = await req.json();
 
     if (!action || !imageUrl) {
       return new Response(JSON.stringify({ error: 'Missing action or imageUrl' }), {
@@ -40,12 +40,15 @@ serve(async (req: Request) => {
         { inlineData: { mimeType: primary.mimeType, data: primary.base64 } },
       ];
 
-      // Fetch reference images
+      // Fetch reference images (array or single)
       if (referenceImageUrls?.length) {
         for (const refUrl of referenceImageUrls) {
           const ref = await fetchImageAsBase64(refUrl);
           imageParts.push({ inlineData: { mimeType: ref.mimeType, data: ref.base64 } });
         }
+      } else if (referenceImageUrl) {
+        const ref = await fetchImageAsBase64(referenceImageUrl);
+        imageParts.push({ inlineData: { mimeType: ref.mimeType, data: ref.base64 } });
       }
 
       const refLabel = imageParts.length > 1

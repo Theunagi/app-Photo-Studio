@@ -136,16 +136,6 @@ async function verifyAuth(req: Request): Promise<string> {
 
   const token = authHeader.replace("Bearer ", "");
 
-  // Dev mode: if token is the anon key (public, already in frontend),
-  // allow bypass for local development only.
-  // The anon key is NOT a user JWT so getUser() would reject it.
-  // TODO: Remove this bypass before production launch with real users.
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  if (anonKey && token === anonKey) {
-    console.log("[Edge] Dev/anon mode: anon key used as bearer — returning dev user");
-    return "dev-user-00000000";
-  }
-
   // Production: verify real user JWT
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -777,6 +767,7 @@ async function handleLifestyle(body: {
   styleDescription?: string;
   productDescription?: string;
   styleMode?: string;
+  referenceImageUrl?: string;
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
@@ -809,6 +800,10 @@ High-end product photography style, natural lighting, shallow depth of field whe
     }
   }
 
+  const imageUrls = body.referenceImageUrl
+    ? [body.imageUrl, body.referenceImageUrl]
+    : [body.imageUrl];
+
   const resp = await fetch("https://fal.run/fal-ai/nano-banana-2/edit", {
     method: "POST",
     headers: {
@@ -816,7 +811,7 @@ High-end product photography style, natural lighting, shallow depth of field whe
       Authorization: `Key ${falKey}`,
     },
     body: JSON.stringify({
-      image_urls: [body.imageUrl],
+      image_urls: imageUrls,
       prompt,
       resolution,
       aspect_ratio: aspectRatio,
@@ -1047,6 +1042,7 @@ Deno.serve(async (req: Request) => {
             aspectRatio?: string;
             styleDescription?: string;
             productDescription?: string;
+            referenceImageUrl?: string;
           }
         );
 
@@ -1096,12 +1092,40 @@ Deno.serve(async (req: Request) => {
           return jsonResponse({ publicUrl: imgUrl });
         }
 
+        // SSRF protection: only allow HTTPS URLs from trusted AI image providers
+        const ALLOWED_PROXY_HOSTS = [
+          'fal.media', 'storage.googleapis.com', 'oaidalleapiprodscus.blob.core.windows.net',
+          'replicate.delivery', 'pbxt.replicate.delivery', 'cdn.openai.com',
+          'generativelanguage.googleapis.com', 'nanobanana.com', 'api.nanobanana.com',
+        ];
+        let proxyHostname: string;
+        try {
+          const parsed = new URL(imgUrl);
+          if (parsed.protocol !== 'https:') return errorResponse("Only HTTPS URLs allowed", 400);
+          proxyHostname = parsed.hostname;
+        } catch { return errorResponse("Invalid URL", 400); }
+
+        const isAllowedHost = ALLOWED_PROXY_HOSTS.some(h => proxyHostname === h || proxyHostname.endsWith('.' + h));
+        if (!isAllowedHost) {
+          console.warn(`[Edge] Proxy blocked: ${proxyHostname} not in allowlist`);
+          return errorResponse("URL host not allowed for proxy", 403);
+        }
+
         // Download server-side
         const proxyResp = await fetch(imgUrl);
         if (!proxyResp.ok) return errorResponse(`Proxy download failed: ${proxyResp.status}`, 502);
         const proxyBuffer = await proxyResp.arrayBuffer();
-        const proxyMime = proxyResp.headers.get("content-type") ?? "image/png";
-        const proxyExt = proxyMime.includes("jpeg") || proxyMime.includes("jpg") ? "jpg" : "png";
+
+        // MIME validation: check magic bytes, ignore server Content-Type header
+        const bytes = new Uint8Array(proxyBuffer.slice(0, 8));
+        const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+        const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+        const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+        if (!isPng && !isJpeg && !isWebp) {
+          return errorResponse("Downloaded file is not a valid image (PNG/JPEG/WebP)", 400);
+        }
+        const proxyMime = isPng ? "image/png" : isJpeg ? "image/jpeg" : "image/webp";
+        const proxyExt = isJpeg ? "jpg" : isPng ? "png" : "webp";
 
         // Upload to Supabase Storage
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
