@@ -1376,7 +1376,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/>
                   <path d="M3 13l4-3.5 3 2.5 3-4 4 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span>Lifestyle</span>
+                <span>Lifestyle <small>({LIFESTYLE_COST[config.imageSize] ?? 2} cr)</small></span>
               </button>
               <button
                 className={`mobile-toolbar-btn ${showEdit ? 'active' : ''}`}
@@ -1386,7 +1386,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                 </svg>
-                <span>Edit</span>
+                <span>Edit <small>({EDIT_COST} cr)</small></span>
               </button>
               {currentVariant.key.startsWith('lifestyle-') && (
                 <>
@@ -1395,14 +1395,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                     onClick={() => handleQuickResize('bigger')}
                     disabled={isResizing}
                   >
-                    {isResizing ? '...' : '+ Bigger'}
+                    {isResizing ? '...' : `+ Bigger (${RESIZE_COST} cr)`}
                   </button>
                   <button
                     className="mobile-toolbar-btn"
                     onClick={() => handleQuickResize('smaller')}
                     disabled={isResizing}
                   >
-                    {isResizing ? '...' : '- Smaller'}
+                    {isResizing ? '...' : `- Smaller (${RESIZE_COST} cr)`}
                   </button>
                 </>
               )}
@@ -1425,7 +1425,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <path d="M3.5 3.5v5h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M5.5 12.5a6 6 0 105-7.5H3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span>Redo</span>
+                <span>Redo <small>({GENERATION_COST[config.imageSize] ?? 3} cr)</small></span>
               </button>
             </div>
 
@@ -1436,7 +1436,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7L8 1z" fill="currentColor"/>
                   </svg>
-                  <span>Generate Lifestyle</span>
+                  <span>Generate Lifestyle ({LIFESTYLE_COST[config.imageSize] ?? 2} cr)</span>
                   <div className="resolution-toggle" style={{ marginLeft: 'auto' }}>
                     <button className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '2K')} disabled={isGeneratingLifestyle}>2K</button>
                     <button className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '4K')} disabled={isGeneratingLifestyle}>4K</button>
@@ -1572,7 +1572,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M11.5 1.5l3 3-8.5 8.5H3v-3l8.5-8.5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <span>AI Edit</span>
+                  <span>AI Edit ({EDIT_COST} cr)</span>
                   <div className="resolution-toggle" style={{ marginLeft: 'auto' }}>
                     <button className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '2K')} disabled={isGeneratingEdit}>2K</button>
                     <button className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '4K')} disabled={isGeneratingEdit}>4K</button>
@@ -1644,7 +1644,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/>
                 <path d="M3 13l4-3.5 3 2.5 3-4 4 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Lifestyle
+              Lifestyle <small>({LIFESTYLE_COST[config.imageSize] ?? 2} cr)</small>
             </button>
             <button
               className={`sidebar-tool-btn ${showEdit ? 'active' : ''}`}
@@ -1654,7 +1654,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
-              Edit
+              Edit <small>({EDIT_COST} cr)</small>
             </button>
             {currentVariant.key.startsWith('lifestyle-') && (
               <>
@@ -1665,7 +1665,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   title="Make product bigger"
                 >
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M10 7v6M7 10h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  {isResizing ? '...' : 'Bigger'}
+                  {isResizing ? '...' : `Bigger (${RESIZE_COST} cr)`}
                 </button>
                 <button
                   className="sidebar-tool-btn"
@@ -1674,7 +1674,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   title="Make product smaller"
                 >
                   <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M7 10h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                  {isResizing ? '...' : 'Smaller'}
+                  {isResizing ? '...' : `Smaller (${RESIZE_COST} cr)`}
                 </button>
               </>
             )}
@@ -1687,7 +1687,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <path d="M3.5 3.5v5h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M5.5 12.5a6 6 0 105-7.5H3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Redo
+              Redo <small>({GENERATION_COST[config.imageSize] ?? 3} cr)</small>
             </button>
           </div>
 
