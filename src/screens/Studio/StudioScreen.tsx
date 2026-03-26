@@ -712,6 +712,12 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     const hasStyle = !!styleDescriptionRef.current;
     if (!sourceImage || (!hasPrompt && !hasStyle)) return;
 
+    // Check credits before generating
+    if (pointsBalance < 1) {
+      setLifestyleError('Crédits insuffisants. Passez à un plan supérieur.');
+      return;
+    }
+
     setIsGeneratingLifestyle(true);
     setLifestyleError(null);
     try {
@@ -741,6 +747,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+
+      // Deduct 1 credit for lifestyle generation
+      try {
+        await deductPoints(1);
+        onPointsChanged();
+      } catch (err) {
+        console.error('Credit deduction failed after lifestyle:', err);
+      }
 
       trackGenerateLifestyle();
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: lifestylePrompt.trim() };
@@ -778,6 +792,13 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       sourceImage = getStepImage('autoCrop');
     }
     if (!sourceImage || !editPrompt.trim()) return;
+
+    // Check credits before editing
+    if (pointsBalance < 1) {
+      setEditError('Crédits insuffisants. Passez à un plan supérieur.');
+      return;
+    }
+
     setIsGeneratingEdit(true);
     setEditError(null);
     try {
@@ -805,6 +826,14 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+
+      // Deduct 1 credit for edit generation
+      try {
+        await deductPoints(1);
+        onPointsChanged();
+      } catch (err) {
+        console.error('Credit deduction failed after edit:', err);
+      }
 
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
@@ -861,6 +890,13 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   // Quick resize (bigger/smaller buttons)
   const handleQuickResize = useCallback(async (mode: 'bigger' | 'smaller') => {
     console.log('[StudioScreen] handleQuickResize:', mode);
+
+    // Check credits before resizing
+    if (pointsBalance < 1) {
+      setLifestyleError('Crédits insuffisants. Passez à un plan supérieur.');
+      return;
+    }
+
     setIsResizing(true);
     setLifestyleError(null);
     try {
@@ -894,6 +930,15 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       const response = await resizeProductSeedream(lifestyleUrl, mode, { cutoutImageUrl: cutoutUrl });
       if (!response.resultImageUrl) throw new Error('No image URL returned');
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+
+      // Deduct 1 credit for resize
+      try {
+        await deductPoints(1);
+        onPointsChanged();
+      } catch (err) {
+        console.error('Credit deduction failed after resize:', err);
+      }
+
       const label = mode === 'bigger' ? '[Resized - Bigger]' : '[Resized - Smaller]';
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: label };
       const updated = [...lifestyleImages, newEntry];
