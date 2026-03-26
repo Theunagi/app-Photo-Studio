@@ -795,8 +795,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     }
     if (!sourceImage || !editPrompt.trim()) return;
 
-    // Check credits before editing
-    const editNeeded = GENERATION_COST[config.imageSize] ?? 3;
+    // Check credits before editing (flat 2 credits)
+    const editNeeded = 2;
     if (pointsBalance < editNeeded) {
       setEditError(`Crédits insuffisants (${editNeeded} requis, ${pointsBalance} disponibles).`);
       return;
@@ -830,8 +830,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct credits for edit generation
-      const editCost = GENERATION_COST[config.imageSize] ?? 3;
+      // Deduct credits for edit generation (flat 2 credits, cheaper than lifestyle)
+      const editCost = 2;
       try {
         await deductPoints(editCost);
         onPointsChanged();
