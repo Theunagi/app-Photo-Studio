@@ -9,7 +9,7 @@ import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } f
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import { editImage } from '../../services/api/falImageGen';
-import { generateLifestyleImage, analyzeStyleReferences, analyzeStyleReplicate, resizeLifestyleImage } from '../../services/api/gemini';
+import { generateLifestyleImage, analyzeStyleReferences, analyzeStyleReplicate, resizeProductSeedream } from '../../services/api/gemini';
 import ResizeOverlay from '../../components/ResizeOverlay';
 import { fetchImageAsDataUrl } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
@@ -824,30 +824,26 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction]);
 
   // --- Lifestyle Resize (green rectangle) ---
+  // Rectangle resize (green box drawn on image)
   const handleResize = useCallback(async (annotatedImageDataUrl: string, rect: { x: number; y: number; w: number; h: number }) => {
+    console.log('[StudioScreen] handleResize (rectangle) called, rect:', rect);
     setIsResizing(true);
     try {
       const annotatedUrl = await uploadForEdgeFunction(annotatedImageDataUrl, 'resize-annotated');
       const cutoutImage = getStepImage('autoCrop');
-      if (!cutoutImage) throw new Error('No product cutout available');
-      let cutoutUrl: string;
-      if (cutoutImage.startsWith('data:')) {
-        cutoutUrl = await uploadForEdgeFunction(cutoutImage, 'resize-cutout');
-      } else {
-        cutoutUrl = toUsableImageUrl(cutoutImage);
+      let cutoutUrl: string | undefined;
+      if (cutoutImage) {
+        cutoutUrl = cutoutImage.startsWith('data:')
+          ? await uploadForEdgeFunction(cutoutImage, 'resize-cutout')
+          : toUsableImageUrl(cutoutImage);
       }
-      const analysisData = pipelineState.analysis.status === 'completed' && pipelineState.analysis.data
-        ? (pipelineState.analysis.data as { rawResponse?: string }).rawResponse
-        : project?.results.analysis;
-
-      const response = await resizeLifestyleImage(annotatedUrl, cutoutUrl, {
-        imageSize: config.imageSize ?? '2K',
-        aspectRatio: config.aspectRatio ?? '1:1',
-        productDescription: analysisData ?? undefined,
+      const response = await resizeProductSeedream(annotatedUrl, 'rectangle', {
+        cutoutImageUrl: cutoutUrl,
+        prompt: 'This lifestyle photo has a bright green rectangle drawn on it. Replace the green rectangle with the product from the second image. The product must be placed exactly where the green rectangle is and match its size. Remove the green overlay completely. Keep the rest of the scene identical with realistic shadows.',
       });
       if (!response.resultImageUrl) throw new Error('No image URL returned');
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
-      const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: '[Resized]' };
+      const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: '[Resized - Rectangle]' };
       const updated = [...lifestyleImages, newEntry];
       setLifestyleImages(updated);
       lifestyleImagesRef.current = updated;
@@ -860,7 +856,58 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } finally {
       setIsResizing(false);
     }
-  }, [lifestyleImages, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction]);
+  }, [lifestyleImages, autoSave, uploadForEdgeFunction]);
+
+  // Quick resize (bigger/smaller buttons)
+  const handleQuickResize = useCallback(async (mode: 'bigger' | 'smaller') => {
+    console.log('[StudioScreen] handleQuickResize:', mode);
+    setIsResizing(true);
+    setLifestyleError(null);
+    try {
+      // Get current lifestyle image URL
+      const currentVar = activeVariant;
+      let lifestyleUrl: string | undefined;
+      if (currentVar.startsWith('lifestyle-')) {
+        const entryId = currentVar.replace('lifestyle-', '');
+        const entry = lifestyleImages.find(e => e.id === entryId);
+        if (entry?.image) {
+          lifestyleUrl = entry.image.startsWith('data:')
+            ? await uploadForEdgeFunction(entry.image, 'resize-lifestyle')
+            : toUsableImageUrl(entry.image);
+        }
+      }
+      if (!lifestyleUrl) throw new Error('No lifestyle image selected');
+
+      // Get cutout image directly from pipelineState (avoid getStepImage ordering issue)
+      const cropResult = pipelineState.autoCrop;
+      const cutoutImage = cropResult.status === 'completed' && cropResult.data
+        ? ((cropResult.data as unknown as Record<string, unknown>).imageDataUrl as string) ?? null
+        : null;
+      let cutoutUrl: string | undefined;
+      if (cutoutImage) {
+        cutoutUrl = cutoutImage.startsWith('data:')
+          ? await uploadForEdgeFunction(cutoutImage, 'resize-cutout')
+          : toUsableImageUrl(cutoutImage);
+      }
+
+      console.log('[StudioScreen] Calling resizeProductSeedream:', mode, 'lifestyle:', lifestyleUrl?.slice(0, 60), 'cutout:', !!cutoutUrl);
+      const response = await resizeProductSeedream(lifestyleUrl, mode, { cutoutImageUrl: cutoutUrl });
+      if (!response.resultImageUrl) throw new Error('No image URL returned');
+      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+      const label = mode === 'bigger' ? '[Resized - Bigger]' : '[Resized - Smaller]';
+      const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: label };
+      const updated = [...lifestyleImages, newEntry];
+      setLifestyleImages(updated);
+      lifestyleImagesRef.current = updated;
+      setActiveVariant(`lifestyle-${newEntry.id}`);
+      await autoSave();
+    } catch (err) {
+      console.error('Quick resize failed:', err);
+      setLifestyleError(err instanceof Error ? err.message : 'Resize failed');
+    } finally {
+      setIsResizing(false);
+    }
+  }, [activeVariant, lifestyleImages, pipelineState.autoCrop, autoSave, uploadForEdgeFunction]);
 
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;
@@ -1291,12 +1338,22 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <span>Edit</span>
               </button>
               {currentVariant.key.startsWith('lifestyle-') && (
-                <button
-                  className={`mobile-toolbar-btn ${showResize ? 'active' : ''}`}
-                  onClick={() => { setShowResize(prev => !prev); setShowLifestyle(false); setShowEdit(false); }}
-                >
-                  Resize
-                </button>
+                <>
+                  <button
+                    className="mobile-toolbar-btn"
+                    onClick={() => handleQuickResize('bigger')}
+                    disabled={isResizing}
+                  >
+                    {isResizing ? '...' : '+ Bigger'}
+                  </button>
+                  <button
+                    className="mobile-toolbar-btn"
+                    onClick={() => handleQuickResize('smaller')}
+                    disabled={isResizing}
+                  >
+                    {isResizing ? '...' : '- Smaller'}
+                  </button>
+                </>
               )}
               <button
                 className="mobile-toolbar-btn"
@@ -1549,14 +1606,26 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               Edit
             </button>
             {currentVariant.key.startsWith('lifestyle-') && (
-              <button
-                className={`sidebar-tool-btn ${showResize ? 'active' : ''}`}
-                onClick={() => { setShowResize(prev => !prev); setShowLifestyle(false); setShowEdit(false); }}
-                title="Resize product position"
-              >
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="12" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2"/><path d="M1 1h4M1 1v4M17 17h-4M17 17v-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                Resize
-              </button>
+              <>
+                <button
+                  className="sidebar-tool-btn"
+                  onClick={() => handleQuickResize('bigger')}
+                  disabled={isResizing}
+                  title="Make product bigger"
+                >
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M10 7v6M7 10h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  {isResizing ? '...' : 'Bigger'}
+                </button>
+                <button
+                  className="sidebar-tool-btn"
+                  onClick={() => handleQuickResize('smaller')}
+                  disabled={isResizing}
+                  title="Make product smaller"
+                >
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M7 10h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  {isResizing ? '...' : 'Smaller'}
+                </button>
+              </>
             )}
             <button
               className="sidebar-tool-btn"
