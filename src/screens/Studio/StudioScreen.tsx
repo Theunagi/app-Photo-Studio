@@ -15,7 +15,7 @@ import { fetchImageAsDataUrl } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
 import { getPublicUrl } from '../../services/db/storage';
 import { saveProject, getAllProjects, patchProjectVariants } from '../../services/db/projectDB';
-import { deductPoints, GENERATION_COST } from '../../services/db/points';
+import { deductPoints, GENERATION_COST, LIFESTYLE_COST, EDIT_COST, RESIZE_COST } from '../../services/db/points';
 import { trackGenerateImage, trackGenerateLifestyle } from '../../services/analytics';
 import './StudioScreen.css';
 
@@ -713,7 +713,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     if (!sourceImage || (!hasPrompt && !hasStyle)) return;
 
     // Check credits before generating
-    const lifestyleNeeded = GENERATION_COST[config.imageSize] ?? 3;
+    const lifestyleNeeded = LIFESTYLE_COST[config.imageSize] ?? 2;
     if (pointsBalance < lifestyleNeeded) {
       setLifestyleError(`Crédits insuffisants (${lifestyleNeeded} requis, ${pointsBalance} disponibles).`);
       return;
@@ -750,7 +750,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
       // Deduct credits for lifestyle generation
-      const lifestyleCost = GENERATION_COST[config.imageSize] ?? 3;
+      const lifestyleCost = LIFESTYLE_COST[config.imageSize] ?? 2;
       try {
         await deductPoints(lifestyleCost);
         onPointsChanged();
@@ -795,8 +795,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     }
     if (!sourceImage || !editPrompt.trim()) return;
 
-    // Check credits before editing (flat 2 credits)
-    const editNeeded = 2;
+    // Check credits before editing
+    const editNeeded = EDIT_COST;
     if (pointsBalance < editNeeded) {
       setEditError(`Crédits insuffisants (${editNeeded} requis, ${pointsBalance} disponibles).`);
       return;
@@ -830,8 +830,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct credits for edit generation (flat 2 credits, cheaper than lifestyle)
-      const editCost = 2;
+      // Deduct credits for edit generation
+      const editCost = EDIT_COST;
       try {
         await deductPoints(editCost);
         onPointsChanged();
@@ -896,7 +896,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     console.log('[StudioScreen] handleQuickResize:', mode);
 
     // Check credits before resizing
-    const resizeNeeded = GENERATION_COST['2K'] ?? 3;
+    const resizeNeeded = RESIZE_COST;
     if (pointsBalance < resizeNeeded) {
       setLifestyleError(`Crédits insuffisants (${resizeNeeded} requis, ${pointsBalance} disponibles).`);
       return;
@@ -936,8 +936,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       if (!response.resultImageUrl) throw new Error('No image URL returned');
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct credits for resize (same as 2K generation)
-      const resizeCost = GENERATION_COST['2K'] ?? 3;
+      // Deduct credits for resize
+      const resizeCost = RESIZE_COST;
       try {
         await deductPoints(resizeCost);
         onPointsChanged();

@@ -277,7 +277,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
 
       <div className="pricing-hero">
         <h1>Choose your plan</h1>
-        <p>1 image 2K = <strong>3 credits</strong> — 1 image 4K = <strong>4 credits</strong></p>
+        <p>Pipeline: <strong>3 cr</strong> (2K) / <strong>4 cr</strong> (4K) · Lifestyle: <strong>2 cr</strong> (2K) / <strong>3 cr</strong> (4K) · Edit: <strong>2 cr</strong> · Resize: <strong>1 cr</strong></p>
       </div>
 
       {error && (

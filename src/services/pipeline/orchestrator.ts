@@ -32,7 +32,7 @@ import {
 } from '../../models/pipeline';
 
 // API Services (Edge Function proxies)
-import { analyzeProduct, checkLuminance } from '../api/openai';
+import { analyzeProduct } from '../api/openai';
 import { callNanoBananaImageGen } from '../api/nanobanana';
 import { generateStudioImage } from '../api/falImageGen';
 import { removeBackground } from '../api/bria';
@@ -208,13 +208,10 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   });
 
   // =========================================================================
-  // STEP 3: LUMINANCE CLASSIFICATION (GPT-4o via Edge Function)
+  // STEP 3: LUMINANCE CLASSIFICATION — SKIPPED (no longer needed)
   // =========================================================================
-  // Use the ORIGINAL input image for luminance check (much smaller than 4K generated image)
-  // The product luminance is the same regardless of the render resolution
-  await executeStep<LuminanceClass>(state, 'luminanceCheck', onStateChange, async () => {
-    return checkLuminance(inputStorageUrl);
-  });
+  state.luminanceCheck = { status: 'completed', data: 'light' as LuminanceClass, error: null };
+  onStateChange(state, 'luminanceCheck');
 
   // =========================================================================
   // STEP 4: BACKGROUND REMOVAL (Pixelcut via Edge Function)

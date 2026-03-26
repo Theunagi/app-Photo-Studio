@@ -17,10 +17,23 @@ export const PLANS = [
 export const PLAN_RANK: Record<string, number> = { free: 0, starter: 1, pro: 2, business: 3 };
 export function getPlanRank(planId: string): number { return PLAN_RANK[planId] ?? 0; }
 
+// Pipeline & generate cost (analysis + render + bg-remove)
 export const GENERATION_COST: Record<string, number> = {
   '2K': 3,
   '4K': 4,
 };
+
+// Lifestyle cost (NanoBanana only, no analysis/bg-remove)
+export const LIFESTYLE_COST: Record<string, number> = {
+  '2K': 2,
+  '4K': 3,
+};
+
+// Edit cost (NanoBanana edit, flat)
+export const EDIT_COST = 2;
+
+// Resize cost (Seedream, flat)
+export const RESIZE_COST = 1;
 
 // --- Profile ---
 
