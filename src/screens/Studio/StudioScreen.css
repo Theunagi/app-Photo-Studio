@@ -914,6 +914,13 @@
   flex-shrink: 0;
 }
 
+.credit-cost {
+  font-size: 0.7em;
+  opacity: 0.45;
+  font-weight: 400;
+  margin-left: 2px;
+}
+
 /* Prompt section in sidebar */
 .result-sidebar-prompt {
   padding: 16px;
