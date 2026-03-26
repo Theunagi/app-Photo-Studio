@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PLANS, refreshProfile, provisionCredits } from '../../services/db/points';
+import { PLANS, refreshProfile, provisionCredits, getPlanRank } from '../../services/db/points';
 import { trackBeginCheckout } from '../../services/analytics';
 import {
   isRevenueCatConfigured,
@@ -39,6 +39,9 @@ const STRIPE_LINKS: Record<string, string | undefined> = {
   pro: import.meta.env.VITE_STRIPE_LINK_PRO,
   business: import.meta.env.VITE_STRIPE_LINK_BUSINESS,
 };
+
+/** Stripe Customer Portal for managing/downgrading subscriptions */
+const STRIPE_PORTAL_LINK = import.meta.env.VITE_STRIPE_PORTAL_LINK;
 
 const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalance, userEmail, userId, onBack, onPlanChanged }) => {
   const [loading, setLoading] = useState<string | null>(null);
@@ -235,7 +238,18 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
     const url = new URL(link);
     if (userId) url.searchParams.set('client_reference_id', userId);
     if (userEmail) url.searchParams.set('prefilled_email', userEmail);
+    const origin = window.location.origin;
+    url.searchParams.set('success_url', `${origin}/upload?payment=success`);
+    url.searchParams.set('cancel_url', `${origin}/pricing`);
     window.location.href = url.toString();
+  };
+
+  const handleManageSubscription = () => {
+    if (STRIPE_PORTAL_LINK) {
+      window.location.href = STRIPE_PORTAL_LINK;
+    } else {
+      setError('Customer portal not configured. Add VITE_STRIPE_PORTAL_LINK to .env.');
+    }
   };
 
   const handleSubscribe = (planId: string) => {
@@ -263,7 +277,7 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
 
       <div className="pricing-hero">
         <h1>Choose your plan</h1>
-        <p>Each generation costs <strong>2 credits</strong> (2K) or <strong>3 credits</strong> (4K)</p>
+        <p>1 image 2K = <strong>3 credits</strong> — 1 image 4K = <strong>4 credits</strong></p>
       </div>
 
       {error && (
@@ -277,15 +291,36 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
         {PLANS.map((plan, index) => {
           const isCurrent = currentPlan === plan.id;
           const isPopular = index === 1;
+          const currentRank = getPlanRank(currentPlan);
+          const planRank = getPlanRank(plan.id);
+          const isUpgrade = currentRank > 0 && planRank > currentRank;
+          const isDowngrade = currentRank > 0 && planRank < currentRank;
+          const isFreeUser = currentRank === 0;
+
+          const getButtonLabel = () => {
+            if (loading === plan.id) return 'Processing...';
+            if (isCurrent) return 'Active';
+            if (isUpgrade) return 'Upgrade';
+            if (isDowngrade) return 'Manage plan';
+            return 'Subscribe';
+          };
+
+          const handleClick = () => {
+            if (isDowngrade) {
+              handleManageSubscription();
+            } else {
+              handleSubscribe(plan.id);
+            }
+          };
 
           return (
             <div key={plan.id} className={`pricing-card ${isPopular ? 'popular' : ''} ${isCurrent ? 'current' : ''}`}>
-              {isPopular && <div className="popular-badge">Most popular</div>}
+              {isPopular && !isCurrent && <div className="popular-badge">Most popular</div>}
               {isCurrent && <div className="current-badge">Current plan</div>}
 
               <h2>{plan.name}</h2>
               <div className="pricing-price">
-                <span className="price-amount">{plan.price.toFixed(2).replace('.', ',')}€</span>
+                <span className="price-amount">${plan.price.toFixed(2)}</span>
                 <span className="price-period">/ month</span>
               </div>
 
@@ -306,12 +341,13 @@ const PricingScreen: React.FC<PricingScreenProps> = ({ currentPlan, pointsBalanc
               </ul>
 
               <button
-                className={`pricing-btn ${isPopular ? 'pricing-btn-primary' : ''}`}
-                onClick={() => handleSubscribe(plan.id)}
+                className={`pricing-btn ${isUpgrade || (isFreeUser && !isCurrent) ? 'pricing-btn-primary' : ''} ${isDowngrade ? 'pricing-btn-downgrade' : ''}`}
+                onClick={handleClick}
                 disabled={isCurrent || loading === plan.id}
               >
-                {loading === plan.id ? 'Processing...' : isCurrent ? 'Active' : 'Subscribe'}
+                {getButtonLabel()}
               </button>
+              {isDowngrade && <p className="pricing-downgrade-note">Changes at next billing cycle</p>}
             </div>
           );
         })}

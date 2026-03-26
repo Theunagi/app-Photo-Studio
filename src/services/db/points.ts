@@ -8,14 +8,18 @@ import { supabase } from './supabase';
 // --- Plans & Costs ---
 
 export const PLANS = [
-  { id: 'starter', name: 'Starter', price: 9.90, points: 70, features: ['70 credits', '~35 images 2K', '~23 images 4K', 'All pipeline steps'] },
-  { id: 'pro', name: 'Pro', price: 19.90, points: 180, features: ['180 credits', '~90 images 2K', '~60 images 4K', 'All pipeline steps', 'Priority support'] },
-  { id: 'business', name: 'Business', price: 39.90, points: 420, features: ['420 credits', '~210 images 2K', '~140 images 4K', 'All pipeline steps', 'Priority support', 'Custom branding'] },
+  { id: 'starter', name: 'Starter', price: 9.90, points: 100, features: ['100 credits / month', '~33 images 2K', '2K Resolution', 'All pipeline steps'] },
+  { id: 'pro', name: 'Pro', price: 19.90, points: 200, features: ['200 credits / month', '~66 images 2K', '2K + 4K Resolution', 'All pipeline steps', 'Priority support'] },
+  { id: 'business', name: 'Business', price: 49.90, points: 500, features: ['500 credits / month', '~166 images 2K', '2K + 4K Resolution', 'All pipeline steps', 'Priority support', 'Custom branding'] },
 ] as const;
 
+/** Plan hierarchy for upgrade/downgrade logic */
+export const PLAN_RANK: Record<string, number> = { free: 0, starter: 1, pro: 2, business: 3 };
+export function getPlanRank(planId: string): number { return PLAN_RANK[planId] ?? 0; }
+
 export const GENERATION_COST: Record<string, number> = {
-  '2K': 2,
-  '4K': 3,
+  '2K': 3,
+  '4K': 4,
 };
 
 // --- Profile ---
@@ -44,7 +48,7 @@ export async function getOrCreateProfile(): Promise<UserProfile> {
   if (error?.code === 'PGRST116') {
     const { data: newProfile, error: insertError } = await supabase
       .from('user_profiles')
-      .insert({ id: user.id, points_balance: 5, plan: 'free' })
+      .insert({ id: user.id, points_balance: 2, plan: 'free' })
       .select()
       .single();
     if (insertError) throw new Error(`Create profile: ${insertError.message}`);

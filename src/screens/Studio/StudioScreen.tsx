@@ -713,8 +713,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     if (!sourceImage || (!hasPrompt && !hasStyle)) return;
 
     // Check credits before generating
-    if (pointsBalance < 1) {
-      setLifestyleError('Crédits insuffisants. Passez à un plan supérieur.');
+    const lifestyleNeeded = GENERATION_COST[config.imageSize] ?? 3;
+    if (pointsBalance < lifestyleNeeded) {
+      setLifestyleError(`Crédits insuffisants (${lifestyleNeeded} requis, ${pointsBalance} disponibles).`);
       return;
     }
 
@@ -748,9 +749,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct 1 credit for lifestyle generation
+      // Deduct credits for lifestyle generation
+      const lifestyleCost = GENERATION_COST[config.imageSize] ?? 3;
       try {
-        await deductPoints(1);
+        await deductPoints(lifestyleCost);
         onPointsChanged();
       } catch (err) {
         console.error('Credit deduction failed after lifestyle:', err);
@@ -794,8 +796,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     if (!sourceImage || !editPrompt.trim()) return;
 
     // Check credits before editing
-    if (pointsBalance < 1) {
-      setEditError('Crédits insuffisants. Passez à un plan supérieur.');
+    const editNeeded = GENERATION_COST[config.imageSize] ?? 3;
+    if (pointsBalance < editNeeded) {
+      setEditError(`Crédits insuffisants (${editNeeded} requis, ${pointsBalance} disponibles).`);
       return;
     }
 
@@ -827,9 +830,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct 1 credit for edit generation
+      // Deduct credits for edit generation
+      const editCost = GENERATION_COST[config.imageSize] ?? 3;
       try {
-        await deductPoints(1);
+        await deductPoints(editCost);
         onPointsChanged();
       } catch (err) {
         console.error('Credit deduction failed after edit:', err);
@@ -892,8 +896,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     console.log('[StudioScreen] handleQuickResize:', mode);
 
     // Check credits before resizing
-    if (pointsBalance < 1) {
-      setLifestyleError('Crédits insuffisants. Passez à un plan supérieur.');
+    const resizeNeeded = GENERATION_COST['2K'] ?? 3;
+    if (pointsBalance < resizeNeeded) {
+      setLifestyleError(`Crédits insuffisants (${resizeNeeded} requis, ${pointsBalance} disponibles).`);
       return;
     }
 
@@ -931,9 +936,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       if (!response.resultImageUrl) throw new Error('No image URL returned');
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct 1 credit for resize
+      // Deduct credits for resize (same as 2K generation)
+      const resizeCost = GENERATION_COST['2K'] ?? 3;
       try {
-        await deductPoints(1);
+        await deductPoints(resizeCost);
         onPointsChanged();
       } catch (err) {
         console.error('Credit deduction failed after resize:', err);

@@ -18,16 +18,16 @@ import Stripe from 'https://esm.sh/stripe@14.14.0?target=deno';
 
 // Plan ID → credits mapping (single source of truth, server-side)
 const PLAN_CREDITS: Record<string, { credits: number; products: string[] }> = {
-  starter:  { credits: 70,  products: ['starter_v2', 'starter'] },
-  pro:      { credits: 180, products: ['pro_v2', 'pro'] },
-  business: { credits: 420, products: ['business_v2', 'business'] },
+  starter:  { credits: 100, products: ['starter_v2', 'starter'] },
+  pro:      { credits: 200, products: ['pro_v2', 'pro'] },
+  business: { credits: 500, products: ['business_v2', 'business'] },
 };
 
 // Price amount (cents) → plan mapping for Stripe fallback
 const PRICE_TO_PLAN: Record<number, string> = {
   990: 'starter',   // 9.90€
   1990: 'pro',      // 19.90€
-  3990: 'business',  // 39.90€
+  4990: 'business', // 49.90€
 };
 
 /** Resolve plan from Stripe price amount or product name */
@@ -105,12 +105,12 @@ Deno.serve(async (req) => {
                     break;
                   }
                 }
-                // If no product match, try entitlement key name
+                // If no product match, try entitlement key name (use PLAN_CREDITS as source of truth)
                 if (!activePlan) {
                   const keyLower = entKey.toLowerCase();
-                  if (keyLower.includes('business')) { activePlan = 'business'; activeCredits = 420; }
-                  else if (keyLower.includes('pro')) { activePlan = 'pro'; activeCredits = 180; }
-                  else if (keyLower.includes('starter')) { activePlan = 'starter'; activeCredits = 70; }
+                  if (keyLower.includes('business')) { activePlan = 'business'; activeCredits = PLAN_CREDITS.business.credits; }
+                  else if (keyLower.includes('pro')) { activePlan = 'pro'; activeCredits = PLAN_CREDITS.pro.credits; }
+                  else if (keyLower.includes('starter')) { activePlan = 'starter'; activeCredits = PLAN_CREDITS.starter.credits; }
                   if (activePlan) verificationSource = 'revenuecat_entitlement_key';
                 }
               }
@@ -246,52 +246,51 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Get current plan to detect upgrade
     const { data: currentProfile } = await supabaseAdmin
       .from('user_profiles')
-      .select('points_balance, plan')
+      .select('plan')
       .eq('id', userId)
       .single();
 
     const currentPlan = currentProfile?.plan ?? 'free';
-    const currentBalance = currentProfile?.points_balance ?? 0;
-
     const isUpgrade = currentPlan !== activePlan && currentPlan !== 'free';
-    const newBalance = isUpgrade
-      ? currentBalance + activeCredits
-      : activeCredits;
 
-    const { data, error } = await supabaseAdmin
-      .from('user_profiles')
-      .update({ points_balance: newBalance, plan: activePlan })
-      .eq('id', userId)
-      .select('points_balance, plan')
-      .single();
+    // Atomic provision via RPC (row-locked, no race condition)
+    const { data: result, error } = await supabaseAdmin.rpc('provision_credits_atomic', {
+      p_user_id: userId,
+      p_plan: activePlan,
+      p_credits: activeCredits,
+      p_is_upgrade: isUpgrade,
+    });
 
-    if (error) throw new Error(`DB update failed: ${error.message}`);
+    if (error) throw new Error(`Atomic provision failed: ${error.message}`);
 
-    // 5. Log the provisioning event
+    const row = Array.isArray(result) ? result[0] : result;
+
+    // Log the provisioning event
     await supabaseAdmin.from('payment_events').insert({
       user_id: userId,
       event_type: 'credits_provisioned',
       metadata: {
         plan: activePlan,
-        previousPlan: currentPlan,
+        previousPlan: row.previous_plan,
         credits: activeCredits,
-        previousBalance: currentBalance,
-        newBalance,
+        previousBalance: row.previous_balance,
+        newBalance: row.new_balance,
         isUpgrade,
         source: verificationSource,
       },
     });
 
-    console.log(`[provision-credits] Success: plan=${activePlan}, balance=${data.points_balance}, upgrade=${isUpgrade}`);
+    console.log(`[provision-credits] Success: plan=${activePlan}, balance=${row.new_balance}, upgrade=${isUpgrade}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         plan: activePlan,
         credits: activeCredits,
-        balance: data.points_balance,
+        balance: row.new_balance,
         isUpgrade,
       }),
       { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
