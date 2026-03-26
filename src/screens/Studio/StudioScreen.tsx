@@ -872,7 +872,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       }
       const response = await resizeProductSeedream(annotatedUrl, 'rectangle', {
         cutoutImageUrl: cutoutUrl,
-        prompt: 'This lifestyle photo has a bright green rectangle drawn on it. Replace the green rectangle with the product from the second image. The product must be placed exactly where the green rectangle is and match its size. Remove the green overlay completely. Keep the rest of the scene identical with realistic shadows.',
       });
       if (!response.resultImageUrl) throw new Error('No image URL returned');
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);

@@ -186,3 +186,24 @@ export async function resizeLifestyleImage(
 
   return { resultImageUrl: result.imageUrl ?? result.imageDataUrl ?? '' };
 }
+
+/**
+ * Resize product in a lifestyle image using Seedream 4.5.
+ * Calls studio-api "resize-product" action.
+ */
+export async function resizeProductSeedream(
+  lifestyleImageUrl: string,
+  mode: 'bigger' | 'smaller' | 'rectangle',
+  options?: {
+    cutoutImageUrl?: string;
+  },
+): Promise<{ resultImageUrl: string }> {
+  const result = await invokeEdgeFunction<{ imageUrl?: string; imageDataUrl?: string }>('studio-api', {
+    action: 'resize-product',
+    lifestyleImageUrl,
+    mode,
+    cutoutImageUrl: options?.cutoutImageUrl,
+  });
+
+  return { resultImageUrl: result.imageUrl ?? result.imageDataUrl ?? '' };
+}

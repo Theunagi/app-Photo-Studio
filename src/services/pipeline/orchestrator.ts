@@ -210,7 +210,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
   // =========================================================================
   // STEP 3: LUMINANCE CLASSIFICATION — SKIPPED (no longer needed)
   // =========================================================================
-  state.luminanceCheck = { status: 'completed', data: 'light' as LuminanceClass, error: null };
+  state.luminanceCheck = { status: 'completed', data: 'light' as LuminanceClass };
   onStateChange(state, 'luminanceCheck');
 
   // =========================================================================
