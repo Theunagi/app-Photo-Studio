@@ -69,17 +69,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const handleCreateProject = useCallback(async () => {
     const name = newName.trim();
     if (!name) return;
-    const project = createProject(name);
-    await saveProject(project);
-    setNewName('');
-    setShowNewModal(false);
-    onOpenStudio(project);
+    try {
+      const project = createProject(name);
+      await saveProject(project);
+      setNewName('');
+      setShowNewModal(false);
+      onOpenStudio(project);
+    } catch (err) {
+      console.error('[HomeScreen] Failed to create project:', err);
+    }
   }, [newName, onOpenStudio]);
 
   const handleDelete = useCallback(async (id: string) => {
-    await deleteProject(id);
-    setDeleteConfirm(null);
-    loadProjects();
+    try {
+      await deleteProject(id);
+      setDeleteConfirm(null);
+      loadProjects();
+    } catch (err) {
+      console.error('[HomeScreen] Failed to delete project:', err);
+    }
   }, [loadProjects]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

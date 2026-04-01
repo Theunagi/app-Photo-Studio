@@ -206,6 +206,39 @@ async function verifyAuth(req: Request): Promise<string> {
   return user.id;
 }
 
+/** Check user has sufficient credits for action (server-side enforcement) */
+async function checkCredits(userId: string, action: string): Promise<{ ok: boolean; balance: number; cost: number }> {
+  const costs: Record<string, number> = {
+    'analyze': 0,         // Free (part of pipeline)
+    'luminance': 0,       // Free (part of pipeline)
+    'generate': 3,        // Studio generation
+    'lifestyle': 3,       // Lifestyle generation
+    'lifestyle-submit': 3,
+    'edit': 2,            // AI edit
+    'resize-product': 1,  // Resize
+    'bg-remove': 0,       // Free (part of pipeline)
+    'group-images': 0,    // Free
+    'proxy-image': 0,     // Free
+    'analyze-style': 0,   // Free
+    'analyze-style-replicate': 0,  // Free
+  };
+  const cost = costs[action] ?? 0;
+  if (cost === 0) return { ok: true, balance: 0, cost: 0 };
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('points_balance')
+    .eq('id', userId)
+    .single();
+
+  if (error || !data) return { ok: false, balance: 0, cost };
+  return { ok: data.points_balance >= cost, balance: data.points_balance, cost };
+}
+
 // ─── Action Handlers ─────────────────────────────────────────────────────────
 
 /**
@@ -1127,8 +1160,9 @@ Deno.serve(async (req: Request) => {
   }
 
   // Verify auth
+  let userId: string;
   try {
-    await verifyAuth(req);
+    userId = await verifyAuth(req);
   } catch (err) {
     return errorResponse(
       `Auth failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -1146,6 +1180,14 @@ Deno.serve(async (req: Request) => {
 
   const { action } = body;
   if (!action) return errorResponse("Missing action field", 400);
+
+  // Server-side credit check for expensive actions
+  const creditCheck = await checkCredits(userId, action);
+  if (!creditCheck.ok) {
+    return jsonResponse({
+      error: `Insufficient credits. Need ${creditCheck.cost}, have ${creditCheck.balance}.`
+    }, 402);
+  }
 
   console.log(`[Edge] Action: ${action}`);
 

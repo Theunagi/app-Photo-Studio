@@ -497,6 +497,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
           pipelineState: createInitialPipelineState()
         });
       }
+    }).catch(err => {
+      console.error('[Upload] Failed to read files:', err);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputPreviews.length]);
@@ -538,6 +540,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setIsRunning(true);
     setPipelineError(null);
 
+    // Deduct credits BEFORE running pipelines
+    try {
+      await deductPoints(totalCost);
+      onPointsChanged();
+    } catch (err) {
+      setPipelineError('Insufficient credits or credit deduction failed.');
+      setIsRunning(false);
+      return;
+    }
+
     // Reset pipeline states for all slots with images
     setAngleSlots(prev => prev.map(s =>
       (s.inputFile || s.inputPreview)
@@ -572,14 +584,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         })
       );
 
-      // Track and deduct credits
+      // Track analytics after success
       trackGenerateImage(config.imageSize ?? '2K', totalCost);
-      try {
-        await deductPoints(totalCost);
-        onPointsChanged();
-      } catch (err) {
-        console.error('Credit deduction failed:', err);
-      }
     } catch (err) {
       console.error('Pipeline failed:', err);
       setPipelineError(friendlyError(err instanceof Error ? err.message : 'Pipeline failed. Please try again.'));
@@ -793,6 +799,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
     setIsGeneratingLifestyle(true);
     setLifestyleError(null);
+
+    // Deduct credits BEFORE running lifestyle generation
+    const lifestyleCost = LIFESTYLE_COST[config.imageSize] ?? 2;
+    try {
+      await deductPoints(lifestyleCost);
+      onPointsChanged();
+    } catch (err) {
+      setLifestyleError('Insufficient credits or credit deduction failed.');
+      setIsGeneratingLifestyle(false);
+      return;
+    }
+
     try {
       // Handle data URLs (fresh pipeline) and Storage paths/public URLs (saved projects)
       let imageUrl: string;
@@ -820,15 +838,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
-
-      // Deduct credits for lifestyle generation
-      const lifestyleCost = LIFESTYLE_COST[config.imageSize] ?? 2;
-      try {
-        await deductPoints(lifestyleCost);
-        onPointsChanged();
-      } catch (err) {
-        console.error('Credit deduction failed after lifestyle:', err);
-      }
 
       trackGenerateLifestyle();
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: lifestylePrompt.trim() };
@@ -876,6 +885,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
     setIsGeneratingEdit(true);
     setEditError(null);
+
+    // Deduct credits BEFORE running edit generation
+    const editCost = EDIT_COST;
+    try {
+      await deductPoints(editCost);
+      onPointsChanged();
+    } catch (err) {
+      setEditError('Insufficient credits or credit deduction failed.');
+      setIsGeneratingEdit(false);
+      return;
+    }
+
     try {
       // Handle data URLs (fresh pipeline) and Storage paths/public URLs (saved projects)
       let imageUrl: string;
@@ -902,15 +923,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
 
-      // Deduct credits for edit generation
-      const editCost = EDIT_COST;
-      try {
-        await deductPoints(editCost);
-        onPointsChanged();
-      } catch (err) {
-        console.error('Credit deduction failed after edit:', err);
-      }
-
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
       setEditImages(updated);
@@ -932,7 +944,25 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   // Rectangle resize (green box drawn on image)
   const handleResize = useCallback(async (annotatedImageDataUrl: string, rect: { x: number; y: number; w: number; h: number }) => {
     console.log('[StudioScreen] handleResize (rectangle) called, rect:', rect);
+
+    // Check and deduct credits BEFORE running resize
+    const resizeCost = RESIZE_COST;
+    if (pointsBalance < resizeCost) {
+      setLifestyleError(`Crédits insuffisants (${resizeCost} requis, ${pointsBalance} disponibles).`);
+      return;
+    }
+
     setIsResizing(true);
+
+    try {
+      await deductPoints(resizeCost);
+      onPointsChanged();
+    } catch (err) {
+      setLifestyleError('Insufficient credits or credit deduction failed.');
+      setIsResizing(false);
+      return;
+    }
+
     try {
       const annotatedUrl = await uploadForEdgeFunction(annotatedImageDataUrl, 'resize-annotated');
       const cutoutImage = getStepImage('autoCrop');
@@ -975,6 +1005,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
     setIsResizing(true);
     setLifestyleError(null);
+
+    // Deduct credits BEFORE running resize
+    const resizeCost = RESIZE_COST;
+    try {
+      await deductPoints(resizeCost);
+      onPointsChanged();
+    } catch (err) {
+      setLifestyleError('Insufficient credits or credit deduction failed.');
+      setIsResizing(false);
+      return;
+    }
+
     try {
       // Get current lifestyle image URL
       const currentVar = activeVariant;
@@ -1006,15 +1048,6 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       const response = await resizeProductSeedream(lifestyleUrl, mode, { cutoutImageUrl: cutoutUrl });
       if (!response.resultImageUrl) throw new Error('No image URL returned');
       const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
-
-      // Deduct credits for resize
-      const resizeCost = RESIZE_COST;
-      try {
-        await deductPoints(resizeCost);
-        onPointsChanged();
-      } catch (err) {
-        console.error('Credit deduction failed after resize:', err);
-      }
 
       const label = mode === 'bigger' ? '[Resized - Bigger]' : '[Resized - Smaller]';
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: label };
