@@ -1089,6 +1089,63 @@ Deno.serve(async (req: Request) => {
           }
         );
 
+      case "resize-product": {
+        // Resize product in lifestyle image using Seedream v4.5 Edit
+        const falKeyResize = Deno.env.get("FAL_API_KEY");
+        if (!falKeyResize) return errorResponse("Fal.ai API key not configured", 500);
+
+        const resizeBody = body as {
+          action: string;
+          lifestyleImageUrl: string;
+          cutoutImageUrl?: string;
+          mode: "bigger" | "smaller" | "rectangle";
+          prompt?: string;
+        };
+
+        if (!resizeBody.lifestyleImageUrl) return errorResponse("Missing lifestyleImageUrl", 400);
+        if (!resizeBody.mode) return errorResponse("Missing mode (bigger/smaller/rectangle)", 400);
+
+        let resizePrompt: string;
+        if (resizeBody.mode === "rectangle" && resizeBody.prompt) {
+          resizePrompt = resizeBody.prompt;
+        } else if (resizeBody.mode === "bigger") {
+          resizePrompt = "Make the product bigger, same framing";
+        } else {
+          resizePrompt = "Make the product smaller, same framing";
+        }
+
+        const resizeImageUrls: string[] = [resizeBody.lifestyleImageUrl];
+        if (resizeBody.cutoutImageUrl) {
+          resizeImageUrls.push(resizeBody.cutoutImageUrl);
+        }
+
+        console.log(`[Edge] Resize-product (${resizeBody.mode}): ${resizeImageUrls.length} images`);
+
+        const seedreamResp = await fetch("https://fal.run/fal-ai/bytedance/seedream/v4.5/edit", {
+          method: "POST",
+          headers: {
+            "Authorization": `Key ${falKeyResize}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: resizePrompt,
+            image_urls: resizeImageUrls,
+            image_size: "auto_4K",
+            num_images: 1,
+          }),
+        });
+
+        if (!seedreamResp.ok) {
+          const errText = await seedreamResp.text();
+          return errorResponse(`Seedream resize failed: ${seedreamResp.status} - ${errText.slice(0, 200)}`, 502);
+        }
+
+        const seedreamData = await seedreamResp.json();
+        const resizedUrl = seedreamData?.images?.[0]?.url;
+        if (!resizedUrl) return errorResponse("Seedream returned no image", 502);
+        return jsonResponse({ imageUrl: resizedUrl });
+      }
+
       case "group-images":
         return await handleGroupImages(
           body as { action: string; images: string[]; count: number }
