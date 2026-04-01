@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { PipelineConfig, PipelineState, PipelineStep } from '../../models/pipeline';
+import type { PipelineConfig, PipelineState, PipelineStep, CameraAngle } from '../../models/pipeline';
 import { PIPELINE_STEPS, createInitialPipelineState, DEFAULT_PIPELINE_CONFIG } from '../../models/pipeline';
+import { AngleTabs } from './components/AngleTabs';
 import type { Project } from '../../models/project';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import { editImage } from '../../services/api/falImageGen';
@@ -261,6 +262,51 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [inputFiles, setInputFiles] = useState<File[]>([]);
   const [inputPreviews, setInputPreviews] = useState<string[]>(buildInitialPreviews);
   const [pipelineState, setPipelineState] = useState<PipelineState>(buildRestoredState);
+
+  // --- Multi-angle state ---
+  interface AngleSlot {
+    angle: CameraAngle;
+    inputFile: File | null;
+    inputPreview: string | null;
+    pipelineState: PipelineState;
+  }
+
+  const initialPreviews = buildInitialPreviews();
+  const initialRestoredState = buildRestoredState();
+  const [angleSlots, setAngleSlots] = useState<AngleSlot[]>([
+    { angle: 'front', inputFile: null, inputPreview: initialPreviews[0] ?? null, pipelineState: initialRestoredState }
+  ]);
+  const [activeAngleIndex, setActiveAngleIndex] = useState(0);
+
+  const addAngle = (angle: CameraAngle) => {
+    setAngleSlots(prev => [...prev, { angle, inputFile: null, inputPreview: null, pipelineState: createInitialPipelineState() }]);
+    setActiveAngleIndex(angleSlots.length);
+  };
+
+  const removeAngle = (index: number) => {
+    if (angleSlots.length <= 1) return;
+    setAngleSlots(prev => prev.filter((_, i) => i !== index));
+    setActiveAngleIndex(prev => prev >= index ? Math.max(0, prev - 1) : prev);
+  };
+
+  const updateAngleSlot = (index: number, updates: Partial<AngleSlot>) => {
+    setAngleSlots(prev => prev.map((s, i) => i === index ? { ...s, ...updates } : s));
+  };
+
+  // Sync active angle slot to legacy state variables (skip initial mount for restored projects)
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const slot = angleSlots[activeAngleIndex];
+    if (!slot) return;
+    setInputFiles(slot.inputFile ? [slot.inputFile] : []);
+    setInputPreviews(slot.inputPreview ? [slot.inputPreview] : []);
+    setPipelineState(slot.pipelineState);
+  }, [activeAngleIndex, angleSlots]);
+
   const [isRunning, setIsRunning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -441,6 +487,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       if (inputPreviews.length === 0) {
         setPipelineState(createInitialPipelineState());
       }
+      // Also update the active angle slot
+      const firstFile = newFiles[0];
+      const firstDataUrl = dataUrls[0];
+      if (firstFile && firstDataUrl) {
+        updateAngleSlot(activeAngleIndex, {
+          inputFile: firstFile,
+          inputPreview: firstDataUrl,
+          pipelineState: createInitialPipelineState()
+        });
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputPreviews.length]);
@@ -466,47 +522,63 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [pipelineError, setPipelineError] = useState<string | null>(null);
 
   const handleRunPipeline = useCallback(async () => {
-    if (isRunning) return; // prevent double-click
+    if (isRunning) return;
 
-    // Use the real File if available, otherwise reconstruct from data URL preview
-    const fileToUse = inputFile ?? (inputPreview ? dataUrlToFile(inputPreview, project?.name ?? 'restored-image.png') : null);
-    if (!fileToUse) return;
+    // Collect all angle slots that have an uploaded image
+    const slotsWithImages = angleSlots.filter(s => s.inputFile || s.inputPreview);
+    if (slotsWithImages.length === 0) return;
 
-    const cost = GENERATION_COST[config.imageSize] ?? 2;
-    if (pointsBalance < cost) {
-      alert(`Crédits insuffisants. Il faut ${cost} crédits pour une génération ${config.imageSize}. Vous avez ${pointsBalance} crédits.`);
+    const costPerAngle = GENERATION_COST[config.imageSize] ?? 2;
+    const totalCost = slotsWithImages.length * costPerAngle;
+    if (pointsBalance < totalCost) {
+      alert(`Insufficient credits. Need ${totalCost} credits for ${slotsWithImages.length} angle(s) at ${config.imageSize}. You have ${pointsBalance} credits.`);
       return;
     }
 
     setIsRunning(true);
     setPipelineError(null);
-    const freshState = createInitialPipelineState();
-    setPipelineState(freshState);
-    pipelineStateRef.current = freshState;
 
-    const additionalImageDataUrls = inputPreviews.length > 1 ? inputPreviews.slice(1) : undefined;
+    // Reset pipeline states for all slots with images
+    setAngleSlots(prev => prev.map(s =>
+      (s.inputFile || s.inputPreview)
+        ? { ...s, pipelineState: createInitialPipelineState() }
+        : s
+    ));
 
     try {
-      const result = await runPipeline({
-        config,
-        inputFile: fileToUse,
-        additionalImageDataUrls,
-        onStateChange: (newState: PipelineState, _step: PipelineStep) => {
-          pipelineStateRef.current = newState;
-          setPipelineState({ ...newState });
-        },
-      });
-      pipelineStateRef.current = result;
+      await Promise.all(
+        angleSlots.map(async (slot, index) => {
+          if (!slot.inputFile && !slot.inputPreview) return;
 
-      // Track successful generation
-      trackGenerateImage(config.imageSize ?? '2K', cost);
+          const fileToUse = slot.inputFile ?? (slot.inputPreview ? dataUrlToFile(slot.inputPreview, `${slot.angle}-image.png`) : null);
+          if (!fileToUse) return;
 
-      // Deduct credits only after successful pipeline completion
+          const angleConfig: PipelineConfig = { ...config, cameraAngle: slot.angle };
+
+          const result = await runPipeline({
+            config: angleConfig,
+            inputFile: fileToUse,
+            onStateChange: (newState: PipelineState, _step: PipelineStep) => {
+              setAngleSlots(prev => prev.map((s, i) =>
+                i === index ? { ...s, pipelineState: { ...newState } } : s
+              ));
+            },
+          });
+
+          // Update final state
+          setAngleSlots(prev => prev.map((s, i) =>
+            i === index ? { ...s, pipelineState: result } : s
+          ));
+        })
+      );
+
+      // Track and deduct credits
+      trackGenerateImage(config.imageSize ?? '2K', totalCost);
       try {
-        await deductPoints(cost);
+        await deductPoints(totalCost);
         onPointsChanged();
       } catch (err) {
-        console.error('Credit deduction failed after pipeline success:', err);
+        console.error('Credit deduction failed:', err);
       }
     } catch (err) {
       console.error('Pipeline failed:', err);
@@ -515,7 +587,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       setIsRunning(false);
       await autoSave();
     }
-  }, [isRunning, inputFile, inputPreview, inputPreviews, config, autoSave, pointsBalance, onPointsChanged, project?.name]);
+  }, [isRunning, angleSlots, config, autoSave, pointsBalance, onPointsChanged]);
 
   const handleReset = useCallback(() => {
     setInputFiles([]);
@@ -989,6 +1061,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   const isFastMode = !project;
   const pipelineComplete = pipelineState.autoCrop.status === 'completed' && !!getStepImage('autoCrop');
+  // Multi-angle: check if ANY angle is complete for showing results
+  const anyAngleComplete = angleSlots.some(s =>
+    s.pipelineState.autoCrop.status === 'completed'
+  );
   const hasImages = inputPreviews.length > 0;
 
   // --- Variant list (computed at component level for both canvas + sidebar) ---
@@ -1125,8 +1201,22 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       <main className="studio-main">
 
         {/* Upload + Controls Section — hidden once results are ready */}
-        {!pipelineComplete && (
+        {!(pipelineComplete || anyAngleComplete) && (
           <section className="upload-section">
+            {/* Angle Tabs */}
+            <AngleTabs
+              tabs={angleSlots.map(s => ({
+                angle: s.angle,
+                hasImage: !!s.inputPreview,
+                thumbnailUrl: s.inputPreview,
+              }))}
+              activeIndex={activeAngleIndex}
+              onTabClick={setActiveAngleIndex}
+              onAddAngle={addAngle}
+              onRemoveAngle={removeAngle}
+              disabled={isRunning}
+            />
+
             {/* Hidden file input (supports multi-select) */}
             <input
               ref={fileInputRef}
@@ -1268,7 +1358,13 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                       Processing...
                     </>
                   ) : (
-                    `Generate (${GENERATION_COST[config.imageSize] ?? 2} credits)`
+                    (() => {
+                      const uploadedCount = angleSlots.filter(s => s.inputPreview).length;
+                      const cost = uploadedCount * (GENERATION_COST[config.imageSize] ?? 2);
+                      return uploadedCount > 1
+                        ? `Generate All (${uploadedCount} angles) — ${cost} credits`
+                        : `Generate — ${cost} credits`;
+                    })()
                   )}
                 </button>
               </div>
@@ -1301,8 +1397,22 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         )}
 
         {/* Result Viewer */}
-        {pipelineComplete && currentVariant && (
+        {(pipelineComplete || anyAngleComplete) && currentVariant && (
           <section className="result-viewer">
+            {/* Angle Tabs — result view */}
+            <AngleTabs
+              tabs={angleSlots.map(s => ({
+                angle: s.angle,
+                hasImage: !!s.inputPreview,
+                thumbnailUrl: s.inputPreview,
+              }))}
+              activeIndex={activeAngleIndex}
+              onTabClick={setActiveAngleIndex}
+              onAddAngle={addAngle}
+              onRemoveAngle={removeAngle}
+              disabled={isRunning}
+            />
+
             <div className="result-layout">
               <div className="result-card">
                 <div className={`result-canvas ${['cutout', 'debug-retouch', 'debug-shadow'].includes(activeVariant) ? 'result-canvas--checkerboard' : ''}`}>
@@ -1615,7 +1725,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       </main>
 
       {/* ===== Right Sidebar (same style as left) ===== */}
-      {pipelineComplete && currentVariant && (
+      {(pipelineComplete || anyAngleComplete) && currentVariant && (
         <aside className="result-sidebar">
           {/* Top — project name + date */}
           <div className="result-sidebar-top">

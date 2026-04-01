@@ -21,6 +21,7 @@ export async function callNanoBananaImageGen(
     resolution?: string;
     aspectRatio?: string;
     sessionId?: string;
+    cameraAngle?: string;
   },
 ): Promise<{ resultImageUrl: string }> {
   const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
@@ -30,6 +31,7 @@ export async function callNanoBananaImageGen(
     resolution: options?.resolution,
     aspectRatio: options?.aspectRatio,
     referenceImageUrls: options?.referenceImageUrls,
+    cameraAngle: options?.cameraAngle,
   });
   return { resultImageUrl: result.imageUrl };
 }

@@ -8,6 +8,17 @@
 /** Output format controls background and shadow in the final render. */
 export type OutputFormat = 'transparent-shadow' | 'white-shadow' | 'transparent-clean';
 
+/** Available camera angles for studio generation */
+export type CameraAngle = 'front' | 'back' | 'side' | 'three-quarter' | 'top';
+
+export const CAMERA_ANGLES: { key: CameraAngle; label: string; promptFragment: string }[] = [
+  { key: 'front', label: 'Front', promptFragment: 'Front orthographic' },
+  { key: 'back', label: 'Back', promptFragment: 'Back orthographic' },
+  { key: 'side', label: 'Side', promptFragment: 'Side orthographic' },
+  { key: 'three-quarter', label: '3/4 View', promptFragment: '3/4 angle perspective' },
+  { key: 'top', label: 'Top', promptFragment: 'Top-down orthographic' },
+];
+
 export interface PipelineConfig {
   /** Image gen resolution */
   imageSize: string;
@@ -19,6 +30,8 @@ export interface PipelineConfig {
   sessionId?: string;
   /** User-provided notes about the product, appended to the generation prompt */
   productNotes?: string;
+  /** Camera angle for studio generation (defaults to 'front') */
+  cameraAngle?: CameraAngle;
 }
 
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {

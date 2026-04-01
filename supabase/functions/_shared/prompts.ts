@@ -72,6 +72,24 @@ export function buildStudioPrompt(productDescription: string): string {
   return `${STUDIO_RENDER_PROMPT}\n\n${productDescription}`;
 }
 
+/** Camera angle prompt fragments */
+const ANGLE_PROMPT_MAP: Record<string, { opening: string; camera: string }> = {
+  'front': { opening: 'Front orthographic', camera: 'Front orthographic' },
+  'back': { opening: 'Back orthographic', camera: 'Back orthographic' },
+  'side': { opening: 'Side orthographic', camera: 'Side orthographic' },
+  'three-quarter': { opening: '3/4 angle perspective', camera: '3/4 angle perspective view' },
+  'top': { opening: 'Top-down orthographic', camera: 'Top-down orthographic' },
+};
+
+/** Build studio prompt with camera angle support */
+export function buildStudioPromptWithAngle(productDescription: string, cameraAngle: string = 'front'): string {
+  const ap = ANGLE_PROMPT_MAP[cameraAngle] ?? ANGLE_PROMPT_MAP['front'];
+  const prompt = STUDIO_RENDER_PROMPT
+    .replace('Front orthographic commercial', `${ap.opening} commercial`)
+    .replace('Front orthographic.', `${ap.camera}.`);
+  return `${prompt}\n\n${productDescription}`;
+}
+
 /** Lifestyle generation prompt template */
 export function buildLifestylePrompt(userPrompt: string): string {
   return `Using this product image on white background as reference, generate a lifestyle photo of this product ${userPrompt}.

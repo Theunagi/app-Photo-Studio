@@ -182,6 +182,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
         resolution: config.imageSize ?? '2K',
         aspectRatio: config.aspectRatio ?? '1:1',
         sessionId,
+        cameraAngle: config.cameraAngle,
       });
       // Download result for DSP steps
       const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
@@ -199,6 +200,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
       resolution: config.imageSize ?? '2K',
       aspectRatio: config.aspectRatio ?? '1:1',
       sessionId,
+      cameraAngle: config.cameraAngle,
     });
     const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
     return {

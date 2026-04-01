@@ -18,6 +18,7 @@ export async function generateStudioImage(
     resolution?: string;
     aspectRatio?: string;
     sessionId?: string;
+    cameraAngle?: string;
   },
 ): Promise<{ resultImageUrl: string }> {
   const result = await invokeEdgeFunction<{ imageUrl: string }>('studio-api', {
@@ -26,6 +27,7 @@ export async function generateStudioImage(
     productDescription,
     resolution: options?.resolution,
     aspectRatio: options?.aspectRatio,
+    cameraAngle: options?.cameraAngle,
   });
   return { resultImageUrl: result.imageUrl };
 }
