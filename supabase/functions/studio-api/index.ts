@@ -95,6 +95,59 @@ OUTPUT
 • No added reflections
 • Bright 3d render, photorealistic clean 3d textures, realistic ground shadow`;
 
+// ─── Security: Rate Limiting (in-memory per edge function instance) ─────────
+
+/** Per-user request timestamps (cleared when edge function cold-starts) */
+const rateLimitMap = new Map<string, number[]>();
+
+/** Rate limit config: max requests per window */
+const RATE_LIMIT = {
+  maxRequests: 15,        // max 15 requests
+  windowMs: 60_000,       // per 60 seconds
+  expensiveMaxRequests: 5, // max 5 expensive requests (generate, lifestyle, edit)
+  expensiveWindowMs: 60_000,
+};
+
+const EXPENSIVE_ACTIONS = new Set(['generate', 'lifestyle', 'lifestyle-submit', 'edit', 'resize-product']);
+
+/** Check rate limit for user + action. Returns error string or null. */
+function checkRateLimit(userId: string, action: string): string | null {
+  const now = Date.now();
+  const key = userId;
+  const expensiveKey = `${userId}:expensive`;
+
+  // General rate limit
+  const timestamps = rateLimitMap.get(key) ?? [];
+  const recent = timestamps.filter(t => now - t < RATE_LIMIT.windowMs);
+  if (recent.length >= RATE_LIMIT.maxRequests) {
+    return `Rate limit exceeded. Max ${RATE_LIMIT.maxRequests} requests per minute.`;
+  }
+  recent.push(now);
+  rateLimitMap.set(key, recent);
+
+  // Expensive action rate limit
+  if (EXPENSIVE_ACTIONS.has(action)) {
+    const expTimestamps = rateLimitMap.get(expensiveKey) ?? [];
+    const expRecent = expTimestamps.filter(t => now - t < RATE_LIMIT.expensiveWindowMs);
+    if (expRecent.length >= RATE_LIMIT.expensiveMaxRequests) {
+      return `Rate limit exceeded. Max ${RATE_LIMIT.expensiveMaxRequests} generation requests per minute.`;
+    }
+    expRecent.push(now);
+    rateLimitMap.set(expensiveKey, expRecent);
+  }
+
+  // Cleanup old entries periodically (every 100 checks)
+  if (Math.random() < 0.01) {
+    for (const [k, v] of rateLimitMap) {
+      const filtered = v.filter(t => now - t < RATE_LIMIT.windowMs);
+      if (filtered.length === 0) rateLimitMap.delete(k);
+      else rateLimitMap.set(k, filtered);
+    }
+  }
+
+  return null;
+}
+
 // ─── Security: Input Validation & Sanitization ─────────────────────────────
 
 /** Max lengths for user-provided strings */
@@ -1180,6 +1233,15 @@ Deno.serve(async (req: Request) => {
 
   const { action } = body;
   if (!action) return errorResponse("Missing action field", 400);
+
+  // Rate limit check
+  const rateLimitErr = checkRateLimit(userId, action as string);
+  if (rateLimitErr) {
+    console.warn(`[Edge] Rate limited user ${userId} on action ${action}`);
+    return jsonResponse({ error: rateLimitErr }, 429);
+  }
+
+  console.log(`[Edge] Action: ${action}`);
 
   // Server-side credit check for expensive actions
   const creditCheck = await checkCredits(userId, action);
