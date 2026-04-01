@@ -1217,10 +1217,9 @@ Deno.serve(async (req: Request) => {
   try {
     userId = await verifyAuth(req);
   } catch (err) {
-    return errorResponse(
-      `Auth failed: ${err instanceof Error ? err.message : String(err)}`,
-      401
-    );
+    const origin = req.headers.get("origin") ?? "unknown";
+    console.warn(`[SECURITY] Auth failed | origin=${origin} | error=${err instanceof Error ? err.message : String(err)}`);
+    return errorResponse("Authentication failed", 401);
   }
 
   // Parse body
@@ -1246,12 +1245,13 @@ Deno.serve(async (req: Request) => {
   // Server-side credit check for expensive actions
   const creditCheck = await checkCredits(userId, action);
   if (!creditCheck.ok) {
+    console.warn(`[SECURITY] Credit check failed | user=${userId} | action=${action} | need=${creditCheck.cost} | have=${creditCheck.balance}`);
     return jsonResponse({
       error: `Insufficient credits. Need ${creditCheck.cost}, have ${creditCheck.balance}.`
     }, 402);
   }
 
-  console.log(`[Edge] Action: ${action}`);
+  console.log(`[Edge] user=${userId} | action=${action}`);
 
   try {
     switch (action) {
