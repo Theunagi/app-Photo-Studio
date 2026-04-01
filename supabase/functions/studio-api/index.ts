@@ -277,6 +277,7 @@ async function handleGenerate(body: {
   productDescription: string;
   resolution?: string;
   aspectRatio?: string;
+  cameraAngle?: string;
   referenceImageUrls?: string[];
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
@@ -285,7 +286,20 @@ async function handleGenerate(body: {
   const aspectRatio = body.aspectRatio ?? "1:1";
   // Use JPEG for 4K to keep file size under OpenAI's 20MB URL limit
   const outputFormat = resolution === "4K" ? "jpeg" : "png";
-  const fullPrompt = `${STUDIO_RENDER_PROMPT}\n\n${body.productDescription}`;
+  // Build angle-aware prompt
+  const angle = body.cameraAngle ?? 'front';
+  const anglePrompts: Record<string, { opening: string; camera: string }> = {
+    'front': { opening: 'Front orthographic', camera: 'Front orthographic' },
+    'back': { opening: 'Back orthographic', camera: 'Back orthographic' },
+    'side': { opening: 'Side orthographic', camera: 'Side orthographic' },
+    'three-quarter': { opening: '3/4 angle perspective', camera: '3/4 angle perspective view' },
+    'top': { opening: 'Top-down orthographic', camera: 'Top-down orthographic' },
+  };
+  const ap = anglePrompts[angle] || anglePrompts['front'];
+  const anglePrompt = STUDIO_RENDER_PROMPT
+    .replace('Front orthographic commercial', `${ap.opening} commercial`)
+    .replace('Front orthographic.', `${ap.camera}.`);
+  const fullPrompt = `${anglePrompt}\n\n${body.productDescription}`;
 
   // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
   if (falKey) {
