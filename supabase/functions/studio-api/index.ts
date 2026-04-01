@@ -1212,6 +1212,19 @@ Deno.serve(async (req: Request) => {
     return errorResponse("Method not allowed", 405);
   }
 
+  // CSRF: Verify origin header
+  const origin = req.headers.get("origin") ?? "";
+  const ALLOWED_ORIGINS = [
+    "https://frameflow.design",
+    "https://www.frameflow.design",
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    console.warn(`[SECURITY] CSRF blocked | origin=${origin}`);
+    return errorResponse("Forbidden origin", 403);
+  }
+
   // Verify auth
   let userId: string;
   try {
