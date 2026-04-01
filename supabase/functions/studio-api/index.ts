@@ -95,6 +95,62 @@ OUTPUT
 • No added reflections
 • Bright 3d render, photorealistic clean 3d textures, realistic ground shadow`;
 
+// ─── Security: Input Validation & Sanitization ─────────────────────────────
+
+/** Max lengths for user-provided strings */
+const MAX_LENGTHS: Record<string, number> = {
+  productDescription: 5000,
+  prompt: 5000,
+  userPrompt: 5000,
+  editInstruction: 2000,
+  styleDescription: 3000,
+  productNotes: 2000,
+};
+
+/** Allowed URL patterns for image inputs (SSRF protection) */
+const ALLOWED_URL_PATTERNS = [
+  /^https:\/\/.*\.supabase\.co\//,          // Supabase Storage
+  /^https:\/\/fal\.media\//,                 // Fal.ai results
+  /^https:\/\/.*\.fal\.run\//,               // Fal.ai CDN
+  /^https:\/\/storage\.googleapis\.com\//,   // GCS
+  /^https:\/\/.*\.kie\.ai\//,               // NanoBanana/kie.ai
+  /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//, // OpenAI DALL-E
+  /^https:\/\/replicate\.delivery\//,        // Replicate results
+  /^https:\/\/.*\.replicate\.delivery\//,    // Replicate CDN
+  /^https:\/\/cdn\.openai\.com\//,           // OpenAI CDN
+  /^https:\/\/generativelanguage\.googleapis\.com\//, // Gemini
+  /^https:\/\/.*\.nanobanana\.com\//,        // NanoBanana
+  /^data:image\//,                            // Data URLs (base64 images)
+];
+
+/** Validate a URL is safe to fetch (prevents SSRF) */
+function isAllowedUrl(url: string): boolean {
+  return ALLOWED_URL_PATTERNS.some(pattern => pattern.test(url));
+}
+
+/** Validate and truncate a string input */
+function sanitizeString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') return '';
+  const maxLen = MAX_LENGTHS[fieldName] ?? 5000;
+  // Strip control characters except newlines/tabs
+  const cleaned = value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  return cleaned.slice(0, maxLen);
+}
+
+/** Validate enum value against allowed set */
+function validateEnum<T extends string>(value: unknown, allowed: T[], fallback: T): T {
+  if (typeof value === 'string' && allowed.includes(value as T)) return value as T;
+  return fallback;
+}
+
+/** Validate image URL — returns error string or null if valid */
+function validateImageUrl(url: unknown, fieldName: string): string | null {
+  if (typeof url !== 'string' || url.length === 0) return `Missing ${fieldName}`;
+  if (url.length > 5000) return `${fieldName} too long`;
+  if (!isAllowedUrl(url)) return `Invalid ${fieldName}: URL not from allowed source`;
+  return null;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -108,8 +164,9 @@ function errorResponse(message: string, status = 400): Response {
   return jsonResponse({ error: message }, status);
 }
 
-/** Download a URL and convert to base64 data URL */
+/** Download a URL and convert to base64 data URL (with SSRF protection) */
 async function urlToDataUrl(url: string): Promise<string> {
+  if (!isAllowedUrl(url)) throw new Error("URL not from allowed source");
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`Failed to download image: ${resp.status}`);
   const blob = await resp.blob();
@@ -160,6 +217,16 @@ async function handleAnalyze(body: {
 }): Promise<Response> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
+
+  // Validate image URLs
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+  if (body.additionalImageUrls) {
+    for (const u of body.additionalImageUrls) {
+      const err = validateImageUrl(u, "additionalImageUrl");
+      if (err) return errorResponse(err);
+    }
+  }
 
   // Build image content parts
   const imageContent: unknown[] = [
@@ -227,6 +294,9 @@ async function handleLuminance(body: { imageUrl: string }): Promise<Response> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
 
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+
   const resp = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -282,12 +352,18 @@ async function handleGenerate(body: {
 }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   const nbKey = Deno.env.get("NANOBANANA_API_KEY");
-  const resolution = body.resolution ?? "2K";
-  const aspectRatio = body.aspectRatio ?? "1:1";
+
+  // Validate inputs
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+  const productDescription = sanitizeString(body.productDescription, "productDescription");
+  const resolution = validateEnum(body.resolution, ["2K", "4K"], "2K");
+  const aspectRatio = validateEnum(body.aspectRatio, ["1:1", "4:3", "3:4", "16:9", "9:16"], "1:1");
+  const angle = validateEnum(body.cameraAngle, ["front", "back", "side", "three-quarter", "top"], "front");
+
   // Use JPEG for 4K to keep file size under OpenAI's 20MB URL limit
   const outputFormat = resolution === "4K" ? "jpeg" : "png";
   // Build angle-aware prompt
-  const angle = body.cameraAngle ?? 'front';
   const anglePrompts: Record<string, { opening: string; camera: string }> = {
     'front': { opening: 'Front orthographic', camera: 'Front orthographic' },
     'back': { opening: 'Back orthographic', camera: 'Back orthographic' },
@@ -299,7 +375,7 @@ async function handleGenerate(body: {
   const anglePrompt = STUDIO_RENDER_PROMPT
     .replace('Front orthographic commercial', `${ap.opening} commercial`)
     .replace('Front orthographic.', `${ap.camera}.`);
-  const fullPrompt = `${anglePrompt}\n\n${body.productDescription}`;
+  const fullPrompt = `${anglePrompt}\n\n${productDescription}`;
 
   // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
   if (falKey) {
@@ -429,6 +505,15 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
 
+  // Validate image URLs
+  if (!Array.isArray(body.imageUrls) || body.imageUrls.length === 0) {
+    return errorResponse("Missing imageUrls array");
+  }
+  for (const u of body.imageUrls) {
+    const err = validateImageUrl(u, "imageUrls");
+    if (err) return errorResponse(err);
+  }
+
   const imageContent: unknown[] = [
     {
       type: "text",
@@ -487,6 +572,18 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
 async function handleAnalyzeStyleReplicate(body: { imageUrls: string[]; productDescription?: string }): Promise<Response> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
+
+  // Validate image URLs
+  if (!Array.isArray(body.imageUrls) || body.imageUrls.length === 0) {
+    return errorResponse("Missing imageUrls array");
+  }
+  for (const u of body.imageUrls) {
+    const err = validateImageUrl(u, "imageUrls");
+    if (err) return errorResponse(err);
+  }
+  // Sanitize optional string inputs
+  const productDescription = sanitizeString(body.productDescription, "productDescription");
+  body.productDescription = productDescription;
 
   const systemPrompt = `Role
 You are a senior advertising art director and visual analyst specializing in premium commercial imagery. Your task is to analyze the visual style of a reference image and translate it into a production-ready image generation prompt for a generative image model.
@@ -622,6 +719,10 @@ async function handleBgRemove(body: { imageUrl: string }): Promise<Response> {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
+  // Validate image URL
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+
   const resp = await fetch("https://fal.run/pixelcut/background-removal", {
     method: "POST",
     headers: {
@@ -662,33 +763,40 @@ async function handleLifestyleSubmit(body: {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const resolution = body.resolution ?? "2K";
-  const aspectRatio = body.aspectRatio ?? "1:1";
+  // Validate inputs
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+  const userPrompt = sanitizeString(body.userPrompt, "userPrompt");
+  const styleDescription = sanitizeString(body.styleDescription, "styleDescription");
+  const productDescription = sanitizeString(body.productDescription, "productDescription");
+  const resolution = validateEnum(body.resolution, ["2K", "4K"], "2K");
+  const aspectRatio = validateEnum(body.aspectRatio, ["1:1", "4:3", "3:4", "16:9", "9:16"], "1:1");
+  const styleMode = validateEnum(body.styleMode, ["replicate", "inspire"], "inspire");
 
   let prompt: string;
 
-  if (body.styleMode === 'replicate' && body.styleDescription) {
+  if (styleMode === 'replicate' && styleDescription) {
     // Replicate mode: the style description IS the prompt (like pasting ChatGPT output directly into NanoBanana)
-    prompt = body.styleDescription;
-    if (body.userPrompt?.trim()) {
-      prompt += `\n\n${body.userPrompt.trim()}`;
+    prompt = styleDescription;
+    if (userPrompt?.trim()) {
+      prompt += `\n\n${userPrompt.trim()}`;
     }
-    if (body.productDescription) {
-      prompt += `\n\nProduct details (preserve exactly): ${body.productDescription}`;
+    if (productDescription) {
+      prompt += `\n\nProduct details (preserve exactly): ${productDescription}`;
     }
   } else {
     // Inspire mode or no style: use the generic lifestyle prompt wrapper
-    prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+    prompt = `Using this product image as reference, generate a lifestyle photo of this product ${userPrompt}.
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
 
-    if (body.productDescription) {
-      prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
+    if (productDescription) {
+      prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${productDescription}`;
     }
 
-    if (body.styleDescription) {
-      prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+    if (styleDescription) {
+      prompt += `\n\nApply this visual style: ${styleDescription}`;
     }
   }
 
@@ -786,31 +894,42 @@ async function handleLifestyle(body: {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const resolution = body.resolution ?? "2K";
-  const aspectRatio = body.aspectRatio ?? "1:1";
+  // Validate inputs
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+  if (body.referenceImageUrl) {
+    const refErr = validateImageUrl(body.referenceImageUrl, "referenceImageUrl");
+    if (refErr) return errorResponse(refErr);
+  }
+  const userPrompt = sanitizeString(body.userPrompt, "userPrompt");
+  const styleDescription = sanitizeString(body.styleDescription, "styleDescription");
+  const productDescription = sanitizeString(body.productDescription, "productDescription");
+  const resolution = validateEnum(body.resolution, ["2K", "4K"], "2K");
+  const aspectRatio = validateEnum(body.aspectRatio, ["1:1", "4:3", "3:4", "16:9", "9:16"], "1:1");
+  const styleMode = validateEnum(body.styleMode, ["replicate", "inspire"], "inspire");
 
   let prompt: string;
 
-  if (body.styleMode === 'replicate' && body.styleDescription) {
-    prompt = body.styleDescription;
-    if (body.userPrompt?.trim()) {
-      prompt += `\n\n${body.userPrompt.trim()}`;
+  if (styleMode === 'replicate' && styleDescription) {
+    prompt = styleDescription;
+    if (userPrompt?.trim()) {
+      prompt += `\n\n${userPrompt.trim()}`;
     }
-    if (body.productDescription) {
-      prompt += `\n\nProduct details (preserve exactly): ${body.productDescription}`;
+    if (productDescription) {
+      prompt += `\n\nProduct details (preserve exactly): ${productDescription}`;
     }
   } else {
-    prompt = `Using this product image as reference, generate a lifestyle photo of this product ${body.userPrompt}.
+    prompt = `Using this product image as reference, generate a lifestyle photo of this product ${userPrompt}.
 The product must remain photorealistic and true to the original. Create a beautiful, editorial-quality lifestyle scene.
 Keep the product as the hero/focus of the image. The scene should feel natural, aspirational, and commercially appealing.
 High-end product photography style, natural lighting, shallow depth of field where appropriate.`;
 
-    if (body.productDescription) {
-      prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`;
+    if (productDescription) {
+      prompt += `\n\nIMPORTANT — Product details (preserve exactly): ${productDescription}`;
     }
 
-    if (body.styleDescription) {
-      prompt += `\n\nApply this visual style: ${body.styleDescription}`;
+    if (styleDescription) {
+      prompt += `\n\nApply this visual style: ${styleDescription}`;
     }
   }
 
@@ -858,15 +977,21 @@ async function handleEdit(body: {
   const falKey = Deno.env.get("FAL_API_KEY");
   if (!falKey) return errorResponse("Fal.ai API key not configured", 500);
 
-  const productContext = body.productDescription
-    ? `\nIMPORTANT — Product details (preserve exactly): ${body.productDescription}`
+  // Validate inputs
+  const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
+  if (urlErr) return errorResponse(urlErr);
+  const userPrompt = sanitizeString(body.userPrompt, "userPrompt");
+  const productDescription = sanitizeString(body.productDescription, "productDescription");
+
+  const productContext = productDescription
+    ? `\nIMPORTANT — Product details (preserve exactly): ${productDescription}`
     : '';
 
   const prompt = body.isLifestyle
-    ? `Edit this product lifestyle photo. Apply: ${body.userPrompt}.
+    ? `Edit this product lifestyle photo. Apply: ${userPrompt}.
 Keep the product photorealistic and true to the original.
 Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${productContext}`
-    : `Edit this product photo on white background. Apply: ${body.userPrompt}.
+    : `Edit this product photo on white background. Apply: ${userPrompt}.
 Keep the SAME pure white background (#FFFFFF). Keep the product photorealistic.
 Maintain studio lighting (RIMOWA Bright Edition style). Same framing and composition.
 Ultra-sharp, crisp, photoreal. Maintain all product details, labels, textures.${productContext}`;
@@ -908,6 +1033,15 @@ async function handleGroupImages(body: {
 }): Promise<Response> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) return errorResponse("OpenAI API key not configured", 500);
+
+  // Validate image URLs
+  if (!Array.isArray(body.images) || body.images.length === 0) {
+    return errorResponse("Missing images array");
+  }
+  for (const u of body.images) {
+    const err = validateImageUrl(u, "images");
+    if (err) return errorResponse(err);
+  }
 
   const imageCount = body.count ?? body.images.length;
 
@@ -1102,13 +1236,20 @@ Deno.serve(async (req: Request) => {
           prompt?: string;
         };
 
-        if (!resizeBody.lifestyleImageUrl) return errorResponse("Missing lifestyleImageUrl", 400);
-        if (!resizeBody.mode) return errorResponse("Missing mode (bigger/smaller/rectangle)", 400);
+        // Validate inputs
+        const lifestyleUrlErr = validateImageUrl(resizeBody.lifestyleImageUrl, "lifestyleImageUrl");
+        if (lifestyleUrlErr) return errorResponse(lifestyleUrlErr);
+        if (resizeBody.cutoutImageUrl) {
+          const cutoutUrlErr = validateImageUrl(resizeBody.cutoutImageUrl, "cutoutImageUrl");
+          if (cutoutUrlErr) return errorResponse(cutoutUrlErr);
+        }
+        const resizeMode = validateEnum(resizeBody.mode, ["bigger", "smaller", "rectangle"], "bigger");
+        const resizePromptRaw = sanitizeString(resizeBody.prompt, "prompt");
 
         let resizePrompt: string;
-        if (resizeBody.mode === "rectangle" && resizeBody.prompt) {
-          resizePrompt = resizeBody.prompt;
-        } else if (resizeBody.mode === "bigger") {
+        if (resizeMode === "rectangle" && resizePromptRaw) {
+          resizePrompt = resizePromptRaw;
+        } else if (resizeMode === "bigger") {
           resizePrompt = "Make the product bigger, same framing";
         } else {
           resizePrompt = "Make the product smaller, same framing";
@@ -1119,7 +1260,7 @@ Deno.serve(async (req: Request) => {
           resizeImageUrls.push(resizeBody.cutoutImageUrl);
         }
 
-        console.log(`[Edge] Resize-product (${resizeBody.mode}): ${resizeImageUrls.length} images`);
+        console.log(`[Edge] Resize-product (${resizeMode}): ${resizeImageUrls.length} images`);
 
         const seedreamResp = await fetch("https://fal.run/fal-ai/bytedance/seedream/v4.5/edit", {
           method: "POST",
@@ -1163,23 +1304,10 @@ Deno.serve(async (req: Request) => {
           return jsonResponse({ publicUrl: imgUrl });
         }
 
-        // SSRF protection: only allow HTTPS URLs from trusted AI image providers
-        const ALLOWED_PROXY_HOSTS = [
-          'fal.media', 'storage.googleapis.com', 'oaidalleapiprodscus.blob.core.windows.net',
-          'replicate.delivery', 'pbxt.replicate.delivery', 'cdn.openai.com',
-          'generativelanguage.googleapis.com', 'nanobanana.com', 'api.nanobanana.com',
-        ];
-        let proxyHostname: string;
-        try {
-          const parsed = new URL(imgUrl);
-          if (parsed.protocol !== 'https:') return errorResponse("Only HTTPS URLs allowed", 400);
-          proxyHostname = parsed.hostname;
-        } catch { return errorResponse("Invalid URL", 400); }
-
-        const isAllowedHost = ALLOWED_PROXY_HOSTS.some(h => proxyHostname === h || proxyHostname.endsWith('.' + h));
-        if (!isAllowedHost) {
-          console.warn(`[Edge] Proxy blocked: ${proxyHostname} not in allowlist`);
-          return errorResponse("URL host not allowed for proxy", 403);
+        // SSRF protection: use shared allowlist
+        if (!isAllowedUrl(imgUrl)) {
+          console.warn(`[Edge] Proxy blocked: URL not in allowlist`);
+          return errorResponse("URL not allowed for proxy", 403);
         }
 
         // Download server-side
