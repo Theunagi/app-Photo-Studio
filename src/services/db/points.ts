@@ -57,11 +57,11 @@ export async function getOrCreateProfile(): Promise<UserProfile> {
 
   if (data) return data as UserProfile;
 
-  // Profile not found — create one (5 free credits)
+  // Profile not found — create one (3 free credits = 1 test generation in 2K)
   if (error?.code === 'PGRST116') {
     const { data: newProfile, error: insertError } = await supabase
       .from('user_profiles')
-      .insert({ id: user.id, points_balance: 2, plan: 'free' })
+      .insert({ id: user.id, points_balance: 3, plan: 'free' })
       .select()
       .single();
     if (insertError) throw new Error(`Create profile: ${insertError.message}`);
