@@ -199,11 +199,13 @@ Deno.serve(async (req) => {
                 }
               }
 
-              // Also check recent successful payments (for one-time purchases)
+              // Also check recent successful payments (within last 35 days only — prevents re-claiming old charges)
               if (!activePlan) {
+                const thirtyFiveDaysAgo = Math.floor((Date.now() - 35 * 24 * 60 * 60 * 1000) / 1000);
                 const charges = await stripe.charges.list({
                   customer: customer.id,
                   limit: 5,
+                  created: { gte: thirtyFiveDaysAgo },
                 });
 
                 for (const charge of charges.data) {
@@ -213,7 +215,7 @@ Deno.serve(async (req) => {
                       activePlan = plan;
                       activeCredits = PLAN_CREDITS[plan].credits;
                       verificationSource = 'stripe_charge';
-                      console.log(`[provision-credits] Stripe charge match: plan=${plan}, amount=${charge.amount}`);
+                      console.log(`[provision-credits] Stripe charge match: plan=${plan}, amount=${charge.amount}, created=${charge.created}`);
                       break;
                     }
                   }
