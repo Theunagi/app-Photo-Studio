@@ -1372,7 +1372,7 @@ Deno.serve(async (req: Request) => {
         if (resizeMode === "rectangle" && resizePromptRaw) {
           resizePrompt = resizePromptRaw;
         } else if (resizeMode === "bigger") {
-          resizePrompt = "Make the product bigger, same framing";
+          resizePrompt = "Keep exact same image, just make the product bigger";
         } else {
           resizePrompt = "Keep exact same image, just make the product tiny";
         }
