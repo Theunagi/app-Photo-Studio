@@ -1374,7 +1374,7 @@ Deno.serve(async (req: Request) => {
         } else if (resizeMode === "bigger") {
           resizePrompt = "Make the product bigger, same framing";
         } else {
-          resizePrompt = "Make the product smaller, same framing";
+          resizePrompt = "Keep exact same image, just make the product tiny";
         }
 
         const resizeImageUrls: string[] = [resizeBody.lifestyleImageUrl];
