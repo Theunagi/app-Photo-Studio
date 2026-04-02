@@ -83,7 +83,7 @@ async function claimEvent(eventId: string, eventType: string): Promise<boolean> 
   if (error) {
     // PK conflict (23505) = already processed
     if (error.code === '23505') return false;
-    console.error(`[Webhook] Failed to claim event ${eventId}:`, error.message);
+    console.error(`[Webhook] Failed to claim event: database error`);
     return false;
   }
   return true; // successfully claimed — safe to process

@@ -4,6 +4,22 @@ import { verifyAuth } from '../_shared/auth.ts';
 import { fetchImageAsDataUrl } from '../_shared/storage.ts';
 import { PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../_shared/prompts.ts';
 
+const ALLOWED_URL_PATTERNS = [
+  /^https:\/\/.*\.supabase\.co\//,
+  /^https:\/\/fal\.media\//,
+  /^https:\/\/.*\.fal\.run\//,
+  /^https:\/\/storage\.googleapis\.com\//,
+  /^https:\/\/.*\.kie\.ai\//,
+  /^https:\/\/.*\.replicate\.delivery\//,
+  /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//,
+  /^https:\/\/generativelanguage\.googleapis\.com\//,
+  /^data:image\//,
+];
+
+function isAllowedUrl(url: string): boolean {
+  return ALLOWED_URL_PATTERNS.some(pattern => pattern.test(url));
+}
+
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -18,6 +34,24 @@ serve(async (req: Request) => {
         status: 400,
         headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       });
+    }
+
+    // Validate all user-supplied URLs against allowlist
+    if (!isAllowedUrl(imageUrl)) {
+      return new Response(JSON.stringify({ error: 'Invalid image URL' }), {
+        status: 400,
+        headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+    if (additionalImageUrls?.length) {
+      for (const url of additionalImageUrls) {
+        if (!isAllowedUrl(url)) {
+          return new Response(JSON.stringify({ error: 'Invalid image URL' }), {
+            status: 400,
+            headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+          });
+        }
+      }
     }
 
     const apiKey = Deno.env.get('OPENAI_API_KEY');

@@ -3,6 +3,22 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { verifyAuth } from '../_shared/auth.ts';
 import { downloadAndStore } from '../_shared/storage.ts';
 
+const ALLOWED_URL_PATTERNS = [
+  /^https:\/\/.*\.supabase\.co\//,
+  /^https:\/\/fal\.media\//,
+  /^https:\/\/.*\.fal\.run\//,
+  /^https:\/\/storage\.googleapis\.com\//,
+  /^https:\/\/.*\.kie\.ai\//,
+  /^https:\/\/.*\.replicate\.delivery\//,
+  /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//,
+  /^https:\/\/generativelanguage\.googleapis\.com\//,
+  /^data:image\//,
+];
+
+function isAllowedUrl(url: string): boolean {
+  return ALLOWED_URL_PATTERNS.some(pattern => pattern.test(url));
+}
+
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -14,6 +30,13 @@ serve(async (req: Request) => {
 
     if (!imageUrl) {
       return new Response(JSON.stringify({ error: 'Missing imageUrl' }), {
+        status: 400,
+        headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!isAllowedUrl(imageUrl)) {
+      return new Response(JSON.stringify({ error: 'Invalid image URL' }), {
         status: 400,
         headers: { ...corsHeaders(req), 'Content-Type': 'application/json' },
       });

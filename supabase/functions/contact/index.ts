@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
 
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
-      console.error(`[Contact] Resend error ${resp.status}:`, err);
+      console.error(`[Contact] Resend error ${resp.status}: response failed`);
       return new Response(
         JSON.stringify({ error: "Failed to send email" }),
         { status: 502, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }

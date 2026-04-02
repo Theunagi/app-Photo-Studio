@@ -357,7 +357,7 @@ async function handleAnalyze(body: {
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`OpenAI API error ${resp.status}: ${String(err).slice(0, 200).replace(/[^\x20-\x7E]/g, '')}`, 502);
   }
 
   const data = await resp.json();
@@ -415,7 +415,7 @@ async function handleLuminance(body: { imageUrl: string }): Promise<Response> {
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`OpenAI API error ${resp.status}: ${String(err).slice(0, 200).replace(/[^\x20-\x7E]/g, '')}`, 502);
   }
 
   const data = await resp.json();
@@ -642,7 +642,7 @@ async function handleAnalyzeStyle(body: { imageUrls: string[] }): Promise<Respon
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`OpenAI API error ${resp.status}: ${String(err).slice(0, 200).replace(/[^\x20-\x7E]/g, '')}`, 502);
   }
 
   const data = await resp.json();
@@ -759,7 +759,7 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
         detail: "high",
       });
     } catch (dlErr) {
-      console.error(`[Edge] Failed to download style ref image: ${url}`, dlErr);
+      console.error(`[Edge] Failed to download style ref image`, dlErr);
       inputContent.push({
         type: "input_image",
         image_url: url,
@@ -789,7 +789,7 @@ STRICTLY FOLLOW: Only return the prompt itself, no other text or headlines. No "
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
     console.error(`[Edge] OpenAI style-replicate error ${resp.status}:`, err.slice(0, 1000));
-    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`OpenAI API error ${resp.status}: ${String(err).slice(0, 200).replace(/[^\x20-\x7E]/g, '')}`, 502);
   }
 
   const data = await resp.json();
@@ -1175,7 +1175,7 @@ Rules:
 
   if (!resp.ok) {
     const err = await resp.text().catch(() => "");
-    return errorResponse(`OpenAI API error ${resp.status}: ${err.slice(0, 500)}`, 502);
+    return errorResponse(`OpenAI API error ${resp.status}: ${String(err).slice(0, 200).replace(/[^\x20-\x7E]/g, '')}`, 502);
   }
 
   const data = await resp.json();
