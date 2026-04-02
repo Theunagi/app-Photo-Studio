@@ -896,7 +896,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     if (!sourceImage || !editPrompt.trim()) { isGeneratingEditRef.current = false; return; }
 
     // Check credits before editing
-    const editNeeded = EDIT_COST;
+    const editResolution = config.imageSize ?? '2K';
+    const editNeeded = EDIT_COST[editResolution] ?? 2;
     if (pointsBalance < editNeeded) {
       setEditError(`Crédits insuffisants (${editNeeded} requis, ${pointsBalance} disponibles).`);
       isGeneratingEditRef.current = false;
@@ -907,7 +908,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setEditError(null);
 
     // Deduct credits BEFORE running edit generation
-    const editCost = EDIT_COST;
+    const editCost = EDIT_COST[editResolution] ?? 2;
     try {
       await deductPoints(editCost);
       onPointsChanged();
@@ -1556,7 +1557,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                 </svg>
-                <span>Edit <span className="credit-cost">({EDIT_COST} credits)</span></span>
+                <span>Edit <span className="credit-cost">({EDIT_COST[config.imageSize] ?? 2} credits)</span></span>
               </button>
               {currentVariant.key.startsWith('lifestyle-') && (
                 <>
@@ -1742,7 +1743,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M11.5 1.5l3 3-8.5 8.5H3v-3l8.5-8.5z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <span>AI Edit <span className="credit-cost">({EDIT_COST} credits)</span></span>
+                  <span>AI Edit <span className="credit-cost">({EDIT_COST[config.imageSize] ?? 2} credits)</span></span>
                   <div className="resolution-toggle" style={{ marginLeft: 'auto' }}>
                     <button className={`res-btn ${config.imageSize === '2K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '2K')} disabled={isGeneratingEdit}>2K</button>
                     <button className={`res-btn ${config.imageSize === '4K' ? 'active' : ''}`} onClick={() => updateConfig('imageSize', '4K')} disabled={isGeneratingEdit}>4K</button>
@@ -1824,7 +1825,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
                 <path d="M14.5 2.5l3 3-10 10H4.5v-3l10-10z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M12 5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
-              Edit <span className="credit-cost">({EDIT_COST} credits)</span>
+              Edit <span className="credit-cost">({EDIT_COST[config.imageSize] ?? 2} credits)</span>
             </button>
             {currentVariant.key.startsWith('lifestyle-') && (
               <>

@@ -29,8 +29,11 @@ export const LIFESTYLE_COST: Record<string, number> = {
   '4K': 3,
 };
 
-// Edit cost (NanoBanana edit, flat)
-export const EDIT_COST = 2;
+// Edit cost (NanoBanana edit, per resolution)
+export const EDIT_COST: Record<string, number> = {
+  '2K': 2,
+  '4K': 3,
+};
 
 // Resize cost (Seedream, flat)
 export const RESIZE_COST = 1;
