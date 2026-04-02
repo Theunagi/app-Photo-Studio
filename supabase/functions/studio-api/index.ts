@@ -163,17 +163,22 @@ const MAX_LENGTHS: Record<string, number> = {
 /** Allowed URL patterns for image inputs (SSRF protection) */
 const ALLOWED_URL_PATTERNS = [
   /^https:\/\/.*\.supabase\.co\//,          // Supabase Storage
-  /^https:\/\/fal\.media\//,                 // Fal.ai results
-  /^https:\/\/.*\.fal\.run\//,               // Fal.ai CDN
-  /^https:\/\/storage\.googleapis\.com\//,   // GCS
-  /^https:\/\/.*\.kie\.ai\//,               // NanoBanana/kie.ai
+  /^https:\/\/.*fal\.media\//,              // Fal.ai results (v3.fal.media, fal.media, etc.)
+  /^https:\/\/.*\.fal\.run\//,              // Fal.ai CDN
+  /^https:\/\/fal\.run\//,                  // Fal.ai direct
+  /^https:\/\/.*fal\.ai\//,                 // Fal.ai any subdomain
+  /^https:\/\/storage\.googleapis\.com\//,  // GCS
+  /^https:\/\/.*\.kie\.ai\//,              // NanoBanana/kie.ai
   /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//, // OpenAI DALL-E
-  /^https:\/\/replicate\.delivery\//,        // Replicate results
-  /^https:\/\/.*\.replicate\.delivery\//,    // Replicate CDN
-  /^https:\/\/cdn\.openai\.com\//,           // OpenAI CDN
+  /^https:\/\/.*\.replicate\.delivery\//,   // Replicate CDN
+  /^https:\/\/replicate\.delivery\//,       // Replicate results
+  /^https:\/\/cdn\.openai\.com\//,          // OpenAI CDN
+  /^https:\/\/.*\.openai\.com\//,           // OpenAI any subdomain
   /^https:\/\/generativelanguage\.googleapis\.com\//, // Gemini
-  /^https:\/\/.*\.nanobanana\.com\//,        // NanoBanana
-  /^data:image\//,                            // Data URLs (base64 images)
+  /^https:\/\/.*\.nanobanana\.com\//,       // NanoBanana
+  /^https:\/\/.*\.googleapis\.com\//,       // Google APIs (Gemini results)
+  /^https:\/\/.*\.blob\.core\.windows\.net\//, // Azure Blob (OpenAI, etc.)
+  /^data:image\//,                           // Data URLs (base64 images)
 ];
 
 /** Validate a URL is safe to fetch (prevents SSRF) */
