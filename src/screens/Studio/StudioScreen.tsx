@@ -12,7 +12,7 @@ import { runPipeline } from '../../services/pipeline/orchestrator';
 import { editImage } from '../../services/api/falImageGen';
 import { generateLifestyleImage, analyzeStyleReferences, analyzeStyleReplicate, resizeProductSeedream } from '../../services/api/gemini';
 import ResizeOverlay from '../../components/ResizeOverlay';
-import { fetchImageAsDataUrl } from '../../services/api/edgeFunctions';
+import { proxyImageDownload } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
 import { getPublicUrl } from '../../services/db/storage';
 import { saveProject, getAllProjects, patchProjectVariants } from '../../services/db/projectDB';
@@ -852,7 +852,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
 
-      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+      const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
 
       trackGenerateLifestyle();
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: lifestylePrompt.trim() };
@@ -943,7 +943,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
       if (!response.resultImageUrl) throw new Error('No image URL returned from AI');
 
-      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+      const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
 
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: editPrompt.trim() };
       const updated = [...editImages, newEntry];
@@ -999,7 +999,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
         cutoutImageUrl: cutoutUrl,
       });
       if (!response.resultImageUrl) throw new Error('No image URL returned');
-      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+      const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: '[Resized - Rectangle]' };
       const updated = [...lifestyleImages, newEntry];
       setLifestyleImages(updated);
@@ -1075,7 +1075,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       console.log('[StudioScreen] Calling resizeProductSeedream:', mode, 'lifestyle:', lifestyleUrl?.slice(0, 60), 'cutout:', !!cutoutUrl);
       const response = await resizeProductSeedream(lifestyleUrl, mode, { cutoutImageUrl: cutoutUrl });
       if (!response.resultImageUrl) throw new Error('No image URL returned');
-      const imageDataUrl = await fetchImageAsDataUrl(response.resultImageUrl);
+      const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
 
       const label = mode === 'bigger' ? '[Resized - Bigger]' : '[Resized - Smaller]';
       const newEntry = { id: genEntryId(), image: imageDataUrl, prompt: label };
