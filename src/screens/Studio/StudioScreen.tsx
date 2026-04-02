@@ -34,36 +34,38 @@ interface FetchLogEntry {
   body?: string;
 }
 
-// Global fetch interceptor — logs every fetch call
+// Global fetch interceptor — logs every fetch call (development only)
 const fetchLog: FetchLogEntry[] = [];
-if (typeof window !== 'undefined' && !(window as any).__fetchIntercepted) {
-  (window as any).__fetchIntercepted = true;
-  const originalFetch = window.fetch;
-  window.fetch = async function (...args: Parameters<typeof fetch>) {
-    const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request)?.url || 'unknown';
-    const method = (args[1] as RequestInit)?.method || 'GET';
-    const entry: FetchLogEntry = {
-      time: new Date().toLocaleTimeString(),
-      url: url.slice(0, 150),
-      method,
-      status: 'pending',
-    };
-    fetchLog.push(entry);
-    if (fetchLog.length > 50) fetchLog.shift();
-    try {
-      const resp = await originalFetch.apply(this, args);
-      entry.status = resp.status;
-      if (!resp.ok) {
-        const clone = resp.clone();
-        entry.body = (await clone.text().catch(() => '')).slice(0, 200);
+if (import.meta.env.DEV) {
+  if (typeof window !== 'undefined' && !(window as any).__fetchIntercepted) {
+    (window as any).__fetchIntercepted = true;
+    const originalFetch = window.fetch;
+    window.fetch = async function (...args: Parameters<typeof fetch>) {
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request)?.url || 'unknown';
+      const method = (args[1] as RequestInit)?.method || 'GET';
+      const entry: FetchLogEntry = {
+        time: new Date().toLocaleTimeString(),
+        url: url.slice(0, 150),
+        method,
+        status: 'pending',
+      };
+      fetchLog.push(entry);
+      if (fetchLog.length > 50) fetchLog.shift();
+      try {
+        const resp = await originalFetch.apply(this, args);
+        entry.status = resp.status;
+        if (!resp.ok) {
+          const clone = resp.clone();
+          entry.body = (await clone.text().catch(() => '')).slice(0, 200);
+        }
+        return resp;
+      } catch (err) {
+        entry.status = 'ERROR';
+        entry.error = err instanceof Error ? err.message : String(err);
+        throw err;
       }
-      return resp;
-    } catch (err) {
-      entry.status = 'ERROR';
-      entry.error = err instanceof Error ? err.message : String(err);
-      throw err;
-    }
-  };
+    };
+  }
 }
 
 function DebugPanel() {
@@ -308,6 +310,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   }, [activeAngleIndex, angleSlots]);
 
   const [isRunning, setIsRunning] = useState(false);
+  const isRunningRef = useRef(false);
   const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeVariant, setActiveVariant] = useState<string>('final');
@@ -315,13 +318,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [lifestylePrompt, setLifestylePrompt] = useState('');
   const [lifestyleImages, setLifestyleImages] = useState<{ id: string; image: string; prompt: string }[]>(ensureIds(project?.results.lifestyles ?? []));
   const [isGeneratingLifestyle, setIsGeneratingLifestyle] = useState(false);
+  const isGeneratingLifestyleRef = useRef(false);
   const [lifestyleError, setLifestyleError] = useState<string | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showResize, setShowResize] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const isResizingRef = useRef(false);
   const [editPrompt, setEditPrompt] = useState('');
   const [editImages, setEditImages] = useState<{ id: string; image: string; prompt: string }[]>(ensureIds(project?.results.edits ?? []));
   const [isGeneratingEdit, setIsGeneratingEdit] = useState(false);
+  const isGeneratingEditRef = useRef(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [deleteConfirmKey, setDeleteConfirmKey] = useState<string | null>(null);
@@ -524,16 +530,18 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
   const [pipelineError, setPipelineError] = useState<string | null>(null);
 
   const handleRunPipeline = useCallback(async () => {
-    if (isRunning) return;
+    if (isRunning || isRunningRef.current) return;
+    isRunningRef.current = true;
 
     // Collect all angle slots that have an uploaded image
     const slotsWithImages = angleSlots.filter(s => s.inputFile || s.inputPreview);
-    if (slotsWithImages.length === 0) return;
+    if (slotsWithImages.length === 0) { isRunningRef.current = false; return; }
 
     const costPerAngle = GENERATION_COST[config.imageSize] ?? 2;
     const totalCost = slotsWithImages.length * costPerAngle;
     if (pointsBalance < totalCost) {
       alert(`Insufficient credits. Need ${totalCost} credits for ${slotsWithImages.length} angle(s) at ${config.imageSize}. You have ${pointsBalance} credits.`);
+      isRunningRef.current = false;
       return;
     }
 
@@ -546,6 +554,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       onPointsChanged();
     } catch (err) {
       setPipelineError('Insufficient credits or credit deduction failed.');
+      isRunningRef.current = false;
       setIsRunning(false);
       return;
     }
@@ -590,6 +599,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       console.error('Pipeline failed:', err);
       setPipelineError(friendlyError(err instanceof Error ? err.message : 'Pipeline failed. Please try again.'));
     } finally {
+      isRunningRef.current = false;
       setIsRunning(false);
       await autoSave();
     }
@@ -784,16 +794,20 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // --- Lifestyle Generation ---
   const handleGenerateLifestyle = useCallback(async () => {
+    if (isGeneratingLifestyle || isGeneratingLifestyleRef.current) return;
+    isGeneratingLifestyleRef.current = true;
+
     const sourceImage = getStepImage('autoCrop');
     // In replicate mode, prompt is optional (style description IS the scene)
     const hasPrompt = lifestylePrompt.trim().length > 0;
     const hasStyle = !!styleDescriptionRef.current;
-    if (!sourceImage || (!hasPrompt && !hasStyle)) return;
+    if (!sourceImage || (!hasPrompt && !hasStyle)) { isGeneratingLifestyleRef.current = false; return; }
 
     // Check credits before generating
     const lifestyleNeeded = LIFESTYLE_COST[config.imageSize] ?? 2;
     if (pointsBalance < lifestyleNeeded) {
       setLifestyleError(`Crédits insuffisants (${lifestyleNeeded} requis, ${pointsBalance} disponibles).`);
+      isGeneratingLifestyleRef.current = false;
       return;
     }
 
@@ -807,6 +821,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       onPointsChanged();
     } catch (err) {
       setLifestyleError('Insufficient credits or credit deduction failed.');
+      isGeneratingLifestyleRef.current = false;
       setIsGeneratingLifestyle(false);
       return;
     }
@@ -852,13 +867,17 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setLifestyleError(friendlyError(msg));
     } finally {
+      isGeneratingLifestyleRef.current = false;
       setIsGeneratingLifestyle(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lifestylePrompt, config.imageSize, config.aspectRatio, lifestyleImages, autoSave, uploadForEdgeFunction]);
+  }, [lifestylePrompt, config.imageSize, config.aspectRatio, lifestyleImages, autoSave, uploadForEdgeFunction, isGeneratingLifestyle]);
 
   // --- AI Edit Generation (via Edge Function) ---
   const handleEditImage = useCallback(async () => {
+    if (isGeneratingEdit || isGeneratingEditRef.current) return;
+    isGeneratingEditRef.current = true;
+
     // Use the currently selected variant's image, not always the final
     let sourceImage: string | null = null;
     if (activeVariant.startsWith('edit-')) {
@@ -874,12 +893,13 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } else {
       sourceImage = getStepImage('autoCrop');
     }
-    if (!sourceImage || !editPrompt.trim()) return;
+    if (!sourceImage || !editPrompt.trim()) { isGeneratingEditRef.current = false; return; }
 
     // Check credits before editing
     const editNeeded = EDIT_COST;
     if (pointsBalance < editNeeded) {
       setEditError(`Crédits insuffisants (${editNeeded} requis, ${pointsBalance} disponibles).`);
+      isGeneratingEditRef.current = false;
       return;
     }
 
@@ -893,6 +913,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       onPointsChanged();
     } catch (err) {
       setEditError('Insufficient credits or credit deduction failed.');
+      isGeneratingEditRef.current = false;
       setIsGeneratingEdit(false);
       return;
     }
@@ -935,10 +956,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setEditError(friendlyError(msg));
     } finally {
+      isGeneratingEditRef.current = false;
       setIsGeneratingEdit(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction]);
+  }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction, isGeneratingEdit]);
 
   // --- Lifestyle Resize (green rectangle) ---
   // Rectangle resize (green box drawn on image)
@@ -994,12 +1016,16 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // Quick resize (bigger/smaller buttons)
   const handleQuickResize = useCallback(async (mode: 'bigger' | 'smaller') => {
+    if (isResizing || isResizingRef.current) return;
+    isResizingRef.current = true;
+
     console.log('[StudioScreen] handleQuickResize:', mode);
 
     // Check credits before resizing
     const resizeNeeded = RESIZE_COST;
     if (pointsBalance < resizeNeeded) {
       setLifestyleError(`Crédits insuffisants (${resizeNeeded} requis, ${pointsBalance} disponibles).`);
+      isResizingRef.current = false;
       return;
     }
 
@@ -1013,6 +1039,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       onPointsChanged();
     } catch (err) {
       setLifestyleError('Insufficient credits or credit deduction failed.');
+      isResizingRef.current = false;
       setIsResizing(false);
       return;
     }
@@ -1060,9 +1087,10 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       console.error('Quick resize failed:', err);
       setLifestyleError(err instanceof Error ? err.message : 'Resize failed');
     } finally {
+      isResizingRef.current = false;
       setIsResizing(false);
     }
-  }, [activeVariant, lifestyleImages, pipelineState.autoCrop, autoSave, uploadForEdgeFunction]);
+  }, [activeVariant, lifestyleImages, pipelineState.autoCrop, autoSave, uploadForEdgeFunction, isResizing]);
 
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;

@@ -234,9 +234,10 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     current_period_end: periodEnd,
   };
 
-  // If subscription is no longer active, downgrade to free
-  if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+  // If subscription is no longer active, downgrade to free and reset credits
+  if (subscription.status === 'canceled' || subscription.status === 'unpaid' || subscription.status === 'incomplete_expired') {
     updates.plan = 'free';
+    updates.points_balance = 0;
   }
 
   const { error } = await supabase
@@ -263,6 +264,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     .from('user_profiles')
     .update({
       plan: 'free',
+      points_balance: 0,
       current_period_end: null,
     })
     .eq('stripe_customer_id', customerId);

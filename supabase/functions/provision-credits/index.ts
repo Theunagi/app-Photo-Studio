@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     let activePlan: string | null = null;
     let activeCredits = 0;
     let verificationSource = 'none';
+    let claimedChargeId: string | null = null;
 
     // ── Strategy 1: RevenueCat API ───────────────────────────────────────
     const rcApiKey = Deno.env.get('REVENUECAT_API_KEY');
@@ -212,9 +213,24 @@ Deno.serve(async (req) => {
                   if (charge.paid && !charge.refunded) {
                     const plan = resolvePlanFromStripe(charge.amount);
                     if (plan) {
+                      // Check if this charge was already claimed
+                      const { data: existingClaim } = await supabaseAdmin
+                        .from('payment_events')
+                        .select('id')
+                        .eq('user_id', userId)
+                        .eq('event_type', 'stripe_charge_claimed')
+                        .eq('metadata->>charge_id', charge.id)
+                        .single();
+
+                      if (existingClaim) {
+                        console.log(`[provision-credits] Charge ${charge.id} already claimed, skipping`);
+                        continue; // Skip this charge, already claimed
+                      }
+
                       activePlan = plan;
                       activeCredits = PLAN_CREDITS[plan].credits;
                       verificationSource = 'stripe_charge';
+                      claimedChargeId = charge.id;
                       console.log(`[provision-credits] Stripe charge match: plan=${plan}, amount=${charge.amount}, created=${charge.created}`);
                       break;
                     }
@@ -284,6 +300,15 @@ Deno.serve(async (req) => {
         source: verificationSource,
       },
     });
+
+    // Record charge as claimed to prevent replay attacks
+    if (claimedChargeId) {
+      await supabaseAdmin.from('payment_events').insert({
+        user_id: userId,
+        event_type: 'stripe_charge_claimed',
+        metadata: { charge_id: claimedChargeId, plan: activePlan, credits: activeCredits, source: verificationSource },
+      });
+    }
 
     console.log(`[provision-credits] Success: plan=${activePlan}, balance=${row.new_balance}, upgrade=${isUpgrade}`);
 
