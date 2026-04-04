@@ -352,6 +352,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
   // Keep refs in sync
   useEffect(() => { projectRef.current = project; }, [project]);
+  useEffect(() => { pipelineStateRef.current = pipelineState; }, [pipelineState]);
   useEffect(() => { inputPreviewsRef.current = inputPreviews; }, [inputPreviews]);
   useEffect(() => { lifestyleImagesRef.current = lifestyleImages; }, [lifestyleImages]);
   useEffect(() => { editImagesRef.current = editImages; }, [editImages]);
