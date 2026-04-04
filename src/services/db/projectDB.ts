@@ -192,6 +192,12 @@ async function sbGetProject(id: string): Promise<Project | undefined> {
 async function sbSave(project: Project): Promise<void> {
   const results = { ...(project.results as unknown as Record<string, unknown>) };
 
+  // Debug: log which result slots have data
+  const filledSlots = Object.entries(results)
+    .filter(([, v]) => v != null && v !== undefined)
+    .map(([k, v]) => `${k}: ${typeof v === 'string' ? (v.startsWith('data:') ? 'dataURL' : v.slice(0, 40)) : typeof v}`);
+  console.log('[DB] sbSave results slots:', filledSlots);
+
   // Upload images to Storage, get paths
   const { storagePaths, thumbnailPath } = await uploadProjectImages(
     project.id,
@@ -378,13 +384,13 @@ export async function saveProject(project: Project): Promise<void> {
   try {
     await sbSave(project);
   } catch (err) {
-    import.meta.env.DEV && console.warn('[DB] Supabase save failed, saving to IndexedDB:', err);
+    console.warn('[DB] Supabase save failed, saving to IndexedDB:', err);
   }
   // Always keep a local copy (non-blocking — don't crash if IDB fails)
   try {
     await idbSave(project);
   } catch (err) {
-    import.meta.env.DEV && console.warn('[DB] IndexedDB save failed:', err);
+    console.warn('[DB] IndexedDB save failed:', err);
   }
 }
 
