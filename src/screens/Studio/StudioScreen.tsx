@@ -584,6 +584,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
               setAngleSlots(prev => prev.map((s, i) =>
                 i === index ? { ...s, pipelineState: { ...newState } } : s
               ));
+              // Keep main pipelineState + ref in sync for active angle (needed by autoSave)
+              if (index === activeAngleIndex) {
+                pipelineStateRef.current = newState;
+                setPipelineState({ ...newState });
+              }
             },
           });
 
@@ -591,6 +596,11 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
           setAngleSlots(prev => prev.map((s, i) =>
             i === index ? { ...s, pipelineState: result } : s
           ));
+          // Sync main state for active angle
+          if (index === activeAngleIndex) {
+            pipelineStateRef.current = result;
+            setPipelineState(result);
+          }
         })
       );
 
@@ -604,7 +614,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       setIsRunning(false);
       await autoSave();
     }
-  }, [isRunning, angleSlots, config, autoSave, pointsBalance, onPointsChanged]);
+  }, [isRunning, angleSlots, config, autoSave, pointsBalance, onPointsChanged, activeAngleIndex]);
 
   const handleReset = useCallback(() => {
     setInputFiles([]);
