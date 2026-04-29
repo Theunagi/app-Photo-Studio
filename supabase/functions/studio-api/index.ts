@@ -474,18 +474,35 @@ async function handleGenerate(body: {
   const anglePrompt = STUDIO_RENDER_PROMPT
     .replace('Front orthographic commercial', `${ap.opening} commercial`)
     .replace('Front orthographic.', `${ap.camera}.`);
-  const fullPrompt = `${anglePrompt}\n\n${productDescription}`;
+
+  // Multi-view directive — only when reference images are present.
+  // Tells the model that all input images are views of the SAME product and
+  // it should fuse details from every view into the single output render.
+  const totalViews = 1 + referenceImageUrls.length;
+  const multiViewDirective = referenceImageUrls.length > 0
+    ? `MULTI-VIEW INPUT
+You are given ${totalViews} reference images of the SAME PHYSICAL PRODUCT seen from different angles or showing different sides/details.
+- The LAST image is the primary view that defines the camera framing and base composition for the output.
+- The other ${referenceImageUrls.length} image(s) are auxiliary views showing additional details (back labels, side profile, top, bottom, hidden text, alternate angles).
+USE EVERY VIEW: the output render must faithfully reproduce ALL labels, text, colors, materials, geometry, and printed marks visible in ANY of the input images — even if a detail is only visible in a single auxiliary view. Do NOT invent details that are not visible in any input. Do NOT mix in details from a different product.
+
+`
+    : '';
+
+  const fullPrompt = `${multiViewDirective}${anglePrompt}\n\n${productDescription}`;
+
+  // Image order: refs FIRST, primary LAST. nano-banana-2/edit treats the last
+  // image as the edit target / primary subject — putting the user's main image
+  // last ensures the output preserves its framing while still incorporating
+  // detail from the auxiliary views.
+  const orderedImageUrls = referenceImageUrls.length > 0
+    ? [...referenceImageUrls, body.imageUrl]
+    : [body.imageUrl];
 
   // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
-  // Note: Studio render uses ONLY the primary image as visual input.
-  // Additional reference images already enrich the GPT-4o analyze step
-  // (their colors/materials/labels feed into productDescription → fullPrompt).
-  // Sending multi-image to nano-banana-2/edit confuses the model because the
-  // studio render prompt references "the uploaded product" (singular) — the
-  // model picks one input arbitrarily and the others get ignored visually.
   if (falKey) {
     try {
-      console.log(`[Edge] Generate: trying Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat}, ${referenceImageUrls.length} refs via description)`);
+      console.log(`[Edge] Generate: trying Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat}, ${totalViews} views)`);
       const falResp = await fetch(
         "https://fal.run/fal-ai/nano-banana-2/edit",
         {
@@ -495,7 +512,7 @@ async function handleGenerate(body: {
             Authorization: `Key ${falKey}`,
           },
           body: JSON.stringify({
-            image_urls: [body.imageUrl],
+            image_urls: orderedImageUrls,
             prompt: fullPrompt,
             resolution,
             aspect_ratio: aspectRatio,
@@ -538,7 +555,7 @@ async function handleGenerate(body: {
       model: "nano-banana-2",
       input: {
         prompt: fullPrompt,
-        image_input: [body.imageUrl, ...referenceImageUrls],
+        image_input: orderedImageUrls,
         aspect_ratio: aspectRatio,
         resolution,
         output_format: "png",
