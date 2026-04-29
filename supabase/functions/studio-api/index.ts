@@ -447,6 +447,14 @@ async function handleGenerate(body: {
   // Validate inputs
   const urlErr = validateImageUrl(body.imageUrl, "imageUrl");
   if (urlErr) return errorResponse(urlErr);
+  const referenceImageUrls: string[] = [];
+  if (Array.isArray(body.referenceImageUrls)) {
+    for (const u of body.referenceImageUrls) {
+      const refErr = validateImageUrl(u, "referenceImageUrl");
+      if (refErr) return errorResponse(refErr);
+      referenceImageUrls.push(u);
+    }
+  }
   const productDescription = sanitizeString(body.productDescription, "productDescription");
   const resolution = validateEnum(body.resolution, ["2K", "4K"], "2K");
   const aspectRatio = validateEnum(body.aspectRatio, ["1:1", "4:3", "3:4", "16:9", "9:16"], "1:1");
@@ -469,9 +477,15 @@ async function handleGenerate(body: {
   const fullPrompt = `${anglePrompt}\n\n${productDescription}`;
 
   // 1) Try Fal.ai NanoBanana Pro Edit — PRIMARY
+  // Note: Studio render uses ONLY the primary image as visual input.
+  // Additional reference images already enrich the GPT-4o analyze step
+  // (their colors/materials/labels feed into productDescription → fullPrompt).
+  // Sending multi-image to nano-banana-2/edit confuses the model because the
+  // studio render prompt references "the uploaded product" (singular) — the
+  // model picks one input arbitrarily and the others get ignored visually.
   if (falKey) {
     try {
-      console.log(`[Edge] Generate: trying Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat})`);
+      console.log(`[Edge] Generate: trying Fal.ai nano-banana-2/edit (${resolution}, ${outputFormat}, ${referenceImageUrls.length} refs via description)`);
       const falResp = await fetch(
         "https://fal.run/fal-ai/nano-banana-2/edit",
         {
@@ -524,7 +538,7 @@ async function handleGenerate(body: {
       model: "nano-banana-2",
       input: {
         prompt: fullPrompt,
-        image_input: [body.imageUrl, ...(body.referenceImageUrls ?? [])],
+        image_input: [body.imageUrl, ...referenceImageUrls],
         aspect_ratio: aspectRatio,
         resolution,
         output_format: "png",

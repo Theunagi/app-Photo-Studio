@@ -183,6 +183,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
         aspectRatio: config.aspectRatio ?? '1:1',
         sessionId,
         cameraAngle: config.cameraAngle,
+        referenceImageUrls: additionalStorageUrls,
       });
       // Download result for DSP steps
       const imageDataUrl = await proxyImageDownload(response.resultImageUrl);
