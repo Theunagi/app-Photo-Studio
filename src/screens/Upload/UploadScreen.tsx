@@ -6,7 +6,7 @@ import type { Collection } from '../../models/collection';
 import { createProject } from '../../models/project';
 import { saveProject } from '../../services/db/projectDB';
 import { saveCollection } from '../../services/db/collectionDB';
-import { deductPoints, GENERATION_COST } from '../../services/db/points';
+import { GENERATION_COST } from '../../services/db/points';
 import { runPipeline } from '../../services/pipeline/orchestrator';
 import type { PipelineState, PipelineStep } from '../../models/pipeline';
 import DropZone from './components/DropZone';
@@ -121,15 +121,8 @@ const UploadScreen: React.FC<UploadScreenProps> = ({
       setBatchStatuses([...statuses]);
 
       try {
-        // Deduct credits before running pipeline
-        try {
-          await deductPoints(GENERATION_COST[imageSize] ?? 2);
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : 'Insufficient credits';
-          statuses[i] = { ...statuses[i], status: 'error', error: errMsg };
-          setBatchStatuses([...statuses]);
-          continue;
-        }
+        // Credits are deducted server-side by studio-api during the pipeline's
+        // generation call (and refunded there on failure). No client deduction.
 
         // Create project
         const project = createProject(group.name);

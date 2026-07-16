@@ -16,7 +16,7 @@ import { proxyImageDownload } from '../../services/api/edgeFunctions';
 import { supabase } from '../../services/db/supabase';
 import { getPublicUrl } from '../../services/db/storage';
 import { saveProject, getAllProjects, patchProjectVariants } from '../../services/db/projectDB';
-import { deductPoints, GENERATION_COST, LIFESTYLE_COST, EDIT_COST, RESIZE_COST } from '../../services/db/points';
+import { GENERATION_COST, LIFESTYLE_COST, EDIT_COST, RESIZE_COST } from '../../services/db/points';
 import { trackGenerateImage, trackGenerateLifestyle } from '../../services/analytics';
 import './StudioScreen.css';
 
@@ -558,16 +558,8 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setIsRunning(true);
     setPipelineError(null);
 
-    // Deduct credits BEFORE running pipelines
-    try {
-      await deductPoints(totalCost);
-      onPointsChanged();
-    } catch (err) {
-      setPipelineError('Insufficient credits or credit deduction failed.');
-      isRunningRef.current = false;
-      setIsRunning(false);
-      return;
-    }
+    // Credits are deducted server-side (atomically) by studio-api during each
+    // generation call, and refunded there if a call fails. No client deduction.
 
     // Reset pipeline states for all slots with images
     setAngleSlots(prev => prev.map(s =>
@@ -629,6 +621,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       isRunningRef.current = false;
       setIsRunning(false);
       await autoSave();
+      onPointsChanged(); // refresh balance after server-side deduction/refund
     }
   }, [isRunning, angleSlots, config, autoSave, pointsBalance, onPointsChanged, activeAngleIndex]);
 
@@ -841,18 +834,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setIsGeneratingLifestyle(true);
     setLifestyleError(null);
 
-    // Deduct credits BEFORE running lifestyle generation
-    const lifestyleCost = LIFESTYLE_COST[config.imageSize] ?? 2;
-    try {
-      await deductPoints(lifestyleCost);
-      onPointsChanged();
-    } catch (err) {
-      setLifestyleError('Insufficient credits or credit deduction failed.');
-      isGeneratingLifestyleRef.current = false;
-      setIsGeneratingLifestyle(false);
-      return;
-    }
-
+    // Credits are deducted server-side by studio-api (refunded on failure).
     try {
       // Handle data URLs (fresh pipeline) and Storage paths/public URLs (saved projects)
       let imageUrl: string;
@@ -896,6 +878,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } finally {
       isGeneratingLifestyleRef.current = false;
       setIsGeneratingLifestyle(false);
+      onPointsChanged(); // refresh balance after server-side deduction/refund
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifestylePrompt, config.imageSize, config.aspectRatio, lifestyleImages, autoSave, uploadForEdgeFunction, isGeneratingLifestyle]);
@@ -934,18 +917,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setIsGeneratingEdit(true);
     setEditError(null);
 
-    // Deduct credits BEFORE running edit generation
-    const editCost = EDIT_COST[editResolution] ?? 2;
-    try {
-      await deductPoints(editCost);
-      onPointsChanged();
-    } catch (err) {
-      setEditError('Insufficient credits or credit deduction failed.');
-      isGeneratingEditRef.current = false;
-      setIsGeneratingEdit(false);
-      return;
-    }
-
+    // Credits are deducted server-side by studio-api (refunded on failure).
     try {
       // Handle data URLs (fresh pipeline) and Storage paths/public URLs (saved projects)
       let imageUrl: string;
@@ -986,6 +958,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } finally {
       isGeneratingEditRef.current = false;
       setIsGeneratingEdit(false);
+      onPointsChanged(); // refresh balance after server-side deduction/refund
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editPrompt, editImages, activeVariant, lifestyleImages, inputPreviews, config.imageSize, config.aspectRatio, autoSave, uploadForEdgeFunction, isGeneratingEdit]);
@@ -1004,15 +977,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
 
     setIsResizing(true);
 
-    try {
-      await deductPoints(resizeCost);
-      onPointsChanged();
-    } catch (err) {
-      setLifestyleError('Insufficient credits or credit deduction failed.');
-      setIsResizing(false);
-      return;
-    }
-
+    // Credits are deducted server-side by studio-api (refunded on failure).
     try {
       const annotatedUrl = await uploadForEdgeFunction(annotatedImageDataUrl, 'resize-annotated');
       const cutoutImage = getStepImage('autoCrop');
@@ -1039,8 +1004,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
       setLifestyleError(err instanceof Error ? err.message : 'Resize failed');
     } finally {
       setIsResizing(false);
+      onPointsChanged(); // refresh balance after server-side deduction/refund
     }
-  }, [lifestyleImages, autoSave, uploadForEdgeFunction]);
+  }, [lifestyleImages, autoSave, uploadForEdgeFunction, onPointsChanged]);
 
   // Quick resize (bigger/smaller buttons)
   const handleQuickResize = useCallback(async (mode: 'bigger' | 'smaller') => {
@@ -1060,18 +1026,7 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     setIsResizing(true);
     setLifestyleError(null);
 
-    // Deduct credits BEFORE running resize
-    const resizeCost = RESIZE_COST;
-    try {
-      await deductPoints(resizeCost);
-      onPointsChanged();
-    } catch (err) {
-      setLifestyleError('Insufficient credits or credit deduction failed.');
-      isResizingRef.current = false;
-      setIsResizing(false);
-      return;
-    }
-
+    // Credits are deducted server-side by studio-api (refunded on failure).
     try {
       // Get current lifestyle image URL
       const currentVar = activeVariant;
@@ -1117,8 +1072,9 @@ const StudioScreen: React.FC<StudioScreenProps> = ({
     } finally {
       isResizingRef.current = false;
       setIsResizing(false);
+      onPointsChanged(); // refresh balance after server-side deduction/refund
     }
-  }, [activeVariant, lifestyleImages, pipelineState.autoCrop, autoSave, uploadForEdgeFunction, isResizing]);
+  }, [activeVariant, lifestyleImages, pipelineState.autoCrop, autoSave, uploadForEdgeFunction, isResizing, onPointsChanged]);
 
   // --- Validation ---
   const hasImage = inputPreviews.length > 0 || inputFiles.length > 0;

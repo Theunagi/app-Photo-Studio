@@ -240,36 +240,48 @@ async function verifyAuth(req: Request): Promise<string> {
 }
 
 /** Check user has sufficient credits for action (server-side enforcement) */
-async function checkCredits(userId: string, action: string): Promise<{ ok: boolean; balance: number; cost: number }> {
-  const costs: Record<string, number> = {
-    'analyze': 0,         // Free (part of pipeline)
-    'luminance': 0,       // Free (part of pipeline)
-    'generate': 3,        // Studio generation
-    'lifestyle': 3,       // Lifestyle generation
-    'lifestyle-submit': 3,
-    'edit': 2,            // AI edit
-    'resize-product': 1,  // Resize
-    'bg-remove': 0,       // Free (part of pipeline)
-    'group-images': 0,    // Free
-    'proxy-image': 0,     // Free
-    'analyze-style': 0,   // Free
-    'analyze-style-replicate': 0,  // Free
-  };
-  const cost = costs[action] ?? 0;
-  if (cost === 0) return { ok: true, balance: 0, cost: 0 };
+/**
+ * Credit cost per action — resolution-aware.
+ * MUST stay in sync with the pricing tables in src/services/db/points.ts
+ * (GENERATION_COST / LIFESTYLE_COST / EDIT_COST / RESIZE_COST).
+ * Free actions (analysis, luminance, bg-remove, grouping, proxy, style analysis)
+ * return 0 and are never charged.
+ */
+function getActionCost(action: string, resolution?: string): number {
+  const is4K = resolution === "4K";
+  switch (action) {
+    case "generate":         return is4K ? 4 : 3;
+    case "lifestyle":
+    case "lifestyle-submit": return is4K ? 3 : 2;
+    case "edit":             return is4K ? 3 : 2;
+    case "resize-product":   return 1;
+    default:                 return 0;
+  }
+}
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
+function creditAdminClient() {
+  return createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+}
 
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('points_balance')
-    .eq('id', userId)
-    .single();
+/**
+ * Atomically deduct credits server-side (lock + check + decrement in one RPC).
+ * Throws Error whose message contains "Insufficient" when the balance is too low.
+ */
+async function deductUserPoints(userId: string, amount: number): Promise<number> {
+  const { data, error } = await creditAdminClient()
+    .rpc("deduct_user_points", { p_user_id: userId, p_amount: amount });
+  if (error) throw new Error(error.message);
+  return data as number;
+}
 
-  if (error || !data) return { ok: false, balance: 0, cost };
-  return { ok: data.points_balance >= cost, balance: data.points_balance, cost };
+/** Best-effort refund of previously-deducted credits when a paid action fails. */
+async function refundUserPoints(userId: string, amount: number): Promise<void> {
+  const { error } = await creditAdminClient()
+    .rpc("refund_user_points", { p_user_id: userId, p_amount: amount });
+  if (error) throw new Error(error.message);
 }
 
 // ─── Action Handlers ─────────────────────────────────────────────────────────
@@ -1266,18 +1278,29 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[Edge] Action: ${action}`);
 
-  // Server-side credit check for expensive actions
-  const creditCheck = await checkCredits(userId, action);
-  if (!creditCheck.ok) {
-    console.warn(`[SECURITY] Credit check failed | user=${userId} | action=${action} | need=${creditCheck.cost} | have=${creditCheck.balance}`);
-    return jsonResponse({
-      error: `Insufficient credits. Need ${creditCheck.cost}, have ${creditCheck.balance}.`
-    }, 402);
+  // Server-side credit deduction (atomic) BEFORE any paid work.
+  // The frontend no longer deducts — this is the single source of truth.
+  const cost = getActionCost(action, (body as { resolution?: string }).resolution);
+  let deducted = 0;
+  if (cost > 0) {
+    try {
+      await deductUserPoints(userId, cost);
+      deducted = cost;
+      console.log(`[Edge] Deducted ${cost} credits | user=${userId} | action=${action}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("Insufficient")) {
+        console.warn(`[SECURITY] Insufficient credits | user=${userId} | action=${action} | need=${cost}`);
+        return jsonResponse({ error: `Insufficient credits. Need ${cost} for this action.` }, 402);
+      }
+      console.error(`[Edge] Credit deduction failed | user=${userId} | action=${action}: ${msg}`);
+      return errorResponse("Credit deduction failed", 500);
+    }
   }
 
   console.log(`[Edge] user=${userId} | action=${action}`);
 
-  try {
+  const runAction = async (): Promise<Response> => {
     switch (action) {
       case "analyze":
         return await handleAnalyze(
@@ -1478,11 +1501,31 @@ Deno.serve(async (req: Request) => {
       default:
         return errorResponse(`Unknown action: ${action}`, 400);
     }
+  };
+
+  let resp: Response;
+  try {
+    resp = await runAction();
   } catch (err) {
     console.error(`[Edge] Error in ${action}:`, err);
+    if (deducted > 0) {
+      await refundUserPoints(userId, deducted).catch((e) =>
+        console.error(`[Edge] Refund failed | user=${userId} | amount=${deducted}:`, e)
+      );
+    }
     return errorResponse(
       `Server error: ${err instanceof Error ? err.message : String(err)}`,
       500
     );
   }
+
+  // Refund if the paid action reported failure (non-2xx) — user isn't charged for errors.
+  if (deducted > 0 && resp.status >= 400) {
+    console.warn(`[Edge] ${action} returned ${resp.status}; refunding ${deducted} credits | user=${userId}`);
+    await refundUserPoints(userId, deducted).catch((e) =>
+      console.error(`[Edge] Refund failed | user=${userId} | amount=${deducted}:`, e)
+    );
+  }
+
+  return resp;
 });
