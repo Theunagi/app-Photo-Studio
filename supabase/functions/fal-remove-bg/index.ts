@@ -2,22 +2,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { verifyAuth } from '../_shared/auth.ts';
 import { downloadAndStore } from '../_shared/storage.ts';
-
-const ALLOWED_URL_PATTERNS = [
-  /^https:\/\/.*\.supabase\.co\//,
-  /^https:\/\/fal\.media\//,
-  /^https:\/\/.*\.fal\.run\//,
-  /^https:\/\/storage\.googleapis\.com\//,
-  /^https:\/\/.*\.kie\.ai\//,
-  /^https:\/\/.*\.replicate\.delivery\//,
-  /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//,
-  /^https:\/\/generativelanguage\.googleapis\.com\//,
-  /^data:image\//,
-];
-
-function isAllowedUrl(url: string): boolean {
-  return ALLOWED_URL_PATTERNS.some(pattern => pattern.test(url));
-}
+import { isAllowedUrl } from '../_shared/url-allowlist.ts';
 
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);

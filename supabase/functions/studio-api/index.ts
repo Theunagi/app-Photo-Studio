@@ -21,6 +21,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { isAllowedUrl } from "../_shared/url-allowlist.ts";
 
 // ─── CORS (uses shared whitelist — no more wildcard *) ───────────────────────
 // _corsReq is set at the start of each request to provide origin-aware headers
@@ -159,32 +160,6 @@ const MAX_LENGTHS: Record<string, number> = {
   styleDescription: 3000,
   productNotes: 2000,
 };
-
-/** Allowed URL patterns for image inputs (SSRF protection) */
-const ALLOWED_URL_PATTERNS = [
-  /^https:\/\/.*\.supabase\.co\//,          // Supabase Storage
-  /^https:\/\/.*fal\.media\//,              // Fal.ai results (v3.fal.media, fal.media, etc.)
-  /^https:\/\/.*\.fal\.run\//,              // Fal.ai CDN
-  /^https:\/\/fal\.run\//,                  // Fal.ai direct
-  /^https:\/\/.*fal\.ai\//,                 // Fal.ai any subdomain
-  /^https:\/\/storage\.googleapis\.com\//,  // GCS
-  /^https:\/\/.*\.kie\.ai\//,              // NanoBanana/kie.ai
-  /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//, // OpenAI DALL-E
-  /^https:\/\/.*\.replicate\.delivery\//,   // Replicate CDN
-  /^https:\/\/replicate\.delivery\//,       // Replicate results
-  /^https:\/\/cdn\.openai\.com\//,          // OpenAI CDN
-  /^https:\/\/.*\.openai\.com\//,           // OpenAI any subdomain
-  /^https:\/\/generativelanguage\.googleapis\.com\//, // Gemini
-  /^https:\/\/.*\.nanobanana\.com\//,       // NanoBanana
-  /^https:\/\/.*\.googleapis\.com\//,       // Google APIs (Gemini results)
-  /^https:\/\/.*\.blob\.core\.windows\.net\//, // Azure Blob (OpenAI, etc.)
-  /^data:image\//,                           // Data URLs (base64 images)
-];
-
-/** Validate a URL is safe to fetch (prevents SSRF) */
-function isAllowedUrl(url: string): boolean {
-  return ALLOWED_URL_PATTERNS.some(pattern => pattern.test(url));
-}
 
 /** Validate and truncate a string input */
 function sanitizeString(value: unknown, fieldName: string): string {

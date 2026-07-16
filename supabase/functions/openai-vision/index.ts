@@ -3,22 +3,7 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { verifyAuth } from '../_shared/auth.ts';
 import { fetchImageAsDataUrl } from '../_shared/storage.ts';
 import { PRODUCT_ANALYSIS_SYSTEM_PROMPT, LUMINANCE_CHECK_SYSTEM_PROMPT } from '../_shared/prompts.ts';
-
-const ALLOWED_URL_PATTERNS = [
-  /^https:\/\/.*\.supabase\.co\//,
-  /^https:\/\/fal\.media\//,
-  /^https:\/\/.*\.fal\.run\//,
-  /^https:\/\/storage\.googleapis\.com\//,
-  /^https:\/\/.*\.kie\.ai\//,
-  /^https:\/\/.*\.replicate\.delivery\//,
-  /^https:\/\/oaidalleapiprodscus\.blob\.core\.windows\.net\//,
-  /^https:\/\/generativelanguage\.googleapis\.com\//,
-  /^data:image\//,
-];
-
-function isAllowedUrl(url: string): boolean {
-  return ALLOWED_URL_PATTERNS.some(pattern => pattern.test(url));
-}
+import { isAllowedUrl } from '../_shared/url-allowlist.ts';
 
 serve(async (req: Request) => {
   const corsResponse = handleCors(req);
