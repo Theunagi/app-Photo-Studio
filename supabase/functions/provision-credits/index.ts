@@ -264,6 +264,40 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // ── Idempotency guard (per plan + billing month) ─────────────────────
+    // Prevents repeated on-demand calls from resetting the balance to the plan
+    // maximum within the same month. The one-off Stripe charge path already has
+    // its own stripe_charge_claimed guard, so it is exempt here.
+    if (!claimedChargeId) {
+      const periodKey = `${activePlan}:${new Date().toISOString().slice(0, 7)}`; // plan + YYYY-MM
+      const { error: claimErr } = await supabaseAdmin
+        .from('credit_provisions')
+        .insert({ user_id: userId, period_key: periodKey, plan: activePlan, credits: activeCredits });
+
+      if (claimErr) {
+        // PK conflict (23505) = already provisioned this period → do NOT reset balance.
+        if (claimErr.code === '23505') {
+          const { data: prof } = await supabaseAdmin
+            .from('user_profiles')
+            .select('points_balance, plan')
+            .eq('id', userId)
+            .single();
+          console.log(`[provision-credits] Already provisioned for ${periodKey}; skipping reset for user ${userId}`);
+          return new Response(
+            JSON.stringify({
+              success: true,
+              plan: prof?.plan ?? activePlan,
+              credits: 0,
+              balance: prof?.points_balance ?? 0,
+              alreadyProvisioned: true,
+            }),
+            { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+          );
+        }
+        throw new Error(`Provision idempotency claim failed: ${claimErr.message}`);
+      }
+    }
+
     // Get current plan to detect upgrade
     const { data: currentProfile } = await supabaseAdmin
       .from('user_profiles')
